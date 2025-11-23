@@ -12,7 +12,7 @@
     <artifactId>super-master-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>super-master-backend</name>
-    <description>Demo project for Spring Boot</description>
+    <description>Backend del supermaster</description>
 
     <properties>
         <java.version>25</java.version>
@@ -23,6 +23,28 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Annotation Processor: necesario para que MapStruct genere código -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.1</version>
+                <configuration>
+                    <source>25</source>
+                    <target>25</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>1.6.3</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.42</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -70,11 +92,25 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- (Opcional) Lombok - para evitar boilerplate (getters/setters, constructores, etc.) -->
+        <!-- Lombok - para evitar boilerplate (getters/setters, constructores, etc.) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <!-- MapStruct -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>1.6.3</version>
+        </dependency>
+
+        <!-- Para que Spring pueda inyectar el mapper -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+            <version>1.6.3</version>
         </dependency>
 
     </dependencies>
