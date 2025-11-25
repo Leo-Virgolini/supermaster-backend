@@ -1,12 +1,12 @@
 package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
 
-import ar.com.leo.super_master_backend.dominio.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
@@ -45,5 +45,9 @@ public class ConceptoGasto {
 
     @OneToMany(mappedBy = "concepto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanalConcepto> canalConceptos = new LinkedHashSet<>();
+
+    public ConceptoGasto(Integer id) {
+        this.id = id;
+    }
 
 }

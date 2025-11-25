@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.catalogo.entity;
 
-import ar.com.leo.super_master_backend.dominio.entity.ProductoCatalogo;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;

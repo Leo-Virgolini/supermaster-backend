@@ -1,14 +1,19 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import ar.com.leo.super_master_backend.dominio.apto.entity.Apto;
+import ar.com.leo.super_master_backend.dominio.apto.repository.AptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
 import ar.com.leo.super_master_backend.dominio.cliente.entity.Cliente;
 import ar.com.leo.super_master_backend.dominio.cliente.repository.ClienteRepository;
-import ar.com.leo.super_master_backend.dominio.entity.*;
-import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoAptoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoClienteRepository;
+import ar.com.leo.super_master_backend.dominio.producto.entity.*;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
-import ar.com.leo.super_master_backend.dominio.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

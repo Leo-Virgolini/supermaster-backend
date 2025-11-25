@@ -1,8 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.canal.entity;
 
-import ar.com.leo.super_master_backend.dominio.entity.CanalConcepto;
-import ar.com.leo.super_master_backend.dominio.entity.ProductoCanal;
-import ar.com.leo.super_master_backend.dominio.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
