@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.mla.service;
 
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
@@ -42,7 +43,7 @@ public class MlaServiceImpl implements MlaService {
     public MlaDTO actualizar(Integer productoId, Integer mlaId, MlaDTO dto) {
 
         Mla entity = repo.findById(mlaId)
-                .orElseThrow(() -> new RuntimeException("MLA no encontrado"));
+                .orElseThrow(() -> new NotFoundException("MLA no encontrado"));
 
         if (!entity.getProducto().getId().equals(productoId)) {
             throw new RuntimeException("El MLA no pertenece a este producto");
@@ -60,7 +61,7 @@ public class MlaServiceImpl implements MlaService {
     public void eliminar(Integer productoId, Integer mlaId) {
 
         Mla entity = repo.findById(mlaId)
-                .orElseThrow(() -> new RuntimeException("MLA no encontrado"));
+                .orElseThrow(() -> new NotFoundException("MLA no encontrado"));
 
         if (!entity.getProducto().getId().equals(productoId)) {
             throw new RuntimeException("El MLA no pertenece a este producto");

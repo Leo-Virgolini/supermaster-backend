@@ -2,12 +2,17 @@ package ar.com.leo.super_master_backend.dominio.producto.controller;
 
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -18,8 +23,8 @@ public class ProductoController {
     private final ProductoService productoService;
 
     @GetMapping
-    public ResponseEntity<List<ProductoDTO>> listar() {
-        return ResponseEntity.ok(productoService.listar());
+    public ResponseEntity<Page<ProductoDTO>> listar(Pageable pageable) {
+        return ResponseEntity.ok(productoService.listar(pageable));
     }
 
     @PostMapping
@@ -41,6 +46,78 @@ public class ProductoController {
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         productoService.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // =====================================================
+    // BUSCAR / FILTRAR
+    // =====================================================
+    @GetMapping("/buscar")
+    public Page<ProductoDTO> buscar(
+
+            // TEXTO
+            @RequestParam(required = false) String texto,
+
+            // BOOLEANOS / NUMÉRICOS
+            @RequestParam(required = false) Boolean esCombo,
+            @RequestParam(required = false) Integer uxb,
+
+            // MANY-TO-ONE
+            @RequestParam(required = false) Integer marcaId,
+            @RequestParam(required = false) Integer origenId,
+            @RequestParam(required = false) Integer tipoId,
+            @RequestParam(required = false) Integer clasifGralId,
+            @RequestParam(required = false) Integer clasifGastroId,
+            @RequestParam(required = false) Integer proveedorId,
+            @RequestParam(required = false) Integer materialId,
+
+            // RANGOS
+            @RequestParam(required = false) BigDecimal costoMin,
+            @RequestParam(required = false) BigDecimal costoMax,
+            @RequestParam(required = false) BigDecimal ivaMin,
+            @RequestParam(required = false) BigDecimal ivaMax,
+
+            @RequestParam(required = false) LocalDate desdeFechaUltCosto,
+            @RequestParam(required = false) LocalDate hastaFechaUltCosto,
+
+            // MANY-TO-MANY
+            @RequestParam(required = false) List<Integer> aptoIds,
+            @RequestParam(required = false) List<Integer> canalIds,
+            @RequestParam(required = false) List<Integer> catalogoIds,
+            @RequestParam(required = false) List<Integer> clienteIds,
+            @RequestParam(required = false) List<Integer> mlaIds,
+
+            Pageable pageable
+    ) {
+
+        ProductoFilter filter = new ProductoFilter(
+                texto,
+                esCombo,
+                uxb,
+
+                marcaId,
+                origenId,
+                tipoId,
+                clasifGralId,
+                clasifGastroId,
+                proveedorId,
+                materialId,
+
+                costoMin,
+                costoMax,
+                ivaMin,
+                ivaMax,
+
+                desdeFechaUltCosto,
+                hastaFechaUltCosto,
+
+                aptoIds,
+                canalIds,
+                catalogoIds,
+                clienteIds,
+                mlaIds
+        );
+
+        return productoService.filtrar(filter, pageable);
     }
 
 }
