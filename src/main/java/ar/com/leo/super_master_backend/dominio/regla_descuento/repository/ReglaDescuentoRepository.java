@@ -10,4 +10,8 @@ public interface ReglaDescuentoRepository extends JpaRepository<ReglaDescuento, 
     List<ReglaDescuento> findByIdCanalId(Integer canalId);
 
     List<ReglaDescuento> findByIdCanalIdAndActivoTrueOrderByPrioridadAsc(Integer canalId);
+
+    List<ReglaDescuento> findByCanalId(Integer canalId);
+
+    List<ReglaDescuento> findByCanalIdAndActivoTrueOrderByPrioridadAsc(Integer canalId);
 }

@@ -11,4 +11,6 @@ public interface CanalConceptoService {
     CanalConceptoDTO asignarConcepto(Integer canalId, Integer conceptoId);
 
     void eliminarConcepto(Integer canalId, Integer conceptoId);
+
+
 }

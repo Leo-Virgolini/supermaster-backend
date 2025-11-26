@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.origen.service;
 
+import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenCreateDTO;
 import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenDTO;
+import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.mapper.OrigenMapper;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
@@ -17,13 +19,6 @@ public class OrigenServiceImpl implements OrigenService {
     private final OrigenMapper mapper;
 
     @Override
-    public OrigenDTO obtener(Integer id) {
-        Origen entity = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Origen no encontrado"));
-        return mapper.toDTO(entity);
-    }
-
-    @Override
     public List<OrigenDTO> listar() {
         return repo.findAll()
                 .stream()
@@ -32,20 +27,28 @@ public class OrigenServiceImpl implements OrigenService {
     }
 
     @Override
-    public OrigenDTO crear(OrigenDTO dto) {
+    public OrigenDTO obtener(Integer id) {
+        return repo.findById(id)
+                .map(mapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Origen no encontrado"));
+    }
+
+    @Override
+    public OrigenDTO crear(OrigenCreateDTO dto) {
         Origen entity = mapper.toEntity(dto);
         repo.save(entity);
         return mapper.toDTO(entity);
     }
 
     @Override
-    public OrigenDTO actualizar(Integer id, OrigenDTO dto) {
+    public OrigenDTO actualizar(Integer id, OrigenUpdateDTO dto) {
         Origen entity = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Origen no encontrado"));
 
-        entity.setOrigen(dto.origen());
+        mapper.updateEntityFromDTO(dto, entity);
 
         repo.save(entity);
+
         return mapper.toDTO(entity);
     }
 

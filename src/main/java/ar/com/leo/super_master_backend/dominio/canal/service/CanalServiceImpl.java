@@ -6,44 +6,94 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class CanalServiceImpl implements CanalService {
 
-    private final CanalRepository repo;
-    private final CanalMapper mapper;
+    private final CanalRepository canalRepository;
+    private final CanalMapper canalMapper;
+
+    private final ProductoCanalRepository productoCanalRepository;
+    private final CalculoPrecioService calculoPrecioService;
+
+    // =======================================
+    // CRUD + DTOs
+    // =======================================
+    @Override
+    public List<CanalDTO> listar() {
+        return canalRepository.findAll()
+                .stream()
+                .map(canalMapper::toDTO)
+                .toList();
+    }
 
     @Override
     public CanalDTO obtener(Integer id) {
-        return mapper.toDTO(repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Canal no encontrado")));
+        return canalRepository.findById(id)
+                .map(canalMapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
     }
 
     @Override
-    public List<CanalDTO> listar() {
-        return repo.findAll().stream().map(mapper::toDTO).toList();
-    }
-
-    @Override
+    @Transactional
     public CanalDTO crear(CanalCreateDTO dto) {
-        return mapper.toDTO(repo.save(mapper.toEntity(dto)));
+        Canal entity = canalMapper.toEntity(dto);
+        canalRepository.save(entity);
+        return canalMapper.toDTO(entity);
     }
 
     @Override
+    @Transactional
     public CanalDTO actualizar(Integer id, CanalUpdateDTO dto) {
-        Canal c = repo.findById(id).orElseThrow();
-        mapper.update(c, dto);
-        return mapper.toDTO(repo.save(c));
+        Canal entity = canalRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+
+        canalMapper.updateEntityFromDTO(dto, entity);
+        canalRepository.save(entity);
+
+        return canalMapper.toDTO(entity);
     }
 
     @Override
+    @Transactional
     public void eliminar(Integer id) {
-        repo.deleteById(id);
+        canalRepository.deleteById(id);
+    }
+
+    // ===================================================
+    // 🔥 LÓGICA DE NEGOCIO: CAMBIO DE MARGEN DEL CANAL
+    // ===================================================
+    @Override
+    @Transactional
+    public void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen) {
+
+        // 0) Validar canal
+        canalRepository.findById(idCanal)
+                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+
+        // 1) Obtener todos los productos asignados al canal
+        List<ProductoCanal> productosDelCanal = productoCanalRepository.findByCanalId(idCanal);
+
+        // 2) Actualizar margen (dirty checking hace el save)
+        productosDelCanal.forEach(pc -> pc.setMargenPorcentaje(nuevoMargen));
+
+        // 3) Recalcular precios
+        productosDelCanal.forEach(pc ->
+                calculoPrecioService.recalcularYGuardarPrecioCanal(
+                        pc.getProducto().getId(),
+                        idCanal
+                )
+        );
     }
 
 }

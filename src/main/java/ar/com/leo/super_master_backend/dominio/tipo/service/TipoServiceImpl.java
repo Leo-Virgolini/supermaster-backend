@@ -1,7 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.tipo.service;
 
-
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import ar.com.leo.super_master_backend.dominio.tipo.mapper.TipoMapper;
 import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
@@ -18,13 +19,6 @@ public class TipoServiceImpl implements TipoService {
     private final TipoMapper mapper;
 
     @Override
-    public TipoDTO obtener(Integer id) {
-        Tipo t = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tipo no encontrado"));
-        return mapper.toDTO(t);
-    }
-
-    @Override
     public List<TipoDTO> listar() {
         return repo.findAll()
                 .stream()
@@ -33,25 +27,28 @@ public class TipoServiceImpl implements TipoService {
     }
 
     @Override
-    public TipoDTO crear(TipoDTO dto) {
+    public TipoDTO obtener(Integer id) {
+        return repo.findById(id)
+                .map(mapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Tipo no encontrado"));
+    }
+
+    @Override
+    public TipoDTO crear(TipoCreateDTO dto) {
         Tipo entity = mapper.toEntity(dto);
         repo.save(entity);
         return mapper.toDTO(entity);
     }
 
     @Override
-    public TipoDTO actualizar(Integer id, TipoDTO dto) {
+    public TipoDTO actualizar(Integer id, TipoUpdateDTO dto) {
         Tipo entity = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tipo no encontrado"));
 
-        // Actualizar campos
-        entity.setNombre(dto.nombre());
-
-        if (dto.padreId() != null) {
-            entity.setPadre(new Tipo(dto.padreId()));
-        }
+        mapper.updateEntityFromDTO(dto, entity);
 
         repo.save(entity);
+
         return mapper.toDTO(entity);
     }
 
@@ -59,4 +56,5 @@ public class TipoServiceImpl implements TipoService {
     public void eliminar(Integer id) {
         repo.deleteById(id);
     }
+
 }

@@ -6,9 +6,15 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoId;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalConceptoMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,32 +22,81 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CanalConceptoServiceImpl implements CanalConceptoService {
 
-    private final CanalConceptoRepository repo;
-    private final CanalConceptoMapper mapper;
+    private final CanalConceptoRepository canalConceptoRepository;
+    private final CanalRepository canalRepository;
+    private final ConceptoGastoRepository conceptoRepository;
+    private final ProductoCanalRepository productoCanalRepository;
+    private final CalculoPrecioService calculoPrecioService;
+    private final CanalConceptoMapper canalConceptoMapper;
 
+    // ==========================================
+    // LISTAR
+    // ==========================================
     @Override
     public List<CanalConceptoDTO> listarPorCanal(Integer canalId) {
-        return repo.findByIdCanalId(canalId).stream()
-                .map(mapper::toDTO)
+
+        return canalConceptoRepository.findByCanalId(canalId)
+                .stream()
+                .map(canalConceptoMapper::toDTO)
                 .toList();
     }
 
+    // ==========================================
+    // ASIGNAR CONCEPTO A CANAL
+    // ==========================================
     @Override
+    @Transactional
     public CanalConceptoDTO asignarConcepto(Integer canalId, Integer conceptoId) {
 
-        CanalConcepto entity = new CanalConcepto();
-        entity.setId(new CanalConceptoId(canalId, conceptoId));
-        entity.setCanal(new Canal(canalId));
-        entity.setConcepto(new ConceptoGasto(conceptoId));
+        // 1) validar canal
+        Canal canal = canalRepository.findById(canalId)
+                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
 
-        repo.save(entity);
+        // 2) validar concepto
+        ConceptoGasto concepto = conceptoRepository.findById(conceptoId)
+                .orElseThrow(() -> new RuntimeException("Concepto no encontrado"));
 
-        return mapper.toDTO(entity);
+        // 3) crear relación
+        CanalConcepto cc = new CanalConcepto();
+        cc.setId(new CanalConceptoId(canalId, conceptoId));
+        cc.setCanal(canal);
+        cc.setConcepto(concepto);
+
+        canalConceptoRepository.save(cc);
+
+        // 4) 🔥 recalcular precios de todos los productos del canal
+        recalcularProductosDelCanal(canalId);
+
+        return canalConceptoMapper.toDTO(cc);
     }
 
+    // ==========================================
+    // ELIMINAR CONCEPTO DE CANAL
+    // ==========================================
     @Override
+    @Transactional
     public void eliminarConcepto(Integer canalId, Integer conceptoId) {
-        repo.deleteByIdCanalIdAndIdConceptoId(canalId, conceptoId);
+
+        canalConceptoRepository.deleteByCanalIdAndConceptoId(canalId, conceptoId);
+
+        // 🔥 recalcular
+        recalcularProductosDelCanal(canalId);
+    }
+
+    // ==========================================
+    // MÉTODO CENTRAL DE RECÁLCULO
+    // ==========================================
+    private void recalcularProductosDelCanal(Integer canalId) {
+
+        List<ProductoCanal> productoCanales =
+                productoCanalRepository.findByCanalId(canalId);
+
+        productoCanales.forEach(pc ->
+                calculoPrecioService.recalcularYGuardarPrecioCanal(
+                        pc.getProducto().getId(),
+                        canalId
+                )
+        );
     }
 
 }

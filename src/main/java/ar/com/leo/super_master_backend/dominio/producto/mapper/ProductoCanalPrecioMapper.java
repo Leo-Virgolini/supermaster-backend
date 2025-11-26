@@ -1,0 +1,19 @@
+package ar.com.leo.super_master_backend.dominio.producto.mapper;
+
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPrecioDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
+
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface ProductoCanalPrecioMapper {
+
+    @Mapping(source = "producto.id", target = "productoId")
+    @Mapping(source = "canal.id", target = "canalId")
+    ProductoCanalPrecioDTO toDTO(ProductoCanalPrecio entity);
+
+    @Mapping(target = "producto", expression = "java(new Producto(dto.productoId()))")
+    @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
+    ProductoCanalPrecio toEntity(ProductoCanalPrecioDTO dto);
+}

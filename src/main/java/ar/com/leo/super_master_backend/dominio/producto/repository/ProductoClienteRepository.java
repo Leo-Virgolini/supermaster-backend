@@ -14,4 +14,6 @@ public interface ProductoClienteRepository extends JpaRepository<ProductoCliente
 
     List<ProductoCliente> findByProductoId(Integer idProducto);
 
+    void deleteByProductoIdAndClienteId(Integer productoId, Integer clienteId);
+
 }

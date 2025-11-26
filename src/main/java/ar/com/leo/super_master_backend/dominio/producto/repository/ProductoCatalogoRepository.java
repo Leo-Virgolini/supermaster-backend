@@ -12,5 +12,8 @@ public interface ProductoCatalogoRepository extends JpaRepository<ProductoCatalo
 
     List<ProductoCatalogo> findByCatalogoId(Integer idCatalogo);
 
-    List<ProductoCatalogo> findByProductoId(Integer idProducto);
+    List<ProductoCatalogo> findByProductoId(Integer productoId);
+
+    void deleteByProductoIdAndCatalogoId(Integer productoId, Integer catalogoId);
+
 }

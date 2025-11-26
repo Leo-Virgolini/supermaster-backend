@@ -5,14 +5,12 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalcul
 public interface CalculoPrecioService {
 
     /**
-     * Calcula el precio de un producto en un canal,
-     * sin tocar la base de datos (solo en memoria).
+     * Calcula el precio de un producto para un canal (sin persistir).
      */
-    PrecioCalculadoDTO calcular(Integer idProducto, Integer idCanal);
+    PrecioCalculadoDTO calcularPrecioCanal(Integer idProducto, Integer idCanal);
 
     /**
-     * Calcula y además persiste el resultado en producto_canal_precios.
-     * Devuelve el DTO con los datos finales.
+     * Calcula y además guarda/actualiza el registro en producto_canal_precios.
      */
-    PrecioCalculadoDTO recalcularYGuardar(Integer idProducto, Integer idCanal);
+    PrecioCalculadoDTO recalcularYGuardarPrecioCanal(Integer idProducto, Integer idCanal);
 }

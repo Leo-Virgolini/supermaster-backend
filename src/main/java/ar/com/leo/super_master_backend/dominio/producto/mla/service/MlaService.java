@@ -6,13 +6,11 @@ import java.util.List;
 
 public interface MlaService {
 
-    MlaDTO obtener(Integer id);
-
     List<MlaDTO> listarPorProducto(Integer productoId);
 
-    MlaDTO crear(MlaDTO dto);
+    MlaDTO crear(Integer productoId, MlaDTO dto);
 
-    MlaDTO actualizar(Integer id, MlaDTO dto);
+    MlaDTO actualizar(Integer productoId, Integer mlaId, MlaDTO dto);
 
-    void eliminar(Integer id);
+    void eliminar(Integer productoId, Integer mlaId);
 }

@@ -8,9 +8,10 @@ import java.util.List;
 
 public interface CanalConceptoRepository extends JpaRepository<CanalConcepto, CanalConceptoId> {
 
-    List<CanalConcepto> findByIdCanalId(Integer idCanal);
+    List<CanalConcepto> findByCanalId(Integer canalId);
 
-    List<CanalConcepto> findByIdConceptoId(Integer idConcepto);
+    List<CanalConcepto> findByConceptoId(Integer conceptoId);
 
-    void deleteByIdCanalIdAndIdConceptoId(Integer idCanal, Integer idConcepto);
+    void deleteByCanalIdAndConceptoId(Integer canalId, Integer conceptoId);
+
 }

@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.marca.service;
 
+import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaDTO;
+import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.mapper.MarcaMapper;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
@@ -17,13 +19,6 @@ public class MarcaServiceImpl implements MarcaService {
     private final MarcaMapper mapper;
 
     @Override
-    public MarcaDTO obtener(Integer id) {
-        Marca m = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Marca no encontrada"));
-        return mapper.toDTO(m);
-    }
-
-    @Override
     public List<MarcaDTO> listar() {
         return repo.findAll()
                 .stream()
@@ -32,25 +27,28 @@ public class MarcaServiceImpl implements MarcaService {
     }
 
     @Override
-    public MarcaDTO crear(MarcaDTO dto) {
-        Marca m = mapper.toEntity(dto);
-        repo.save(m);
-        return mapper.toDTO(m);
+    public MarcaDTO obtener(Integer id) {
+        return repo.findById(id)
+                .map(mapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Marca no encontrada"));
     }
 
     @Override
-    public MarcaDTO actualizar(Integer id, MarcaDTO dto) {
+    public MarcaDTO crear(MarcaCreateDTO dto) {
+        Marca entity = mapper.toEntity(dto);
+        repo.save(entity);
+        return mapper.toDTO(entity);
+    }
+
+    @Override
+    public MarcaDTO actualizar(Integer id, MarcaUpdateDTO dto) {
         Marca entity = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Marca no encontrada"));
 
-        // Actualizar campos
-        entity.setNombre(dto.nombre());
-
-        if (dto.padreId() != null) {
-            entity.setPadre(new Marca(dto.padreId())); // relación con padre
-        }
+        mapper.updateEntityFromDTO(dto, entity);
 
         repo.save(entity);
+
         return mapper.toDTO(entity);
     }
 

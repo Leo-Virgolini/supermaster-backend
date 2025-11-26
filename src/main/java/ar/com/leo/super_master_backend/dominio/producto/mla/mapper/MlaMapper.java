@@ -12,9 +12,9 @@ import org.mapstruct.ReportingPolicy;
 )
 public interface MlaMapper {
 
-    @Mapping(source = "idProducto.id", target = "productoId")
+    @Mapping(source = "producto.id", target = "productoId")
     MlaDTO toDTO(Mla entity);
 
-    @Mapping(source = "productoId", target = "idProducto.id")
+    @Mapping(target = "producto", expression = "java(new Producto(dto.productoId()))")
     Mla toEntity(MlaDTO dto);
 }

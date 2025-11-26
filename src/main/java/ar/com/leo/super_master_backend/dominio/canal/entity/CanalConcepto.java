@@ -3,8 +3,8 @@ package ar.com.leo.super_master_backend.dominio.canal.entity;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import jakarta.persistence.*;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter

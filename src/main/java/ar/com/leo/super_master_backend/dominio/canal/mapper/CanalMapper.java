@@ -6,16 +6,30 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface CanalMapper {
 
-    @Mapping(source = "idCanalBase.id", target = "canalBaseId")
+    // ================
+    // ENTITY → DTO
+    // ================
+    @Mapping(source = "canalBase.id", target = "canalBaseId")
     CanalDTO toDTO(Canal entity);
 
-    @Mapping(source = "canalBaseId", target = "idCanalBase.id")
+    // ================
+    // CREATE DTO → ENTITY
+    // ================
+    @Mapping(target = "canalBase",
+            expression = "java(dto.canalBaseId() != null ? new Canal(dto.canalBaseId()) : null)")
     Canal toEntity(CanalCreateDTO dto);
 
+    // ================
+    // UPDATE DTO → ENTITY (PATCH)
+    // ================
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(source = "canalBaseId", target = "idCanalBase.id")
-    void update(@MappingTarget Canal entity, CanalUpdateDTO dto);
+    @Mapping(target = "canalBase",
+            expression = "java(dto.canalBaseId() != null ? new Canal(dto.canalBaseId()) : entity.getCanalBase())")
+    void updateEntityFromDTO(CanalUpdateDTO dto, @MappingTarget Canal entity);
 }

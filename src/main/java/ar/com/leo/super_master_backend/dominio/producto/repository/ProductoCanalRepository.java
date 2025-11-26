@@ -10,10 +10,11 @@ import java.util.Optional;
 @Repository
 public interface ProductoCanalRepository extends JpaRepository<ProductoCanal, Integer> {
 
-    List<ProductoCanal> findByProductoId(Integer idProducto);
+    List<ProductoCanal> findByProductoId(Integer productoId);
 
-    List<ProductoCanal> findByCanalId(Integer idCanal);
+    List<ProductoCanal> findByCanalId(Integer canalId);
 
-    Optional<ProductoCanal> findByIdProductoIdAndIdCanalId(Integer idProducto, Integer idCanal);
+    Optional<ProductoCanal> findByProductoIdAndCanalId(Integer productoId, Integer canalId);
 
+    void deleteByProductoIdAndCanalId(Integer productoId, Integer canalId);
 }

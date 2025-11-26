@@ -1,18 +1,20 @@
 package ar.com.leo.super_master_backend.dominio.marca.service;
 
+import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaDTO;
+import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaUpdateDTO;
 
 import java.util.List;
 
 public interface MarcaService {
 
-    MarcaDTO obtener(Integer id);
-
     List<MarcaDTO> listar();
 
-    MarcaDTO crear(MarcaDTO dto);
+    MarcaDTO obtener(Integer id);
 
-    MarcaDTO actualizar(Integer id, MarcaDTO dto);
+    MarcaDTO crear(MarcaCreateDTO dto);
+
+    MarcaDTO actualizar(Integer id, MarcaUpdateDTO dto);
 
     void eliminar(Integer id);
 }

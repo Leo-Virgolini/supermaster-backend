@@ -10,7 +10,9 @@ import java.util.List;
 @Repository
 public interface ProductoAptoRepository extends JpaRepository<ProductoApto, ProductoAptoId> {
 
-    List<ProductoApto> findByAptoId(Integer idApto);
+    List<ProductoApto> findByProductoId(Integer productoId);
 
-    List<ProductoApto> findByProductoId(Integer idProducto);
+    List<ProductoApto> findByAptoId(Integer aptoId);
+
+    void deleteByProductoIdAndAptoId(Integer productoId, Integer aptoId);
 }

@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.material.service;
 
+import ar.com.leo.super_master_backend.dominio.material.dto.MaterialCreateDTO;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialDTO;
+import ar.com.leo.super_master_backend.dominio.material.dto.MaterialUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import ar.com.leo.super_master_backend.dominio.material.mapper.MaterialMapper;
 import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepository;
@@ -17,13 +19,6 @@ public class MaterialServiceImpl implements MaterialService {
     private final MaterialMapper mapper;
 
     @Override
-    public MaterialDTO obtener(Integer id) {
-        Material mat = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Material no encontrado"));
-        return mapper.toDTO(mat);
-    }
-
-    @Override
     public List<MaterialDTO> listar() {
         return repo.findAll()
                 .stream()
@@ -32,20 +27,28 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     @Override
-    public MaterialDTO crear(MaterialDTO dto) {
-        Material m = mapper.toEntity(dto);
-        repo.save(m);
-        return mapper.toDTO(m);
+    public MaterialDTO obtener(Integer id) {
+        return repo.findById(id)
+                .map(mapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Material no encontrado"));
     }
 
     @Override
-    public MaterialDTO actualizar(Integer id, MaterialDTO dto) {
+    public MaterialDTO crear(MaterialCreateDTO dto) {
+        Material entity = mapper.toEntity(dto);
+        repo.save(entity);
+        return mapper.toDTO(entity);
+    }
+
+    @Override
+    public MaterialDTO actualizar(Integer id, MaterialUpdateDTO dto) {
         Material entity = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Material no encontrado"));
 
-        entity.setMaterial(dto.material());
+        mapper.updateEntityFromDTO(dto, entity);
 
         repo.save(entity);
+
         return mapper.toDTO(entity);
     }
 

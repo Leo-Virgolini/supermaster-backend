@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.clasif_gastro.service;
 
+import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroCreateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroDTO;
+import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.mapper.ClasifGastroMapper;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
@@ -17,43 +19,35 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
     private final ClasifGastroMapper mapper;
 
     @Override
-    public ClasifGastroDTO obtener(Integer id) {
-        ClasifGastro entity = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Clasificación gastro no encontrada"));
-        return mapper.toDTO(entity);
-    }
-
-    @Override
     public List<ClasifGastroDTO> listar() {
-        return repo.findAll().stream()
+        return repo.findAll()
+                .stream()
                 .map(mapper::toDTO)
                 .toList();
     }
 
     @Override
-    public ClasifGastroDTO crear(String nombre, Integer padreId) {
-        ClasifGastro entity = new ClasifGastro();
-        entity.setNombre(nombre);
+    public ClasifGastroDTO obtener(Integer id) {
+        return repo.findById(id)
+                .map(mapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Clasificación Gastro no encontrada"));
+    }
 
-        if (padreId != null)
-            entity.setPadre(new ClasifGastro(padreId));
-
+    @Override
+    public ClasifGastroDTO crear(ClasifGastroCreateDTO dto) {
+        ClasifGastro entity = mapper.toEntity(dto);
         repo.save(entity);
         return mapper.toDTO(entity);
     }
 
     @Override
-    public ClasifGastroDTO actualizar(Integer id, String nombre, Integer padreId) {
+    public ClasifGastroDTO actualizar(Integer id, ClasifGastroUpdateDTO dto) {
         ClasifGastro entity = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Clasificación gastro no encontrada"));
+                .orElseThrow(() -> new RuntimeException("Clasificación Gastro no encontrada"));
 
-        if (nombre != null)
-            entity.setNombre(nombre);
-
-        if (padreId != null)
-            entity.setPadre(new ClasifGastro(padreId));
-
+        mapper.updateEntityFromDTO(dto, entity);
         repo.save(entity);
+
         return mapper.toDTO(entity);
     }
 

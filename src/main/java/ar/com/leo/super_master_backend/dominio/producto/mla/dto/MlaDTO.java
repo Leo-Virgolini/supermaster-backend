@@ -7,5 +7,4 @@ public record MlaDTO(
         Integer productoId,
         String mla,
         BigDecimal precioEnvio
-) {
-}
+) {}

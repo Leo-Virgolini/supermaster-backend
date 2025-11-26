@@ -1,18 +1,20 @@
 package ar.com.leo.super_master_backend.dominio.origen.service;
 
+import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenCreateDTO;
 import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenDTO;
+import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenUpdateDTO;
 
 import java.util.List;
 
 public interface OrigenService {
 
-    OrigenDTO obtener(Integer id);
-
     List<OrigenDTO> listar();
 
-    OrigenDTO crear(OrigenDTO dto);
+    OrigenDTO obtener(Integer id);
 
-    OrigenDTO actualizar(Integer id, OrigenDTO dto);
+    OrigenDTO crear(OrigenCreateDTO dto);
+
+    OrigenDTO actualizar(Integer id, OrigenUpdateDTO dto);
 
     void eliminar(Integer id);
 }

@@ -1,21 +1,17 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
-import ar.com.leo.super_master_backend.dominio.apto.entity.Apto;
-import ar.com.leo.super_master_backend.dominio.apto.repository.AptoRepository;
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
-import ar.com.leo.super_master_backend.dominio.cliente.entity.Cliente;
-import ar.com.leo.super_master_backend.dominio.cliente.repository.ClienteRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoAptoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoClienteRepository;
-import ar.com.leo.super_master_backend.dominio.producto.entity.*;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,192 +21,98 @@ import java.util.List;
 public class ProductoServiceImpl implements ProductoService {
 
     private final ProductoRepository productoRepository;
-    private final ProductoCatalogoRepository productoCatalogoRepository;
-    private final AptoRepository aptoRepository;
-    private final ProductoAptoRepository productoAptoRepository;
-    private final CanalRepository canalRepository;
+    private final ProductoMapper productoMapper;
     private final ProductoCanalRepository productoCanalRepository;
-    private final ClienteRepository clienteRepository;
-    private final ProductoClienteRepository productoClienteRepository;
-    private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
+    private final CalculoPrecioService calculoPrecioService;
 
-    // --------------------
-    // CRUD BÁSICO
-    // --------------------
-
+    // ============================
+    // LISTAR
+    // ============================
     @Override
-    public Producto crear(Producto producto) {
-        return productoRepository.save(producto);
+    public List<ProductoDTO> listar() {
+        return productoRepository.findAll()
+                .stream()
+                .map(productoMapper::toDTO)
+                .toList();
     }
 
+    // ============================
+    // OBTENER
+    // ============================
     @Override
-    public Producto actualizar(Integer id, Producto producto) {
-        Producto existente = obtenerPorId(id);
-        producto.setId(id);
-        return productoRepository.save(producto);
+    public ProductoDTO obtener(Integer id) {
+        return productoRepository.findById(id)
+                .map(productoMapper::toDTO)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
     }
 
+    // ============================
+    // CREAR
+    // ============================
     @Override
+    @Transactional
+    public ProductoDTO crear(ProductoCreateDTO dto) {
+        Producto entity = productoMapper.toEntity(dto);
+        productoRepository.save(entity);
+        return productoMapper.toDTO(entity);
+    }
+
+    // ============================
+    // ACTUALIZAR
+    // ============================
+    @Override
+    @Transactional
+    public ProductoDTO actualizar(Integer id, ProductoUpdateDTO dto) {
+        Producto entity = productoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+        productoMapper.updateEntityFromDTO(dto, entity);
+        productoRepository.save(entity);
+
+        return productoMapper.toDTO(entity);
+    }
+
+    // ============================
+    // ELIMINAR
+    // ============================
+    @Override
+    @Transactional
     public void eliminar(Integer id) {
         productoRepository.deleteById(id);
     }
 
+    // ============================
+    // OBTENER POR SKU
+    // ============================
     @Override
-    public Producto obtenerPorId(Integer id) {
-        return productoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
-    }
-
-    @Override
-    public Producto obtenerPorSku(String sku) {
+    public ProductoDTO obtenerPorSku(String sku) {
         return productoRepository.findBySku(sku)
+                .map(productoMapper::toDTO)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
     }
 
+    // ============================
+    // 🔥 ACTUALIZAR COSTO + RECALCULAR PRECIOS
+    // ============================
     @Override
-    public List<Producto> listar() {
-        return productoRepository.findAll();
-    }
-
-    // --------------------
-    // CATÁLOGOS
-    // --------------------
-
-    @Override
-    public void agregarCatalogo(Integer idProducto, Integer idCatalogo) {
-        Producto producto = obtenerPorId(idProducto);
-
-        ProductoCatalogo pc = new ProductoCatalogo();
-        pc.setProducto(producto);
-        pc.setCatalogo(new Catalogo(idCatalogo));
-
-        productoCatalogoRepository.save(pc);
-    }
-
-    @Override
-    public void quitarCatalogo(Integer idProducto, Integer idCatalogo) {
-        ProductoCatalogoId id = new ProductoCatalogoId(idProducto, idCatalogo);
-        productoCatalogoRepository.deleteById(id);
-    }
-
-    // --------------------
-    // APTOS
-    // --------------------
-
-    @Override
-    public void agregarApto(Integer idProducto, Integer idApto) {
-        Producto producto = obtenerPorId(idProducto);
-
-        ProductoApto pa = new ProductoApto();
-        pa.setProducto(producto);
-        pa.setApto(new Apto(idApto));
-
-        productoAptoRepository.save(pa);
-    }
-
-    @Override
-    public void quitarApto(Integer idProducto, Integer idApto) {
-        ProductoAptoId id = new ProductoAptoId(idApto, idProducto);
-        productoAptoRepository.deleteById(id);
-    }
-
-    // --------------------
-    // CANALES
-    // --------------------
-
-    @Override
-    public void agregarCanal(Integer idProducto, Integer idCanal, BigDecimal margenPorcentaje) {
-        ProductoCanal pc = new ProductoCanal();
-        pc.setProducto(new Producto(idProducto));
-        pc.setCanal(new Canal(idCanal));
-        pc.setMargenPorcentaje(margenPorcentaje);
-
-        productoCanalRepository.save(pc);
-    }
-
-    @Override
-    public void actualizarMargenCanal(Integer idProducto, Integer idCanal, BigDecimal margen) {
-        List<ProductoCanal> lista = productoCanalRepository.findByProductoId(idProducto)
-                .stream()
-                .filter(pc -> pc.getCanal().getId().equals(idCanal))
-                .toList();
-
-        if (lista.isEmpty())
-            throw new RuntimeException("No existe margen");
-
-        ProductoCanal pc = lista.get(0);
-        pc.setMargenPorcentaje(margen);
-        productoCanalRepository.save(pc);
-    }
-
-    @Override
-    public void quitarCanal(Integer idProducto, Integer idCanal) {
-        List<ProductoCanal> lista = productoCanalRepository.findByProductoId(idProducto)
-                .stream()
-                .filter(pc -> pc.getCanal().getId().equals(idCanal))
-                .toList();
-
-        lista.forEach(pc -> productoCanalRepository.delete(pc));
-    }
-
-    // --------------------
-    // CLIENTES
-    // --------------------
-
-    @Override
-    public void agregarCliente(Integer idProducto, Integer idCliente) {
-        ProductoCliente pc = new ProductoCliente();
-        pc.setProducto(new Producto(idProducto));
-        pc.setCliente(new Cliente(idCliente));
-
-        productoClienteRepository.save(pc);
-    }
-
-    @Override
-    public void quitarCliente(Integer idProducto, Integer idCliente) {
-        ProductoClienteId id = new ProductoClienteId(idProducto, idCliente);
-        productoClienteRepository.deleteById(id);
-    }
-
-    // --------------------
-    // COSTO
-    // --------------------
-
-    @Override
+    @Transactional
     public void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto) {
-        Producto producto = obtenerPorId(idProducto);
+
+        // 1) Actualizar costo del producto
+        Producto producto = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
         producto.setCosto(nuevoCosto);
         productoRepository.save(producto);
-    }
 
-    // --------------------
-    // PRECIOS (placeholder)
-    // --------------------
+        // 2) Obtener todos los canales donde participa el producto
+        List<ProductoCanal> canales = productoCanalRepository.findByProductoId(idProducto);
 
-    @Override
-    public BigDecimal calcularPrecioCanal(Integer idProducto, Integer idCanal) {
-        // Aquí va TODA la lógica del Excel SUPERMASTER
-        return BigDecimal.ZERO;
-    }
-
-    @Override
-    public BigDecimal calcularPrecioMla(Integer idProducto) {
-        return BigDecimal.ZERO;
-    }
-
-    @Override
-    public BigDecimal calcularPrecioNube(Integer idProducto) {
-        return BigDecimal.ZERO;
-    }
-
-    @Override
-    public BigDecimal calcularPrecioGastro(Integer idProducto) {
-        return BigDecimal.ZERO;
-    }
-
-    @Override
-    public BigDecimal calcularPrecioMayorista(Integer idProducto) {
-        return BigDecimal.ZERO;
+        // 3) Recalcular automáticamente el precio para cada canal
+        canales.forEach(pc -> {
+            Integer idCanal = pc.getCanal().getId();
+            calculoPrecioService.recalcularYGuardarPrecioCanal(idProducto, idCanal);
+        });
     }
 
 }

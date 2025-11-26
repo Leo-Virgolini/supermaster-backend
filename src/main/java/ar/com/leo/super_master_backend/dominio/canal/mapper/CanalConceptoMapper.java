@@ -6,19 +6,22 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface CanalConceptoMapper {
 
-    @Mapping(source = "idCanal.id", target = "canalId")
-    @Mapping(source = "idConcepto.id", target = "conceptoId")
+    // =============================
+    // ENTITY → DTO
+    // =============================
+    @Mapping(source = "canal.id", target = "canalId")
+    @Mapping(source = "concepto.id", target = "conceptoId")
     CanalConceptoDTO toDTO(CanalConcepto entity);
 
-    @Mapping(source = "canalId", target = "id.idCanal")
-    @Mapping(source = "conceptoId", target = "id.idConcepto")
-    @Mapping(source = "canalId", target = "idCanal.id")
-    @Mapping(source = "conceptoId", target = "idConcepto.id")
+    // =============================
+    // DTO → ENTITY
+    // =============================
+    @Mapping(target = "id.idCanal", source = "canalId")
+    @Mapping(target = "id.idConcepto", source = "conceptoId")
+    @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
+    @Mapping(target = "concepto", expression = "java(new ConceptoGasto(dto.conceptoId()))")
     CanalConcepto toEntity(CanalConceptoDTO dto);
 }

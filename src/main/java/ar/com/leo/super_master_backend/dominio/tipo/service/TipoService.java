@@ -1,18 +1,20 @@
 package ar.com.leo.super_master_backend.dominio.tipo.service;
 
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
 
 import java.util.List;
 
 public interface TipoService {
 
-    TipoDTO obtener(Integer id);
-
     List<TipoDTO> listar();
 
-    TipoDTO crear(TipoDTO dto);
+    TipoDTO obtener(Integer id);
 
-    TipoDTO actualizar(Integer id, TipoDTO dto);
+    TipoDTO crear(TipoCreateDTO dto);
+
+    TipoDTO actualizar(Integer id, TipoUpdateDTO dto);
 
     void eliminar(Integer id);
 }

@@ -1,22 +1,56 @@
 package ar.com.leo.super_master_backend.dominio.regla_descuento.mapper;
 
+import ar.com.leo.super_master_backend.dominio.regla_descuento.dto.ReglaDescuentoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.dto.ReglaDescuentoDTO;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.dto.ReglaDescuentoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface ReglaDescuentoMapper {
 
-    @Mapping(source = "idCanal.id", target = "canalId")
-    @Mapping(source = "idCatalogo.id", target = "catalogoId")
-    @Mapping(source = "idClasifGral.id", target = "clasifGralId")
-    @Mapping(source = "idClasifGastro.id", target = "clasifGastroId")
-    ReglaDescuentoDTO toDTO(ReglaDescuento e);
+    // =====================================================
+    // ENTITY → DTO
+    // =====================================================
+    @Mapping(source = "canal.id", target = "canalId")
+    @Mapping(source = "catalogo.id", target = "catalogoId")
+    @Mapping(source = "clasifGral.id", target = "clasifGralId")
+    @Mapping(source = "clasifGastro.id", target = "clasifGastroId")
+    ReglaDescuentoDTO toDTO(ReglaDescuento entity);
 
-    @Mapping(source = "canalId", target = "idCanal.id")
-    @Mapping(source = "catalogoId", target = "idCatalogo.id")
-    @Mapping(source = "clasifGralId", target = "idClasifGral.id")
-    @Mapping(source = "clasifGastroId", target = "idClasifGastro.id")
-    ReglaDescuento toEntity(ReglaDescuentoDTO dto);
+
+    // =====================================================
+    // CREATE DTO → ENTITY
+    // =====================================================
+    @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
+    @Mapping(target = "catalogo", expression = "java(dto.catalogoId() != null ? new Catalogo(dto.catalogoId()) : null)")
+    @Mapping(target = "clasifGral", expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : null)")
+    @Mapping(target = "clasifGastro", expression = "java(dto.clasifGastroId() != null ? new ClasifGastro(dto.clasifGastroId()) : null)")
+    ReglaDescuento toEntity(ReglaDescuentoCreateDTO dto);
+
+
+    // =====================================================
+    // UPDATE DTO → ENTITY (PATCH)
+    // =====================================================
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(
+            target = "canal",
+            expression = "java(dto.canalId() != null ? new Canal(dto.canalId()) : entity.getCanal())"
+    )
+    @Mapping(
+            target = "catalogo",
+            expression = "java(dto.catalogoId() != null ? new Catalogo(dto.catalogoId()) : entity.getCatalogo())"
+    )
+    @Mapping(
+            target = "clasifGral",
+            expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : entity.getClasifGral())"
+    )
+    @Mapping(
+            target = "clasifGastro",
+            expression = "java(dto.clasifGastroId() != null ? new ClasifGastro(dto.clasifGastroId()) : entity.getClasifGastro())"
+    )
+    void updateEntityFromDTO(ReglaDescuentoUpdateDTO dto, @MappingTarget ReglaDescuento entity);
 }

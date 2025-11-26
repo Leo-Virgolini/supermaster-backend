@@ -1,10 +1,10 @@
 package ar.com.leo.super_master_backend.dominio.tipo.mapper;
 
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
+import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 @Mapper(
         componentModel = "spring",
@@ -12,9 +12,28 @@ import org.mapstruct.ReportingPolicy;
 )
 public interface TipoMapper {
 
-    @Mapping(source = "idPadre.id", target = "padreId")
-    TipoDTO toDTO(Tipo tipo);
+    // =============================
+    // ENTITY → DTO
+    // =============================
+    @Mapping(source = "padre.id", target = "padreId")
+    TipoDTO toDTO(Tipo entity);
 
-    @Mapping(source = "padreId", target = "idPadre.id")
-    Tipo toEntity(TipoDTO dto);
+    // =============================
+    // CREATE DTO → ENTITY
+    // =============================
+    @Mapping(
+            target = "padre",
+            expression = "java(dto.padreId() != null ? new Tipo(dto.padreId()) : null)"
+    )
+    Tipo toEntity(TipoCreateDTO dto);
+
+    // =============================
+    // UPDATE DTO → ENTITY (PATCH)
+    // =============================
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(
+            target = "padre",
+            expression = "java(dto.padreId() != null ? new Tipo(dto.padreId()) : entity.getPadre())"
+    )
+    void updateEntityFromDTO(TipoUpdateDTO dto, @MappingTarget Tipo entity);
 }
