@@ -49,19 +49,25 @@ public class ProductoController {
     }
 
     // =====================================================
-    // BUSCAR / FILTRAR
-    // =====================================================
+// BUSCAR / FILTRAR PRODUCTOS
+// =====================================================
     @GetMapping("/buscar")
     public Page<ProductoDTO> buscar(
 
-            // TEXTO
+            // =======================
+            // 1) TEXTO
+            // =======================
             @RequestParam(required = false) String texto,
 
-            // BOOLEANOS / NUMÉRICOS
+            // =======================
+            // 2) BOOLEANOS / NUMÉRICOS
+            // =======================
             @RequestParam(required = false) Boolean esCombo,
             @RequestParam(required = false) Integer uxb,
 
-            // MANY-TO-ONE
+            // =======================
+            // 3) MANY-TO-ONE
+            // =======================
             @RequestParam(required = false) Integer marcaId,
             @RequestParam(required = false) Integer origenId,
             @RequestParam(required = false) Integer tipoId,
@@ -70,16 +76,29 @@ public class ProductoController {
             @RequestParam(required = false) Integer proveedorId,
             @RequestParam(required = false) Integer materialId,
 
-            // RANGOS
+            // =======================
+            // 4) RANGOS (costo / IVA)
+            // =======================
             @RequestParam(required = false) BigDecimal costoMin,
             @RequestParam(required = false) BigDecimal costoMax,
             @RequestParam(required = false) BigDecimal ivaMin,
             @RequestParam(required = false) BigDecimal ivaMax,
 
+            // =======================
+            // 5) FECHAS
+            // =======================
             @RequestParam(required = false) LocalDate desdeFechaUltCosto,
             @RequestParam(required = false) LocalDate hastaFechaUltCosto,
 
-            // MANY-TO-MANY
+            @RequestParam(required = false) LocalDate desdeFechaCreacion,
+            @RequestParam(required = false) LocalDate hastaFechaCreacion,
+
+            @RequestParam(required = false) LocalDate desdeFechaModificacion,
+            @RequestParam(required = false) LocalDate hastaFechaModificacion,
+
+            // =======================
+            // 6) MANY-TO-MANY
+            // =======================
             @RequestParam(required = false) List<Integer> aptoIds,
             @RequestParam(required = false) List<Integer> canalIds,
             @RequestParam(required = false) List<Integer> catalogoIds,
@@ -90,10 +109,15 @@ public class ProductoController {
     ) {
 
         ProductoFilter filter = new ProductoFilter(
+
+                // TEXTO
                 texto,
+
+                // BOOLEANOS / NUMÉRICOS
                 esCombo,
                 uxb,
 
+                // MANY-TO-ONE
                 marcaId,
                 origenId,
                 tipoId,
@@ -102,14 +126,23 @@ public class ProductoController {
                 proveedorId,
                 materialId,
 
+                // RANGOS
                 costoMin,
                 costoMax,
                 ivaMin,
                 ivaMax,
 
+                // FECHAS ANTIGUAS
                 desdeFechaUltCosto,
                 hastaFechaUltCosto,
 
+                // NUEVAS FECHAS
+                desdeFechaCreacion,
+                hastaFechaCreacion,
+                desdeFechaModificacion,
+                hastaFechaModificacion,
+
+                // MANY-TO-MANY
                 aptoIds,
                 canalIds,
                 catalogoIds,

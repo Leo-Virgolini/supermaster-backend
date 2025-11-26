@@ -101,11 +101,21 @@ public class ProductoServiceImpl implements ProductoService {
     public Page<ProductoDTO> filtrar(ProductoFilter filter, Pageable pageable) {
 
         Specification<Producto> spec = Specification.allOf(
+
+                // =======================
+                // 1) TEXTO
+                // =======================
                 ProductoSpecifications.textoLike(filter.texto()),
+
+                // =======================
+                // 2) BOOLEANOS / NÚMEROS
+                // =======================
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
 
-                // MANY TO ONE
+                // =======================
+                // 3) MANY-TO-ONE
+                // =======================
                 ProductoSpecifications.marcaId(filter.marcaId()),
                 ProductoSpecifications.origenId(filter.origenId()),
                 ProductoSpecifications.tipoId(filter.tipoId()),
@@ -114,15 +124,31 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.proveedorId(filter.proveedorId()),
                 ProductoSpecifications.materialId(filter.materialId()),
 
-                // RANGOS
+                // =======================
+                // 4) RANGOS (costo / iva)
+                // =======================
                 ProductoSpecifications.costoMin(filter.costoMin()),
                 ProductoSpecifications.costoMax(filter.costoMax()),
                 ProductoSpecifications.ivaMin(filter.ivaMin()),
                 ProductoSpecifications.ivaMax(filter.ivaMax()),
+
+                // =======================
+                // 5) FECHAS
+                // =======================
                 ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
                 ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
 
-                // MANY TO MANY
+                // ⭐ NUEVO: fechaCreacion
+                ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
+                ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
+
+                // ⭐ NUEVO: fechaModificacion
+                ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
+                ProductoSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
+
+                // =======================
+                // 6) MANY-TO-MANY
+                // =======================
                 ProductoSpecifications.aptoIds(filter.aptoIds()),
                 ProductoSpecifications.canalIds(filter.canalIds()),
                 ProductoSpecifications.catalogoIds(filter.catalogoIds()),

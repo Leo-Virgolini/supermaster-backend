@@ -7,15 +7,12 @@ import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import org.mapstruct.*;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(componentModel = "spring")
 public interface ProductoMapper {
 
-    // ============================
-    // ENTITY → DTO (SAFE)
-    // ============================
+    // ================================================================
+    // ENTITY → DTO
+    // ================================================================
     @Mapping(source = "marca.id", target = "marcaId")
     @Mapping(source = "origen.id", target = "origenId")
     @Mapping(source = "clasifGral.id", target = "clasifGralId")
@@ -23,40 +20,44 @@ public interface ProductoMapper {
     @Mapping(source = "tipo.id", target = "tipoId")
     @Mapping(source = "proveedor.id", target = "proveedorId")
     @Mapping(source = "material.id", target = "materialId")
-    ProductoDTO toDTO(Producto producto);
+    ProductoDTO toDTO(Producto entity);
 
-    // =============================
-    // ENTITY → RESUMEN DTO
-    // =============================
-    @Mapping(source = "id", target = "id")
-    @Mapping(source = "sku", target = "sku")
-    @Mapping(source = "descripcion", target = "descripcion")
-    @Mapping(source = "tituloWeb", target = "tituloWeb")
-    ProductoResumenDTO toResumen(Producto producto);
-
-    // ============================
-    // DTO CREATE → ENTITY (SAFE)
-    // ============================
+    // ================================================================
+    // DTO CREATE → ENTITY
+    // ================================================================
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "marca", expression = "java(dto.marcaId() != null ? new Marca(dto.marcaId()) : null)")
-    @Mapping(target = "origen", expression = "java(dto.origenId() != null ? new Origen(dto.origenId()) : null)")
-    @Mapping(target = "clasifGral", expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : null)")
+    @Mapping(target = "origen", expression = "java(new Origen(dto.origenId()))")
+    @Mapping(target = "clasifGral", expression = "java(new ClasifGral(dto.clasifGralId()))")
     @Mapping(target = "clasifGastro", expression = "java(dto.clasifGastroId() != null ? new ClasifGastro(dto.clasifGastroId()) : null)")
-    @Mapping(target = "tipo", expression = "java(dto.tipoId() != null ? new Tipo(dto.tipoId()) : null)")
+    @Mapping(target = "tipo", expression = "java(new Tipo(dto.tipoId()))")
     @Mapping(target = "proveedor", expression = "java(dto.proveedorId() != null ? new Proveedor(dto.proveedorId()) : null)")
     @Mapping(target = "material", expression = "java(dto.materialId() != null ? new Material(dto.materialId()) : null)")
+    @Mapping(target = "fechaCreacion", ignore = true)     // se setea en @PrePersist
+    @Mapping(target = "fechaModificacion", ignore = true)
+    // se setea en @PreUpdate
     Producto toEntity(ProductoCreateDTO dto);
 
-    // ============================
-    // DTO UPDATE → ENTITY EXISTENTE
-    // ============================
+    // ================================================================
+    // DTO UPDATE → ENTITY (solo patch, ignora nulls)
+    // ================================================================
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "marca", expression = "java(dto.marcaId() != null ? new Marca(dto.marcaId()) : producto.getMarca())")
-    @Mapping(target = "origen", expression = "java(dto.origenId() != null ? new Origen(dto.origenId()) : producto.getOrigen())")
-    @Mapping(target = "clasifGral", expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : producto.getClasifGral())")
-    @Mapping(target = "clasifGastro", expression = "java(dto.clasifGastroId() != null ? new ClasifGastro(dto.clasifGastroId()) : producto.getClasifGastro())")
-    @Mapping(target = "tipo", expression = "java(dto.tipoId() != null ? new Tipo(dto.tipoId()) : producto.getTipo())")
-    @Mapping(target = "proveedor", expression = "java(dto.proveedorId() != null ? new Proveedor(dto.proveedorId()) : producto.getProveedor())")
-    @Mapping(target = "material", expression = "java(dto.materialId() != null ? new Material(dto.materialId()) : producto.getMaterial())")
-    void updateEntityFromDTO(ProductoUpdateDTO dto, @MappingTarget Producto producto);
+    @Mapping(target = "marca", expression = "java(dto.marcaId() != null ? new Marca(dto.marcaId()) : entity.getMarca())")
+    @Mapping(target = "origen", expression = "java(dto.origenId() != null ? new Origen(dto.origenId()) : entity.getOrigen())")
+    @Mapping(target = "clasifGral", expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : entity.getClasifGral())")
+    @Mapping(target = "clasifGastro", expression = "java(dto.clasifGastroId() != null ? new ClasifGastro(dto.clasifGastroId()) : entity.getClasifGastro())")
+    @Mapping(target = "tipo", expression = "java(dto.tipoId() != null ? new Tipo(dto.tipoId()) : entity.getTipo())")
+    @Mapping(target = "proveedor", expression = "java(dto.proveedorId() != null ? new Proveedor(dto.proveedorId()) : entity.getProveedor())")
+    @Mapping(target = "material", expression = "java(dto.materialId() != null ? new Material(dto.materialId()) : entity.getMaterial())")
+    @Mapping(target = "fechaCreacion", ignore = true)
+    @Mapping(target = "fechaModificacion", ignore = true)
+    void updateEntityFromDTO(ProductoUpdateDTO dto, @MappingTarget Producto entity);
 
+    // ================================================================
+    // RESUMEN PARA LISTADOS (si lo necesitás)
+    // ================================================================
+    @Named("toResumen")
+    @Mapping(source = "marca.id", target = "marcaId")
+    @Mapping(source = "tipo.id", target = "tipoId")
+    ProductoResumenDTO toResumenDTO(Producto entity);
 }

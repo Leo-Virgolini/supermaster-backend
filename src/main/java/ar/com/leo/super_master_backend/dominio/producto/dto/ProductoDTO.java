@@ -11,11 +11,8 @@ public record ProductoDTO(
         String tituloWeb,
         Boolean esCombo,
         Integer uxb,
-        BigDecimal costo,
-        Instant fechaUltCosto,
-        BigDecimal iva,
 
-        // Relaciones por ID
+        // Relaciones: solo IDs
         Integer marcaId,
         Integer origenId,
         Integer clasifGralId,
@@ -24,13 +21,20 @@ public record ProductoDTO(
         Integer proveedorId,
         Integer materialId,
 
-        // Atributos físicos
+        // Atributos extra
         String capacidad,
         BigDecimal largo,
         BigDecimal ancho,
         BigDecimal alto,
         String diamboca,
         String diambase,
-        String espesor
+        String espesor,
+        BigDecimal costo,
+        Instant fechaUltCosto,
+        BigDecimal iva,
+
+        // NUEVAS FECHAS
+        Instant fechaCreacion,
+        Instant fechaModificacion
 ) {
 }

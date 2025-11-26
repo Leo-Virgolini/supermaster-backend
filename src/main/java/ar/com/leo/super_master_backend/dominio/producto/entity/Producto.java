@@ -155,8 +155,24 @@ public class Producto {
     @OneToMany(mappedBy = "producto")
     private Set<ProductoCliente> productoClientes = new LinkedHashSet<>();
 
+    @Column(name = "fecha_creacion", updatable = false, nullable = false)
+    private Instant fechaCreacion;
+
+    @Column(name = "fecha_modificacion", nullable = true)
+    private Instant fechaModificacion;
+
     public Producto(Integer id) {
         this.id = id;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        fechaCreacion = Instant.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        fechaModificacion = Instant.now();
     }
 
 }
