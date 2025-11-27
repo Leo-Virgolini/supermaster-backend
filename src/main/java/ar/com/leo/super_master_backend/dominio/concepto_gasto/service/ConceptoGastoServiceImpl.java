@@ -9,6 +9,7 @@ import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGas
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.mapper.ConceptoGastoMapper;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
     private final ConceptoGastoMapper mapper;
 
     @Override
+    @Transactional(readOnly = true)
     public List<ConceptoGastoDTO> listar() {
         return conceptoRepository.findAll()
                 .stream()
@@ -36,10 +38,11 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ConceptoGastoDTO obtener(Integer id) {
         return conceptoRepository.findById(id)
                 .map(mapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Concepto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
     }
 
     @Override
@@ -55,7 +58,7 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
     public ConceptoGastoDTO actualizar(Integer id, ConceptoGastoUpdateDTO dto) {
 
         ConceptoGasto entity = conceptoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Concepto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
 
         BigDecimal porcentajeAnterior = entity.getPorcentaje();
 
@@ -90,6 +93,9 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
+        if (!conceptoRepository.existsById(id)) {
+            throw new NotFoundException("Concepto no encontrado");
+        }
         conceptoRepository.deleteById(id);
     }
 }

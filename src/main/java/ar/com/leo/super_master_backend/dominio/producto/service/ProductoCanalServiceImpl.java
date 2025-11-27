@@ -6,8 +6,12 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoCanalMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -17,8 +21,11 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
 
     private final ProductoCanalRepository repo;
     private final ProductoCanalMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final CanalRepository canalRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoCanalDTO> listar(Integer productoId) {
         return repo.findByProductoId(productoId)
                 .stream()
@@ -27,7 +34,13 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
     }
 
     @Override
+    @Transactional
     public ProductoCanalDTO agregar(Integer productoId, Integer canalId) {
+        // Validar que existan
+        productoRepository.findById(productoId)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
+        canalRepository.findById(canalId)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
         // Si ya existe, devolverlo
         var existente = repo.findByProductoIdAndCanalId(productoId, canalId)
@@ -51,10 +64,11 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
     }
 
     @Override
+    @Transactional
     public ProductoCanalDTO actualizar(Integer productoId, Integer canalId, ProductoCanalDTO dto) {
 
         ProductoCanal pc = repo.findByProductoIdAndCanalId(productoId, canalId)
-                .orElseThrow(() -> new RuntimeException("Relación Producto-Canal no existe."));
+                .orElseThrow(() -> new NotFoundException("Relación Producto-Canal no existe."));
 
         // MapStruct NO actualiza entidades existentes, así que asignamos a mano
         pc.setMargenPorcentaje(dto.margenPorcentaje());
@@ -72,7 +86,11 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
     }
 
     @Override
+    @Transactional
     public void eliminar(Integer productoId, Integer canalId) {
+        if (repo.findByProductoIdAndCanalId(productoId, canalId).isEmpty()) {
+            throw new NotFoundException("Relación Producto-Canal no existe");
+        }
         repo.deleteByProductoIdAndCanalId(productoId, canalId);
     }
 

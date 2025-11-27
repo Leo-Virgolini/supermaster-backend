@@ -12,6 +12,7 @@ import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.Concept
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
     // LISTAR
     // ==========================================
     @Override
+    @Transactional(readOnly = true)
     public List<CanalConceptoDTO> listarPorCanal(Integer canalId) {
 
         return canalConceptoRepository.findByCanalId(canalId)
@@ -50,11 +52,11 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
 
         // 1) validar canal
         Canal canal = canalRepository.findById(canalId)
-                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
         // 2) validar concepto
         ConceptoGasto concepto = conceptoRepository.findById(conceptoId)
-                .orElseThrow(() -> new RuntimeException("Concepto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
 
         // 3) crear relación
         CanalConcepto cc = new CanalConcepto();
@@ -76,6 +78,10 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
     @Override
     @Transactional
     public void eliminarConcepto(Integer canalId, Integer conceptoId) {
+        CanalConceptoId id = new CanalConceptoId(canalId, conceptoId);
+        if (canalConceptoRepository.findById(id).isEmpty()) {
+            throw new NotFoundException("Relación Canal-Concepto no existe");
+        }
 
         canalConceptoRepository.deleteByCanalIdAndConceptoId(canalId, conceptoId);
 

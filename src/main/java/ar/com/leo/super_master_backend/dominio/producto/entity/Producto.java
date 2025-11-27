@@ -14,7 +14,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -63,9 +62,6 @@ public class Producto {
     @JoinColumn(name = "id_marca")
     private Marca marca;
 
-    @Column(name = "uxb")
-    private Integer uxb;
-
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_origen", nullable = false)
@@ -97,6 +93,9 @@ public class Producto {
     // ATRIBUTOS NUMÉRICOS Y OTROS
     // ---------------------------
 
+    @Column(name = "uxb")
+    private Integer uxb;
+
     @Size(max = 45)
     @Column(name = "capacidad", length = 45)
     private String capacidad;
@@ -125,8 +124,7 @@ public class Producto {
     @Column(name = "costo", precision = 10, scale = 2)
     private BigDecimal costo;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "fecha_ult_costo")
+    @Column(name = "fecha_ult_costo", columnDefinition = "datetime DEFAULT CURRENT_TIMESTAMP")
     private Instant fechaUltCosto;
 
     @NotNull

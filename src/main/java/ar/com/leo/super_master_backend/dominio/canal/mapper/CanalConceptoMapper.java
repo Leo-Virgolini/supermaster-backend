@@ -1,7 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.canal.mapper;
 
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoDTO;
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;

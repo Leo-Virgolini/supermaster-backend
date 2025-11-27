@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.cliente.service;
 import ar.com.leo.super_master_backend.dominio.cliente.dto.ClienteCreateDTO;
 import ar.com.leo.super_master_backend.dominio.cliente.dto.ClienteDTO;
 import ar.com.leo.super_master_backend.dominio.cliente.dto.ClienteUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ClienteService {
 
-    List<ClienteDTO> listar();
+    Page<ClienteDTO> listar(Pageable pageable);
 
     ClienteDTO obtener(Integer id);
 

@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -61,8 +60,7 @@ public class ProductoCanalPrecio {
     @Column(name = "gastos_total_porcentaje", precision = 6, scale = 2)
     private BigDecimal gastosTotalPorcentaje;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "fecha_ultimo_calculo")
+    @Column(name = "fecha_ultimo_calculo", columnDefinition = "datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private Instant fechaUltimoCalculo;
 
 }

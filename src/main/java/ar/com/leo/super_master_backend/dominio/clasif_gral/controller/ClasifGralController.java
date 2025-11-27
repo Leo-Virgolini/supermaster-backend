@@ -4,10 +4,14 @@ import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralCreateD
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.service.ClasifGralService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -23,25 +27,31 @@ public class ClasifGralController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ClasifGralDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ClasifGralDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
-    public ResponseEntity<ClasifGralDTO> crear(@RequestBody ClasifGralCreateDTO dto) {
-        return ResponseEntity.ok(service.crear(dto));
+    public ResponseEntity<ClasifGralDTO> crear(@Valid @RequestBody ClasifGralCreateDTO dto) {
+        ClasifGralDTO creado = service.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ClasifGralDTO> actualizar(
-            @PathVariable Integer id,
-            @RequestBody ClasifGralUpdateDTO dto
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody ClasifGralUpdateDTO dto
     ) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

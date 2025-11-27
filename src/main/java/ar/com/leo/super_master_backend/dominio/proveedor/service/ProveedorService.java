@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.proveedor.service;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorCreateDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ProveedorService {
 
-    List<ProveedorDTO> listar();
+    Page<ProveedorDTO> listar(Pageable pageable);
 
     ProveedorDTO obtener(Integer id);
 

@@ -9,6 +9,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class CanalServiceImpl implements CanalService {
     // CRUD + DTOs
     // =======================================
     @Override
+    @Transactional(readOnly = true)
     public List<CanalDTO> listar() {
         return canalRepository.findAll()
                 .stream()
@@ -38,10 +40,11 @@ public class CanalServiceImpl implements CanalService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CanalDTO obtener(Integer id) {
         return canalRepository.findById(id)
                 .map(canalMapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
     }
 
     @Override
@@ -56,7 +59,7 @@ public class CanalServiceImpl implements CanalService {
     @Transactional
     public CanalDTO actualizar(Integer id, CanalUpdateDTO dto) {
         Canal entity = canalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
         canalMapper.updateEntityFromDTO(dto, entity);
         canalRepository.save(entity);
@@ -67,6 +70,9 @@ public class CanalServiceImpl implements CanalService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
+        if (!canalRepository.existsById(id)) {
+            throw new NotFoundException("Canal no encontrado");
+        }
         canalRepository.deleteById(id);
     }
 
@@ -78,8 +84,8 @@ public class CanalServiceImpl implements CanalService {
     public void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen) {
 
         // 0) Validar canal
-        canalRepository.findById(idCanal)
-                .orElseThrow(() -> new RuntimeException("Canal no encontrado"));
+        Canal canal = canalRepository.findById(idCanal)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
         // 1) Obtener todos los productos asignados al canal
         List<ProductoCanal> productosDelCanal = productoCanalRepository.findByCanalId(idCanal);

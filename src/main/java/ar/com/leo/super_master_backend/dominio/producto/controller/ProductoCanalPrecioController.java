@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.controller;
 
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoCanalPrecioService;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,16 +16,16 @@ public class ProductoCanalPrecioController {
 
     @GetMapping
     public ResponseEntity<ProductoCanalPrecioDTO> obtener(
-            @PathVariable Integer productoId,
-            @PathVariable Integer canalId
+            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId
     ) {
         return ResponseEntity.ok(service.obtener(productoId, canalId));
     }
 
     @PostMapping("/recalcular")
     public ResponseEntity<ProductoCanalPrecioDTO> recalcular(
-            @PathVariable Integer productoId,
-            @PathVariable Integer canalId
+            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId
     ) {
         return ResponseEntity.ok(service.recalcular(productoId, canalId));
     }

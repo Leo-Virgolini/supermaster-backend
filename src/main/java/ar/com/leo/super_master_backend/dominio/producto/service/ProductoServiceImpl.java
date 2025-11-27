@@ -11,6 +11,8 @@ import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +36,7 @@ public class ProductoServiceImpl implements ProductoService {
     // LISTAR
     // ============================
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductoDTO> listar(Pageable pageable) {
         return productoRepository.findAll(pageable)
                 .map(productoMapper::toDTO);
@@ -43,10 +46,11 @@ public class ProductoServiceImpl implements ProductoService {
     // OBTENER
     // ============================
     @Override
+    @Transactional(readOnly = true)
     public ProductoDTO obtener(Integer id) {
         return productoRepository.findById(id)
                 .map(productoMapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 
     // ============================
@@ -55,6 +59,11 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     @Transactional
     public ProductoDTO crear(ProductoCreateDTO dto) {
+        // Validar SKU único
+        if (productoRepository.findBySku(dto.sku()).isPresent()) {
+            throw new ConflictException("Ya existe un producto con el SKU: " + dto.sku());
+        }
+        
         Producto entity = productoMapper.toEntity(dto);
         productoRepository.save(entity);
         return productoMapper.toDTO(entity);
@@ -67,7 +76,7 @@ public class ProductoServiceImpl implements ProductoService {
     @Transactional
     public ProductoDTO actualizar(Integer id, ProductoUpdateDTO dto) {
         Producto entity = productoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
         productoMapper.updateEntityFromDTO(dto, entity);
         productoRepository.save(entity);
@@ -81,6 +90,9 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
+        if (!productoRepository.existsById(id)) {
+            throw new NotFoundException("Producto no encontrado");
+        }
         productoRepository.deleteById(id);
     }
 
@@ -88,16 +100,18 @@ public class ProductoServiceImpl implements ProductoService {
     // OBTENER POR SKU
     // ============================
     @Override
+    @Transactional(readOnly = true)
     public ProductoDTO obtenerPorSku(String sku) {
         return productoRepository.findBySku(sku)
                 .map(productoMapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 
     // ======================================================
     // BUSQUEDA / FILTRADO PROFESIONAL
     // ======================================================
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductoDTO> filtrar(ProductoFilter filter, Pageable pageable) {
 
         Specification<Producto> spec = Specification.allOf(
@@ -169,7 +183,7 @@ public class ProductoServiceImpl implements ProductoService {
 
         // 1) Actualizar costo del producto
         Producto producto = productoRepository.findById(idProducto)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
         producto.setCosto(nuevoCosto);
         productoRepository.save(producto);

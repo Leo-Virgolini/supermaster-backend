@@ -5,10 +5,14 @@ import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.service.CatalogoService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -30,7 +34,7 @@ public class CatalogoController {
     // OBTENER UNO
     // ===============================
     @GetMapping("/{id}")
-    public ResponseEntity<CatalogoDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<CatalogoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
@@ -38,8 +42,14 @@ public class CatalogoController {
     // CREAR
     // ===============================
     @PostMapping
-    public ResponseEntity<CatalogoDTO> crear(@RequestBody CatalogoCreateDTO dto) {
-        return ResponseEntity.ok(service.crear(dto));
+    public ResponseEntity<CatalogoDTO> crear(@Valid @RequestBody CatalogoCreateDTO dto) {
+        CatalogoDTO creado = service.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     // ===============================
@@ -47,8 +57,8 @@ public class CatalogoController {
     // ===============================
     @PutMapping("/{id}")
     public ResponseEntity<CatalogoDTO> actualizar(
-            @PathVariable Integer id,
-            @RequestBody CatalogoUpdateDTO dto
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody CatalogoUpdateDTO dto
     ) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }
@@ -57,7 +67,7 @@ public class CatalogoController {
     // ELIMINAR
     // ===============================
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

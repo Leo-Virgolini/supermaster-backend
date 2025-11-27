@@ -9,6 +9,8 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrec
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,7 +82,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptos
     ) {
         if (producto.getCosto() == null) {
-            throw new RuntimeException("El producto no tiene costo cargado");
+            throw new BadRequestException("El producto no tiene costo cargado");
         }
 
         BigDecimal costo = producto.getCosto();
@@ -107,7 +109,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // 4) PVP = costoTotal / (1 - margen%)
         BigDecimal denominador = BigDecimal.ONE.subtract(margenFrac);
         if (denominador.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Margen inválido (>= 100%) para el canal");
+            throw new BadRequestException("Margen inválido (>= 100%) para el canal");
         }
 
         BigDecimal pvp = costoTotal
@@ -147,13 +149,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     private Producto obtenerProducto(Integer idProducto) {
         return productoRepository.findById(idProducto)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 
     private ProductoCanal obtenerProductoCanal(Integer idProducto, Integer idCanal) {
         return productoCanalRepository
                 .findByProductoIdAndCanalId(idProducto, idCanal)
-                .orElseThrow(() -> new RuntimeException("No existe configuración de canal para este producto"));
+                .orElseThrow(() -> new NotFoundException("No existe configuración de canal para este producto"));
     }
 
 }

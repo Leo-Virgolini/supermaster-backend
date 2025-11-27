@@ -2,10 +2,13 @@ package ar.com.leo.super_master_backend.dominio.producto.controller;
 
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoAptoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoAptoService;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -16,22 +19,28 @@ public class ProductoAptoController {
     private final ProductoAptoService productoAptoService;
 
     @GetMapping
-    public ResponseEntity<List<ProductoAptoDTO>> listar(@PathVariable Integer productoId) {
+    public ResponseEntity<List<ProductoAptoDTO>> listar(@PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId) {
         return ResponseEntity.ok(productoAptoService.listar(productoId));
     }
 
     @PostMapping("/{aptoId}")
     public ResponseEntity<ProductoAptoDTO> agregar(
-            @PathVariable Integer productoId,
-            @PathVariable Integer aptoId
+            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @PathVariable @Positive(message = "El ID de apto debe ser positivo") Integer aptoId
     ) {
-        return ResponseEntity.ok(productoAptoService.agregar(productoId, aptoId));
+        ProductoAptoDTO creado = productoAptoService.agregar(productoId, aptoId);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("")
+                .build()
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     @DeleteMapping("/{aptoId}")
     public ResponseEntity<Void> eliminar(
-            @PathVariable Integer productoId,
-            @PathVariable Integer aptoId
+            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @PathVariable @Positive(message = "El ID de apto debe ser positivo") Integer aptoId
     ) {
         productoAptoService.eliminar(productoId, aptoId);
         return ResponseEntity.noContent().build();

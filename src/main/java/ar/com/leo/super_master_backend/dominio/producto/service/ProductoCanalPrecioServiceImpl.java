@@ -8,8 +8,10 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoCanalPrecioMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -20,15 +22,17 @@ public class ProductoCanalPrecioServiceImpl implements ProductoCanalPrecioServic
     private final CalculoPrecioService calculoPrecioService;
 
     @Override
+    @Transactional(readOnly = true)
     public ProductoCanalPrecioDTO obtener(Integer productoId, Integer canalId) {
 
         ProductoCanalPrecio entity = repo.findByProductoIdAndCanalId(productoId, canalId)
-                .orElseThrow(() -> new RuntimeException("No hay precio calculado para este producto y canal."));
+                .orElseThrow(() -> new NotFoundException("No hay precio calculado para este producto y canal."));
 
         return mapper.toDTO(entity);
     }
 
     @Override
+    @Transactional
     public ProductoCanalPrecioDTO recalcular(Integer productoId, Integer canalId) {
 
         // 1) Calcular el precio en memoria

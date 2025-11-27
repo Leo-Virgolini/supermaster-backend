@@ -4,10 +4,14 @@ import ar.com.leo.super_master_backend.dominio.impuesto.dto.ImpuestoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.impuesto.dto.ImpuestoDTO;
 import ar.com.leo.super_master_backend.dominio.impuesto.dto.ImpuestoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.impuesto.service.ImpuestoService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -29,7 +33,7 @@ public class ImpuestoController {
     // OBTENER POR ID
     // -------------------------
     @GetMapping("/{id}")
-    public ResponseEntity<ImpuestoDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ImpuestoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
@@ -37,8 +41,14 @@ public class ImpuestoController {
     // CREAR
     // -------------------------
     @PostMapping
-    public ResponseEntity<ImpuestoDTO> crear(@RequestBody ImpuestoCreateDTO dto) {
-        return ResponseEntity.ok(service.crear(dto));
+    public ResponseEntity<ImpuestoDTO> crear(@Valid @RequestBody ImpuestoCreateDTO dto) {
+        ImpuestoDTO creado = service.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     // -------------------------
@@ -46,8 +56,8 @@ public class ImpuestoController {
     // -------------------------
     @PutMapping("/{id}")
     public ResponseEntity<ImpuestoDTO> actualizar(
-            @PathVariable Integer id,
-            @RequestBody ImpuestoUpdateDTO dto
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody ImpuestoUpdateDTO dto
     ) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }
@@ -56,7 +66,7 @@ public class ImpuestoController {
     // ELIMINAR
     // -------------------------
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

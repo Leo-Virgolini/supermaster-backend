@@ -6,8 +6,12 @@ import ar.com.leo.super_master_backend.dominio.regla_descuento.dto.ReglaDescuent
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.mapper.ReglaDescuentoMapper;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,14 +23,14 @@ public class ReglaDescuentoServiceImpl implements ReglaDescuentoService {
     private final ReglaDescuentoMapper mapper;
 
     @Override
-    public List<ReglaDescuentoDTO> listar() {
-        return repo.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    @Transactional(readOnly = true)
+    public Page<ReglaDescuentoDTO> listar(Pageable pageable) {
+        return repo.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ReglaDescuentoDTO> listarPorCanal(Integer canalId) {
         return repo.findByCanalId(canalId)
                 .stream()
@@ -35,13 +39,15 @@ public class ReglaDescuentoServiceImpl implements ReglaDescuentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReglaDescuentoDTO obtener(Integer id) {
         return repo.findById(id)
                 .map(mapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Regla de descuento no encontrada"));
+                .orElseThrow(() -> new NotFoundException("Regla de descuento no encontrada"));
     }
 
     @Override
+    @Transactional
     public ReglaDescuentoDTO crear(ReglaDescuentoCreateDTO dto) {
         ReglaDescuento entity = mapper.toEntity(dto);
         repo.save(entity);
@@ -49,9 +55,10 @@ public class ReglaDescuentoServiceImpl implements ReglaDescuentoService {
     }
 
     @Override
+    @Transactional
     public ReglaDescuentoDTO actualizar(Integer id, ReglaDescuentoUpdateDTO dto) {
         ReglaDescuento entity = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Regla de descuento no encontrada"));
+                .orElseThrow(() -> new NotFoundException("Regla de descuento no encontrada"));
 
         mapper.updateEntityFromDTO(dto, entity);
 
@@ -61,7 +68,11 @@ public class ReglaDescuentoServiceImpl implements ReglaDescuentoService {
     }
 
     @Override
+    @Transactional
     public void eliminar(Integer id) {
+        if (!repo.existsById(id)) {
+            throw new NotFoundException("Regla de descuento no encontrada");
+        }
         repo.deleteById(id);
     }
 

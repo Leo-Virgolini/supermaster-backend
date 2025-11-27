@@ -5,13 +5,17 @@ import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -28,31 +32,39 @@ public class ProductoController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductoDTO> crear(@RequestBody ProductoCreateDTO dto) {
-        return ResponseEntity.ok(productoService.crear(dto));
+    public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoCreateDTO dto) {
+        ProductoDTO creado = productoService.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductoDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(productoService.obtener(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductoDTO> actualizar(@PathVariable Integer id, @RequestBody ProductoUpdateDTO dto) {
+    public ResponseEntity<ProductoDTO> actualizar(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id, 
+            @Valid @RequestBody ProductoUpdateDTO dto) {
         return ResponseEntity.ok(productoService.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         productoService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 
     // =====================================================
-// BUSCAR / FILTRAR PRODUCTOS
-// =====================================================
+    // BUSCAR / FILTRAR PRODUCTOS
+    // =====================================================
     @GetMapping("/buscar")
-    public Page<ProductoDTO> buscar(
+    public ResponseEntity<Page<ProductoDTO>> buscar(
 
             // =======================
             // 1) TEXTO
@@ -150,7 +162,7 @@ public class ProductoController {
                 mlaIds
         );
 
-        return productoService.filtrar(filter, pageable);
+        return ResponseEntity.ok(productoService.filtrar(filter, pageable));
     }
 
 }

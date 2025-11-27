@@ -6,8 +6,10 @@ import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import ar.com.leo.super_master_backend.dominio.tipo.mapper.TipoMapper;
 import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +21,7 @@ public class TipoServiceImpl implements TipoService {
     private final TipoMapper mapper;
 
     @Override
+    @Transactional(readOnly = true)
     public List<TipoDTO> listar() {
         return repo.findAll()
                 .stream()
@@ -27,13 +30,15 @@ public class TipoServiceImpl implements TipoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TipoDTO obtener(Integer id) {
         return repo.findById(id)
                 .map(mapper::toDTO)
-                .orElseThrow(() -> new RuntimeException("Tipo no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Tipo no encontrado"));
     }
 
     @Override
+    @Transactional
     public TipoDTO crear(TipoCreateDTO dto) {
         Tipo entity = mapper.toEntity(dto);
         repo.save(entity);
@@ -41,9 +46,10 @@ public class TipoServiceImpl implements TipoService {
     }
 
     @Override
+    @Transactional
     public TipoDTO actualizar(Integer id, TipoUpdateDTO dto) {
         Tipo entity = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tipo no encontrado"));
+                .orElseThrow(() -> new NotFoundException("Tipo no encontrado"));
 
         mapper.updateEntityFromDTO(dto, entity);
 
@@ -53,7 +59,11 @@ public class TipoServiceImpl implements TipoService {
     }
 
     @Override
+    @Transactional
     public void eliminar(Integer id) {
+        if (!repo.existsById(id)) {
+            throw new NotFoundException("Tipo no encontrado");
+        }
         repo.deleteById(id);
     }
 

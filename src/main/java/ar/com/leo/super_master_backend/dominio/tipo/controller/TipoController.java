@@ -4,10 +4,14 @@ import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.service.TipoService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -23,25 +27,31 @@ public class TipoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TipoDTO> obtener(@PathVariable Integer id) {
+    public ResponseEntity<TipoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
-    public ResponseEntity<TipoDTO> crear(@RequestBody TipoCreateDTO dto) {
-        return ResponseEntity.ok(service.crear(dto));
+    public ResponseEntity<TipoDTO> crear(@Valid @RequestBody TipoCreateDTO dto) {
+        TipoDTO creado = service.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<TipoDTO> actualizar(
-            @PathVariable Integer id,
-            @RequestBody TipoUpdateDTO dto
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody TipoUpdateDTO dto
     ) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }

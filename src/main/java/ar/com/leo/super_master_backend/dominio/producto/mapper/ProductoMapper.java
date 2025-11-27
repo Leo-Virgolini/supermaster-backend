@@ -1,10 +1,17 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
+import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
+import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
+import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
+import ar.com.leo.super_master_backend.dominio.material.entity.Material;
+import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
+import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
@@ -57,7 +64,5 @@ public interface ProductoMapper {
     // RESUMEN PARA LISTADOS (si lo necesitás)
     // ================================================================
     @Named("toResumen")
-    @Mapping(source = "marca.id", target = "marcaId")
-    @Mapping(source = "tipo.id", target = "tipoId")
     ProductoResumenDTO toResumenDTO(Producto entity);
 }

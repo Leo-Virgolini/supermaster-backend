@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.mla.mapper;
 
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import org.mapstruct.Mapper;

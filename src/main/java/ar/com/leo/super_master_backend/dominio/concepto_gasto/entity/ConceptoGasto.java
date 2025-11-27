@@ -35,9 +35,9 @@ public class ConceptoGasto {
     private BigDecimal porcentaje;
 
     @ColumnDefault("'PVP'")
-    @Lob
-    @Column(name = "aplica_sobre")
-    private String aplicaSobre;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN') DEFAULT 'PVP'")
+    private AplicaSobre aplicaSobre;
 
     @Size(max = 2)
     @Column(name = "cuotas", length = 2)
