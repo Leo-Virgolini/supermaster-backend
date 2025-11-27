@@ -31,4 +31,8 @@ public class Material {
     @OneToMany(mappedBy = "material")
     private Set<Producto> productos = new LinkedHashSet<>();
 
+    public Material(Integer id) {
+        this.id = id;
+    }
+
 }

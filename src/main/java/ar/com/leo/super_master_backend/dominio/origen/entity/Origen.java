@@ -31,4 +31,8 @@ public class Origen {
     @OneToMany(mappedBy = "origen")
     private Set<Producto> productos = new LinkedHashSet<>();
 
+    public Origen(Integer id) {
+        this.id = id;
+    }
+
 }

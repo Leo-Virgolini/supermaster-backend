@@ -43,4 +43,8 @@ public class Proveedor {
     @OneToMany(mappedBy = "proveedor")
     private Set<Producto> productos = new LinkedHashSet<>();
 
+    public Proveedor(Integer id) {
+        this.id = id;
+    }
+
 }

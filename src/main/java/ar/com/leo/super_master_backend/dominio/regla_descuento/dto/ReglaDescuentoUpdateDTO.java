@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record ReglaDescuentoUpdateDTO(
+        @Positive(message = "El ID de canal debe ser positivo")
+        Integer canalId,
         @Positive(message = "El ID de catálogo debe ser positivo")
         Integer catalogoId,
         @Positive(message = "El ID de clasificación general debe ser positivo")
