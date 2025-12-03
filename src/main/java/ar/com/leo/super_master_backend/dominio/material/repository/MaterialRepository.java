@@ -4,6 +4,9 @@ import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface MaterialRepository extends JpaRepository<Material, Integer> {
+    Optional<Material> findByMaterialIgnoreCase(String material);
 }

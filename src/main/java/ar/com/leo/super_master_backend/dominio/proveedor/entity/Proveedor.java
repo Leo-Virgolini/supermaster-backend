@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -39,6 +40,9 @@ public class Proveedor {
 
     @Column(name = "entrega")
     private Boolean entrega;
+
+    @Column(name = "porcent", precision = 5, scale = 2)
+    private BigDecimal porcent;
 
     @OneToMany(mappedBy = "proveedor")
     private Set<Producto> productos = new LinkedHashSet<>();

@@ -13,7 +13,7 @@ public class ProductoSpecifications {
     private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
 
     /* ==========================================================
-       1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt)
+       1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt, mla)
        ========================================================== */
     public static Specification<Producto> textoLike(String texto) {
         return (root, query, cb) -> {
@@ -25,7 +25,8 @@ public class ProductoSpecifications {
                     cb.like(cb.lower(root.get("sku")), pattern),
                     cb.like(cb.lower(root.get("codExt")), pattern),
                     cb.like(cb.lower(root.get("descripcion")), pattern),
-                    cb.like(cb.lower(root.get("tituloWeb")), pattern)
+                    cb.like(cb.lower(root.get("tituloWeb")), pattern),
+                    cb.like(cb.lower(root.join("mlas").get("mla")), pattern)
             );
         };
     }

@@ -47,7 +47,6 @@ public class Producto {
     private String descripcion;
 
     @Size(max = 100)
-    @NotNull
     @Column(name = "titulo_web", nullable = false, length = 100)
     private String tituloWeb;
 
