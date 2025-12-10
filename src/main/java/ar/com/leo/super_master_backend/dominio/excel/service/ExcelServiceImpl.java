@@ -43,11 +43,8 @@ import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.hibernate.AssertionFailure;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.DefaultTransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
@@ -90,7 +87,6 @@ public class ExcelServiceImpl implements ExcelService {
     private final MaterialRepository materialRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoCanalRepository productoCanalRepository;
-    private final PlatformTransactionManager transactionManager;
     
     // Caches en memoria para evitar consultas repetidas durante la importación
     private final Map<String, Marca> cacheMarcas = new ConcurrentHashMap<>();
@@ -102,64 +98,6 @@ public class ExcelServiceImpl implements ExcelService {
     private final Map<String, Catalogo> cacheCatalogos = new ConcurrentHashMap<>();
     private final Map<String, Canal> cacheCanales = new ConcurrentHashMap<>();
     private final Map<String, Material> cacheMateriales = new ConcurrentHashMap<>();
-
-    @Override
-    @Transactional
-    public ImportResultDTO importar(MultipartFile file, String tipo) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("El archivo está vacío");
-        }
-
-        if (!isExcelFile(file)) {
-            throw new IllegalArgumentException("El archivo debe ser un Excel (.xls o .xlsx)");
-        }
-
-        log.info("Iniciando importación de tipo: {}", tipo);
-
-        try (Workbook workbook = abrirWorkbookEficiente(file)) {
-            Sheet sheet = workbook.getSheetAt(0);
-
-            // Leer encabezados de la primera fila para mapear columnas por nombre
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                throw new IllegalArgumentException("El archivo no tiene encabezados en la primera fila");
-            }
-
-            Map<String, Integer> columnasMap = mapearColumnasPorNombre(headerRow);
-            log.info("Columnas mapeadas: {}", columnasMap);
-
-            List<String> errors = new ArrayList<>();
-            int totalRows = 0;
-            int successRows = 0;
-
-            // Procesar datos desde la fila 2 (índice 1)
-            int startRow = 1;
-            for (int i = startRow; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null)
-                    continue;
-
-                // Verificar si la fila está vacía
-                if (esFilaVacia(row))
-                    continue;
-
-                totalRows++;
-                try {
-                    procesarFila(row, tipo, i, columnasMap);
-                    successRows++;
-                } catch (Exception e) {
-                    errors.add(String.format("Fila %d: %s", i + 1, e.getMessage()));
-                    log.error("Error procesando fila {}: {}", i + 1, e.getMessage());
-                }
-            }
-
-            if (errors.isEmpty()) {
-                return ImportResultDTO.success(totalRows, successRows);
-            } else {
-                return ImportResultDTO.withErrors(totalRows, successRows, errors.size(), errors);
-            }
-        }
-    }
 
     private boolean esFilaVacia(Row row) {
         for (int i = 0; i < row.getLastCellNum(); i++) {
@@ -314,415 +252,11 @@ public class ExcelServiceImpl implements ExcelService {
             case "mla_envios":
                 procesarFilaMlaEnvios(row, rowIndex, columnasMap);
                 break;
-            case "productos":
-            case "dux":
-                procesarFilaProducto(row, rowIndex, columnasMap);
-                break;
-            case "precios":
-                procesarFilaPrecio(row, rowIndex);
-                break;
-            case "canales":
-                procesarFilaCanal(row, rowIndex, columnasMap);
-                break;
-            case "catalogos":
-                procesarFilaCatalogo(row, rowIndex, columnasMap);
-                break;
-            case "clientes":
-                procesarFilaCliente(row, rowIndex, columnasMap);
-                break;
-            case "proveedores":
-                procesarFilaProveedor(row, rowIndex, columnasMap);
-                break;
-            case "marcas":
-                procesarFilaMarca(row, rowIndex, columnasMap);
-                break;
-            case "tipos":
-                procesarFilaTipo(row, rowIndex, columnasMap);
-                break;
-            case "origenes":
-                procesarFilaOrigen(row, rowIndex, columnasMap);
-                break;
-            case "materiales":
-                procesarFilaMaterial(row, rowIndex, columnasMap);
-                break;
-            case "aptos":
-                procesarFilaApto(row, rowIndex, columnasMap);
-                break;
-            case "clasif_gral":
-                procesarFilaClasifGral(row, rowIndex, columnasMap);
-                break;
-            case "clasif_gastro":
-                procesarFilaClasifGastro(row, rowIndex, columnasMap);
-                break;
-            case "conceptos_gastos":
-                procesarFilaConceptoGasto(row, rowIndex, columnasMap);
-                break;
-            case "impuestos":
-                procesarFilaImpuesto(row, rowIndex, columnasMap);
-                break;
-            case "reglas_descuento":
-                procesarFilaReglaDescuento(row, rowIndex, columnasMap);
-                break;
             default:
                 throw new IllegalArgumentException("Tipo de importación no soportado: " + tipo);
         }
     }
 
-    private void procesarFilaProducto(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // Mapeo de columnas según el Excel de DUX (buscadas por nombre):
-        // CODIGO → productos.sku
-        // PRODUCTO → productos.descripcion
-        // COSTO → productos.costo
-        // CODIGO EXTERNO → productos.cod_ext
-        // PROVEEDOR → buscar en proveedores y usar id_proveedor
-        // TIPO DE PRODUCTO → "SIMPLE" o "COMBO" → productos.es_combo
-        // ULTIMA ACT. COSTO → productos.fecha_ult_costo (formato: '7/2/2025 14:59:52')
-        // UNIDADES POR BULTO → productos.uxb
-        // IVA → productos.iva
-
-        String sku = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "CODIGO"));
-        if (sku == null || sku.isBlank()) {
-            throw new IllegalArgumentException("SKU es requerido");
-        }
-
-        // IMPORTANTE: Solo actualizar productos existentes, no crear nuevos
-        Producto producto = productoRepository.findBySku(sku)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        String.format(
-                                "Producto con SKU '%s' no existe en la base de datos. Solo se actualizan productos existentes.",
-                                sku)));
-
-        String descripcion = obtenerValorCelda(row, 1);
-        if (descripcion != null && !descripcion.isBlank()) {
-            descripcion = truncar(descripcion.trim(), 100);
-            producto.setDescripcion(descripcion);
-            // Actualizar título web solo si no tenía uno o si estaba igual a la descripción
-            // anterior
-            if (producto.getTituloWeb() == null || producto.getTituloWeb().equals(producto.getDescripcion())) {
-                producto.setTituloWeb(descripcion);
-            }
-        }
-
-        // Actualizar campos
-        producto.setSku(sku);
-
-        // COSTO
-        String costoStr = obtenerValorCelda(row, 2);
-        if (costoStr != null && !costoStr.isBlank()) {
-            try {
-                BigDecimal costo = new BigDecimal(costoStr.replace(",", "."));
-                producto.setCosto(costo);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Costo inválido: " + costoStr);
-            }
-        }
-
-        // CODIGO EXTERNO - máximo 45 caracteres
-        String codExt = obtenerValorCelda(row, 3);
-        if (codExt != null && !codExt.isBlank()) {
-            producto.setCodExt(truncar(codExt.trim(), 45));
-        }
-
-        // PROVEEDOR
-        String proveedorNombre = obtenerValorCelda(row, 4);
-        if (proveedorNombre != null && !proveedorNombre.isBlank()) {
-            Optional<Proveedor> proveedorOpt = proveedorRepository.findByProveedorIgnoreCase(proveedorNombre.trim());
-            if (proveedorOpt.isPresent()) {
-                producto.setProveedor(proveedorOpt.get());
-            } else {
-                throw new IllegalArgumentException("Proveedor no encontrado: " + proveedorNombre);
-            }
-        }
-
-        // TIPO DE PRODUCTO (SIMPLE o COMBO)
-        String tipoProducto = obtenerValorCelda(row, 5);
-        if (tipoProducto != null && !tipoProducto.isBlank()) {
-            String tipoUpper = tipoProducto.trim().toUpperCase();
-            if ("COMBO".equals(tipoUpper)) {
-                producto.setEsCombo(true);
-            } else if ("SIMPLE".equals(tipoUpper)) {
-                producto.setEsCombo(false);
-            } else {
-                throw new IllegalArgumentException(
-                        "Tipo de producto inválido (debe ser SIMPLE o COMBO): " + tipoProducto);
-            }
-        }
-
-        // ULTIMA ACT. COSTO (formato: '7/2/2025 14:59:52')
-        String fechaStr = obtenerValorCelda(row, 6);
-        if (fechaStr != null && !fechaStr.isBlank()) {
-            try {
-                Instant fechaUltCosto = parsearFechaDux(fechaStr.trim());
-                producto.setFechaUltCosto(fechaUltCosto);
-            } catch (Exception e) {
-                throw new IllegalArgumentException("Fecha inválida: " + fechaStr + " - " + e.getMessage());
-            }
-        }
-
-        // UNIDADES POR BULTO
-        String uxbStr = obtenerValorCelda(row, 7);
-        if (uxbStr != null && !uxbStr.isBlank()) {
-            try {
-                Integer uxb = Integer.parseInt(uxbStr.trim());
-                if (uxb > 0) {
-                    producto.setUxb(uxb);
-                }
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("UXB inválido: " + uxbStr);
-            }
-        }
-
-        // IVA
-        if (columnasMap.containsKey("IVA")) {
-            String ivaStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "IVA"));
-            if (ivaStr != null && !ivaStr.isBlank()) {
-                try {
-                    BigDecimal iva = new BigDecimal(ivaStr.replace(",", "."));
-                    if (iva.compareTo(BigDecimal.ZERO) < 0 || iva.compareTo(new BigDecimal("100")) > 0) {
-                        throw new IllegalArgumentException("IVA debe estar entre 0 y 100");
-                    }
-                    producto.setIva(iva);
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("IVA inválido: " + ivaStr);
-                }
-            }
-        }
-
-        // No actualizar campos requeridos que no vienen en el Excel
-        // Estos campos ya deben existir en el producto (se asume que el producto fue
-        // cREADo previamente)
-        // Solo se actualizan los campos que vienen en el Excel de DUX
-
-        // Guardar producto
-        productoRepository.save(producto);
-        log.debug("Producto procesado exitosamente: SKU={}, Fila={}", sku, rowIndex + 1);
-    }
-
-    /**
-     * Obtiene una fecha directamente de una celda de Excel
-     * Si la celda es de tipo NUMERIC y está formateada como fecha, la convierte
-     * directamente
-     * Si es STRING, intenta parsearla
-     */
-    private Instant obtenerFechaDeCelda(Row row, int columnIndex) {
-        Cell cell = row.getCell(columnIndex);
-        if (cell == null) {
-            return null;
-        }
-
-        // Si la celda es NUMERIC y está formateada como fecha
-        if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-            try {
-                java.util.Date fecha = cell.getDateCellValue();
-                return fecha.toInstant();
-            } catch (Exception e) {
-                log.warn("Error al obtener fecha de celda numérica: {}", e.getMessage());
-            }
-        }
-
-        // Si es una fórmula, evaluarla primero
-        if (cell.getCellType() == CellType.FORMULA) {
-            try {
-                org.apache.poi.ss.usermodel.FormulaEvaluator evaluator = row.getSheet().getWorkbook()
-                        .getCreationHelper().createFormulaEvaluator();
-                org.apache.poi.ss.usermodel.CellValue cellValue = evaluator.evaluate(cell);
-                if (cellValue != null && cellValue.getCellType() == CellType.NUMERIC) {
-                    // Intentar como fecha
-                    try {
-                        java.util.Date fecha = DateUtil.getJavaDate(cellValue.getNumberValue());
-                        return fecha.toInstant();
-                    } catch (Exception e) {
-                        // No es una fecha, continuar con parseo de string
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Error al evaluar fórmula de fecha: {}", e.getMessage());
-            }
-        }
-
-        // Si es STRING o no se pudo obtener como fecha numérica, parsear el string
-        String fechaStr = obtenerValorCelda(row, columnIndex);
-        if (fechaStr != null && !fechaStr.isBlank()) {
-            return parsearFechaExcel(fechaStr);
-        }
-
-        return null;
-    }
-
-    /**
-     * Parsea una fecha desde un string (puede venir de Excel en diferentes
-     * formatos)
-     * Soporta formatos: M/d/yyyy HH:mm:ss, d/M/yyyy HH:mm:ss, y números seriales de
-     * Excel
-     */
-    private Instant parsearFechaExcel(String fechaStr) {
-        // Intentar diferentes formatos
-        DateTimeFormatter[] formatos = {
-                DateTimeFormatter.ofPattern("d/M/yyyy  HH:mm:ss"),
-                DateTimeFormatter.ofPattern("M/d/yyyy  HH:mm:ss"),
-                DateTimeFormatter.ofPattern("d/M/yyyy HH:mm:ss"),
-                DateTimeFormatter.ofPattern("M/d/yyyy HH:mm:ss"),
-                DateTimeFormatter.ofPattern("d/M/yyyy"),
-                DateTimeFormatter.ofPattern("M/d/yyyy"),
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-                DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        };
-
-        for (DateTimeFormatter formato : formatos) {
-            try {
-                LocalDateTime fecha = LocalDateTime.parse(fechaStr, formato);
-                return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
-            } catch (DateTimeParseException e) {
-                // Continuar con el siguiente formato
-            }
-        }
-
-        // Si es una fecha de Excel (número serial)
-        try {
-            double numeroSerial = Double.parseDouble(fechaStr);
-            LocalDateTime fecha = org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(numeroSerial);
-            return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
-        } catch (NumberFormatException e) {
-            // No es un número serial
-        }
-
-        throw new IllegalArgumentException("No se pudo parsear la fecha: " + fechaStr);
-    }
-
-    /**
-     * Parsea una fecha en formato DUX: '7/2/2025 14:59:52'
-     * Soporta formatos: M/d/yyyy HH:mm:ss o d/M/yyyy HH:mm:ss
-     */
-    private Instant parsearFechaDux(String fechaStr) {
-        // Intentar diferentes formatos
-        DateTimeFormatter[] formatos = {
-                DateTimeFormatter.ofPattern("M/d/yyyy  HH:mm:ss"),
-                DateTimeFormatter.ofPattern("d/M/yyyy  HH:mm:ss"),
-                DateTimeFormatter.ofPattern("M/d/yyyy HH:mm:ss"),
-                DateTimeFormatter.ofPattern("d/M/yyyy HH:mm:ss"),
-                DateTimeFormatter.ofPattern("M/d/yyyy"),
-                DateTimeFormatter.ofPattern("d/M/yyyy")
-        };
-
-        for (DateTimeFormatter formato : formatos) {
-            try {
-                LocalDateTime fecha = LocalDateTime.parse(fechaStr, formato);
-                return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
-            } catch (DateTimeParseException e) {
-                // Continuar con el siguiente formato
-            }
-        }
-
-        // Si es una fecha de Excel (número serial)
-        try {
-            double numeroSerial = Double.parseDouble(fechaStr);
-            LocalDateTime fecha = org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(numeroSerial);
-            return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
-        } catch (NumberFormatException e) {
-            // No es un número serial
-        }
-
-        throw new IllegalArgumentException("No se pudo parsear la fecha: " + fechaStr);
-    }
-
-    private void procesarFilaPrecio(Row row, int rowIndex) {
-        // TODO: Implementar lógica de importación de precios
-        log.debug("Procesando fila de precio: {}", rowIndex);
-    }
-
-    // ============================================================
-    // MÉTODOS DE PROCESAMIENTO PARA DIFERENTES ENTIDADES
-    // ============================================================
-    // Estos métodos procesan filas del Excel según el tipo de entidad
-    // Cada uno debe implementarse según las columnas específicas del Excel
-
-    private void procesarFilaCanal(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        // Ejemplo esperado: CANAL, CANAL_BASE_ID
-        log.debug("Procesando fila de canal: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de canales no implementada aún");
-    }
-
-    private void procesarFilaCatalogo(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        // Ejemplo esperado: CATALOGO
-        log.debug("Procesando fila de catálogo: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de catálogos no implementada aún");
-    }
-
-    private void procesarFilaCliente(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        // Ejemplo esperado: CLIENTE
-        log.debug("Procesando fila de cliente: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de clientes no implementada aún");
-    }
-
-    private void procesarFilaProveedor(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        // Ejemplo esperado: PROVEEDOR, APODO, PLAZO_PAGO, ENTREGA
-        log.debug("Procesando fila de proveedor: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de proveedores no implementada aún");
-    }
-
-    private void procesarFilaMarca(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de marca: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de marcas no implementada aún");
-    }
-
-    private void procesarFilaTipo(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de tipo: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de tipos no implementada aún");
-    }
-
-    private void procesarFilaOrigen(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de origen: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de orígenes no implementada aún");
-    }
-
-    private void procesarFilaMaterial(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de material: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de materiales no implementada aún");
-    }
-
-    private void procesarFilaApto(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de apto: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de aptos no implementada aún");
-    }
-
-    private void procesarFilaClasifGral(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de clasificación general: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de clasificaciones generales no implementada aún");
-    }
-
-    private void procesarFilaClasifGastro(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de clasificación gastro: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de clasificaciones gastro no implementada aún");
-    }
-
-    private void procesarFilaConceptoGasto(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de concepto de gasto: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de conceptos de gasto no implementada aún");
-    }
-
-    private void procesarFilaImpuesto(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de impuesto: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de impuestos no implementada aún");
-    }
-
-    private void procesarFilaReglaDescuento(Row row, int rowIndex, Map<String, Integer> columnasMap) {
-        // TODO: Implementar según columnas del Excel
-        log.debug("Procesando fila de regla de descuento: {}", rowIndex);
-        throw new UnsupportedOperationException("Importación de reglas de descuento no implementada aún");
-    }
 
     private String obtenerValorCelda(Row row, int columnIndex) {
         Cell cell = row.getCell(columnIndex);
@@ -805,6 +339,84 @@ public class ExcelServiceImpl implements ExcelService {
             return valor;
         }
         return valor.substring(0, maxLength);
+    }
+
+    /**
+     * Obtiene una fecha directamente de una celda de Excel
+     * Si la celda es de tipo NUMERIC y está formateada como fecha, la convierte directamente
+     * Si es STRING, intenta parsearla
+     */
+    private Instant obtenerFechaDeCelda(Row row, int columnIndex) {
+        Cell cell = row.getCell(columnIndex);
+        if (cell == null) {
+            return null;
+        }
+
+        // Si la celda es NUMERIC y está formateada como fecha
+        if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+            try {
+                java.util.Date fecha = cell.getDateCellValue();
+                return fecha.toInstant();
+            } catch (Exception e) {
+                log.warn("Error al obtener fecha de celda numérica: {}", e.getMessage());
+            }
+        }
+
+        // Si es una fórmula, evaluarla primero
+        if (cell.getCellType() == CellType.FORMULA) {
+            try {
+                org.apache.poi.ss.usermodel.FormulaEvaluator evaluator = row.getSheet().getWorkbook()
+                        .getCreationHelper().createFormulaEvaluator();
+                org.apache.poi.ss.usermodel.CellValue cellValue = evaluator.evaluate(cell);
+                if (cellValue != null && cellValue.getCellType() == CellType.NUMERIC) {
+                    // Intentar como fecha
+                    try {
+                        java.util.Date fecha = DateUtil.getJavaDate(cellValue.getNumberValue());
+                        return fecha.toInstant();
+                    } catch (Exception e) {
+                        // No es una fecha, continuar con parseo de string
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Error al evaluar fórmula de fecha: {}", e.getMessage());
+            }
+        }
+
+        // Si es STRING o no se pudo obtener como fecha numérica, parsear el string
+        String fechaStr = obtenerValorCelda(row, columnIndex);
+        if (fechaStr != null && !fechaStr.isBlank()) {
+            // Intentar diferentes formatos
+            DateTimeFormatter[] formatos = {
+                    DateTimeFormatter.ofPattern("d/M/yyyy  HH:mm:ss"),
+                    DateTimeFormatter.ofPattern("M/d/yyyy  HH:mm:ss"),
+                    DateTimeFormatter.ofPattern("d/M/yyyy HH:mm:ss"),
+                    DateTimeFormatter.ofPattern("M/d/yyyy HH:mm:ss"),
+                    DateTimeFormatter.ofPattern("d/M/yyyy"),
+                    DateTimeFormatter.ofPattern("M/d/yyyy"),
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            };
+
+            for (DateTimeFormatter formato : formatos) {
+                try {
+                    LocalDateTime fecha = LocalDateTime.parse(fechaStr, formato);
+                    return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
+                } catch (DateTimeParseException e) {
+                    // Continuar con el siguiente formato
+                }
+            }
+
+            // Si es una fecha de Excel (número serial)
+            try {
+                double numeroSerial = Double.parseDouble(fechaStr);
+                LocalDateTime fecha = org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(numeroSerial);
+                return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
+            } catch (NumberFormatException e) {
+                // No es un número serial
+            }
+        }
+
+        return null;
     }
 
     private List<String> obtenerEncabezados(String tipo) {
@@ -906,105 +518,18 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     /**
-     * Importa todo el archivo Excel completo, procesando todas las hojas
-     * Mapea cada hoja a su entidad correspondiente según el nombre de la hoja
-     */
-    @Override
-    @Transactional
-    public ImportCompletoResultDTO importarCompleto(MultipartFile file) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("El archivo está vacío");
-        }
-
-        if (!isExcelFile(file)) {
-            throw new IllegalArgumentException("El archivo debe ser un Excel (.xls o .xlsx)");
-        }
-
-        log.info("Iniciando importación completa del archivo Excel");
-
-        try (Workbook workbook = abrirWorkbookEficiente(file)) {
-            int totalHojas = workbook.getNumberOfSheets();
-            log.info("Archivo contiene {} hojas", totalHojas);
-
-            Map<String, ImportResultDTO> resultadosPorHoja = new LinkedHashMap<>();
-            List<String> erroresGenerales = new ArrayList<>();
-            int hojasProcesadas = 0;
-            int hojasConErrores = 0;
-
-            // Procesar cada hoja del Excel
-            for (int i = 0; i < totalHojas; i++) {
-                Sheet sheet = workbook.getSheetAt(i);
-                String nombreHoja = sheet.getSheetName();
-                log.info("Procesando hoja {}: '{}'", i + 1, nombreHoja);
-
-                try {
-                    // Determinar el tipo de importación según el nombre de la hoja
-                    String tipo = determinarTipoPorNombreHoja(nombreHoja);
-
-                    if (tipo == null) {
-                        log.warn("Hoja '{}' no reconocida, se omite", nombreHoja);
-                        continue;
-                    }
-
-                    // Procesar la hoja
-                    ImportResultDTO resultado = procesarHoja(sheet, tipo, nombreHoja);
-                    resultadosPorHoja.put(nombreHoja, resultado);
-
-                    if (resultado.errorRows() > 0) {
-                        hojasConErrores++;
-                    } else {
-                        hojasProcesadas++;
-                    }
-
-                } catch (Exception e) {
-                    log.error("Error procesando hoja '{}': {}", nombreHoja, e.getMessage(), e);
-                    erroresGenerales.add(String.format("Hoja '%s': %s", nombreHoja, e.getMessage()));
-                    hojasConErrores++;
-
-                    // Crear resultado de error para esta hoja
-                    resultadosPorHoja.put(nombreHoja, ImportResultDTO.withErrors(
-                            0, 0, 0, List.of(e.getMessage())));
-                }
-            }
-
-            // Generar resultado final
-            if (erroresGenerales.isEmpty() && hojasConErrores == 0) {
-                return ImportCompletoResultDTO.success(totalHojas, hojasProcesadas, resultadosPorHoja);
-            } else {
-                return ImportCompletoResultDTO.withErrors(
-                        totalHojas, hojasProcesadas, hojasConErrores, resultadosPorHoja, erroresGenerales);
-            }
-        }
-    }
-
-    /**
      * Determina el tipo de importación según el nombre de la hoja
      * Mapea nombres de hojas comunes a tipos de importación
      */
     private String determinarTipoPorNombreHoja(String nombreHoja) {
         String nombreNormalizado = nombreHoja.trim().toUpperCase();
 
-        // Mapeo de nombres de hojas a tipos
+        // Mapeo de nombres de hojas a tipos (solo las que se procesan en importarMigracionCompleta)
         return switch (nombreNormalizado) {
             case "MASTER" -> "master"; // Hoja principal con productos completos
             case "TITULOSWEB", "TITULOS WEB" -> "titulos_web"; // Actualizar títulos web
-            case "COSTOS", "PRODUCTOS", "PRODUCTO" -> "productos";
             case "VALIDACIONES" -> "validaciones"; // Entidades maestras (marcas, tipos, orígenes, clasificaciones)
             case "MLA-ENVIOS", "MLA ENVIOS" -> "mla_envios"; // MLAs y envíos
-            case "CANALES", "CANAL" -> "canales";
-            case "CATALOGOS", "CATALOGO" -> "catalogos";
-            case "CLIENTES", "CLIENTE" -> "clientes";
-            case "PROVEEDORES", "PROVEEDOR" -> "proveedores";
-            case "MARCAS", "MARCA" -> "marcas";
-            case "TIPOS", "TIPO" -> "tipos";
-            case "ORIGENES", "ORIGEN" -> "origenes";
-            case "MATERIALES", "MATERIAL" -> "materiales";
-            case "APTOS", "APTO" -> "aptos";
-            case "CLASIF_GRAL", "CLASIFICACIONES GENERAL", "CLASIFICACION GENERAL" -> "clasif_gral";
-            case "CLASIF_GASTRO", "CLASIFICACIONES GASTRO", "CLASIFICACION GASTRO" -> "clasif_gastro";
-            case "CONCEPTOS_GASTOS", "CONCEPTOS GASTOS", "CONCEPTO GASTO" -> "conceptos_gastos";
-            case "IMPUESTOS", "IMPUESTO" -> "impuestos";
-            case "REGLAS_DESCUENTO", "REGLAS DESCUENTO", "REGLA DESCUENTO" -> "reglas_descuento";
             default -> null; // Hoja no reconocida
         };
     }
@@ -1351,27 +876,16 @@ public class ExcelServiceImpl implements ExcelService {
     /**
      * Procesa una hoja en su propia transacción para aislar errores
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     private ImportResultDTO procesarHojaEnTransaccionSeparada(Sheet sheet, String tipo, String nombreHoja) {
         log.debug("Iniciando transacción separada para hoja '{}' (tipo: '{}')", nombreHoja, tipo);
-        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-        def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager, def);
-
         try {
-            return transactionTemplate.execute(status -> {
-                try {
-                    log.debug("Ejecutando procesarHoja para hoja '{}' dentro de la transacción", nombreHoja);
-                    return procesarHoja(sheet, tipo, nombreHoja);
-                } catch (Exception e) {
-                    log.error("Error dentro de la transacción para hoja '{}': {}", nombreHoja, e.getMessage(), e);
-                    status.setRollbackOnly();
-                    throw e;
-                }
-            });
+            log.debug("Ejecutando procesarHoja para hoja '{}' dentro de la transacción", nombreHoja);
+            return procesarHoja(sheet, tipo, nombreHoja);
         } catch (Exception e) {
-            log.error("Error ejecutando transacción para hoja '{}': {} - {}", nombreHoja, 
+            log.error("Error dentro de la transacción para hoja '{}': {} - {}", nombreHoja, 
                     e.getMessage(), e.getClass().getSimpleName(), e);
-            throw e;
+            throw e; // @Transactional hará rollback automáticamente por rollbackFor = Exception.class
         }
     }
 
@@ -2085,16 +1599,20 @@ public class ExcelServiceImpl implements ExcelService {
             }
 
             // IVA - Campo requerido, establecer si no está definido
+            // NOTA: En el Excel el IVA viene como decimal (ej: 0.21), se multiplica por 100 para convertirlo a porcentaje (21)
             if (producto.getIva() == null) {
                 // Intentar obtener IVA del Excel si existe la columna "IVA"
                 if (columnasMap.containsKey("IVA")) {
                     String ivaStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "IVA"));
                     if (ivaStr != null && !ivaStr.isBlank()) {
                         try {
-                            BigDecimal iva = new BigDecimal(ivaStr.replace(",", "."));
-                            // Validar que el IVA esté entre 0 y 100
+                            BigDecimal ivaDecimal = new BigDecimal(ivaStr.replace(",", "."));
+                            // Multiplicar por 100 para convertir de decimal (0.21) a porcentaje (21)
+                            BigDecimal iva = ivaDecimal.multiply(BigDecimal.valueOf(100));
+                            // Validar que el IVA esté entre 0 y 100 (después de multiplicar)
                             if (iva.compareTo(BigDecimal.ZERO) < 0 || iva.compareTo(new BigDecimal("100")) > 0) {
-                                log.warn("IVA fuera de rango para producto SKU {}: {}, usando 0", skuFinal, ivaStr);
+                                log.warn("IVA fuera de rango para producto SKU {}: {} (convertido a {}%), usando 0", 
+                                        skuFinal, ivaStr, iva);
                                 producto.setIva(BigDecimal.ZERO);
                             } else {
                                 producto.setIva(iva);
@@ -2115,13 +1633,15 @@ public class ExcelServiceImpl implements ExcelService {
                     String ivaStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "IVA"));
                     if (ivaStr != null && !ivaStr.isBlank()) {
                         try {
-                            BigDecimal iva = new BigDecimal(ivaStr.replace(",", "."));
-                            // Validar que el IVA esté entre 0 y 100
+                            BigDecimal ivaDecimal = new BigDecimal(ivaStr.replace(",", "."));
+                            // Multiplicar por 100 para convertir de decimal (0.21) a porcentaje (21)
+                            BigDecimal iva = ivaDecimal.multiply(BigDecimal.valueOf(100));
+                            // Validar que el IVA esté entre 0 y 100 (después de multiplicar)
                             if (iva.compareTo(BigDecimal.ZERO) >= 0 && iva.compareTo(new BigDecimal("100")) <= 0) {
                                 producto.setIva(iva);
                             } else {
-                                log.warn("IVA fuera de rango para producto SKU {}: {}, manteniendo valor anterior",
-                                        skuFinal, ivaStr);
+                                log.warn("IVA fuera de rango para producto SKU {}: {} (convertido a {}%), manteniendo valor anterior",
+                                        skuFinal, ivaStr, iva);
                             }
                         } catch (NumberFormatException e) {
                             log.warn("IVA inválido para producto SKU {}: {}, manteniendo valor anterior", skuFinal,
@@ -2270,10 +1790,6 @@ public class ExcelServiceImpl implements ExcelService {
             log.error("Error en procesarFilaMaster, fila {}: {}", rowIndex + 1, e.getMessage(), e);
             throw new RuntimeException("Error procesando fila " + (rowIndex + 1) + ": " + e.getMessage(), e);
         }
-    }
-
-    private ClasifGastro buscarOCrearClasifGastro(String nombre) {
-        return buscarOCrearClasifGastro(nombre, null);
     }
 
     private ClasifGastro buscarOCrearClasifGastro(String nombre, ClasifGastro padre) {
@@ -2745,15 +2261,35 @@ public class ExcelServiceImpl implements ExcelService {
             return buscarOCrearTipoPorId(0, "SIN TIPO");
         }
         String nombreNormalizado = nombre.trim();
-        String key = nombreNormalizado.toUpperCase();
+        // Clave del cache: incluir el padre para diferenciar tipos con el mismo nombre pero diferentes padres
+        // Si el padre es null, usar "null", si tiene padre, usar su ID
+        String keyPadre = (padre == null || padre.getId() == null) ? "null" : String.valueOf(padre.getId());
+        String key = nombreNormalizado.toUpperCase() + "|PADRE:" + keyPadre;
+        
         return cacheTipos.computeIfAbsent(key, k -> {
-            return tipoRepository.findByNombreIgnoreCase(nombreNormalizado)
-                    .orElseGet(() -> {
-                        Tipo nuevo = new Tipo();
-                        nuevo.setNombre(nombreNormalizado);
-                        nuevo.setPadre(padre);
-                        return tipoRepository.save(nuevo);
-                    });
+            // Buscar por nombre Y padre (puede haber tipos con el mismo nombre pero diferentes padres)
+            // Si el padre tiene ID, buscar por nombre y padre
+            // Si el padre es null, buscar solo por nombre (tipos raíz)
+            Optional<Tipo> tipoOpt;
+            if (padre != null && padre.getId() != null) {
+                tipoOpt = tipoRepository.findByNombreIgnoreCaseAndPadre(nombreNormalizado, padre);
+            } else {
+                // Para tipos sin padre, buscar por nombre y padre null
+                tipoOpt = tipoRepository.findByNombreIgnoreCaseAndPadre(nombreNormalizado, null);
+            }
+            
+            if (tipoOpt.isPresent()) {
+                return tipoOpt.get();
+            }
+            
+            // Si no existe, crear uno nuevo
+            Tipo nuevo = new Tipo();
+            nuevo.setNombre(nombreNormalizado);
+            nuevo.setPadre(padre);
+            Tipo guardado = tipoRepository.save(nuevo);
+            // Hacer flush para asegurar que el tipo tenga ID antes de usarlo como padre
+            tipoRepository.flush();
+            return guardado;
         });
     }
 

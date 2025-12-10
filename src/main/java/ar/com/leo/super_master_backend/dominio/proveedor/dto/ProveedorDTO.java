@@ -8,6 +8,6 @@ public record ProveedorDTO(
         String apodo,
         String plazoPago,
         Boolean entrega,
-        BigDecimal porcent
+        BigDecimal porcentaje
 ) {
 }

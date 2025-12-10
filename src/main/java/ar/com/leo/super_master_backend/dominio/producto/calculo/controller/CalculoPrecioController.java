@@ -20,10 +20,11 @@ public class CalculoPrecioController {
     @GetMapping("/{idProducto}/canales/{idCanal}/calculo")
     public ResponseEntity<PrecioCalculadoDTO> calcularPrecio(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer idProducto,
-            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer idCanal
+            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer idCanal,
+            @RequestParam(required = false) Integer cuotas
     ) {
         return ResponseEntity.ok(
-                service.calcularPrecioCanal(idProducto, idCanal)
+                service.calcularPrecioCanal(idProducto, idCanal, cuotas)
         );
     }
 

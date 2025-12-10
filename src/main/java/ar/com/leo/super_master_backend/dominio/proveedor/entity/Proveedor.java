@@ -41,8 +41,8 @@ public class Proveedor {
     @Column(name = "entrega")
     private Boolean entrega;
 
-    @Column(name = "porcent", precision = 5, scale = 2)
-    private BigDecimal porcent;
+    @Column(name = "porcentaje", precision = 5, scale = 2)
+    private BigDecimal porcentaje;
 
     @OneToMany(mappedBy = "proveedor")
     private Set<Producto> productos = new LinkedHashSet<>();

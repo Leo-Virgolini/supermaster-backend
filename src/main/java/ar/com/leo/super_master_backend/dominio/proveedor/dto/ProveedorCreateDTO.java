@@ -15,6 +15,6 @@ public record ProveedorCreateDTO(
         @Size(max = 45)
         String plazoPago,
         Boolean entrega,
-        BigDecimal porcent
+        BigDecimal porcentaje
 ) {
 }

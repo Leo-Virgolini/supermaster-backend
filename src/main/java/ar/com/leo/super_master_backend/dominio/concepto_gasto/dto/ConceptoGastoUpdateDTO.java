@@ -11,9 +11,9 @@ public record ConceptoGastoUpdateDTO(
         String concepto,
         @DecimalMin(value = "0.0", inclusive = true, message = "El porcentaje debe ser mayor o igual a 0")
         @DecimalMax(value = "100.0", inclusive = true, message = "El porcentaje debe ser menor o igual a 100")
-        BigDecimal porcentaje,
-        @Pattern(regexp = "COSTO|PVP|COSTO_IVA|COSTO_MARGEN", 
-                 message = "aplicaSobre debe ser uno de: COSTO, PVP, COSTO_IVA, COSTO_MARGEN")
+        BigDecimal porcentaje, // Almacenado como número: 29 para 29%, no 0.29
+        @Pattern(regexp = "COSTO|PVP|COSTO_IVA|COSTO_MARGEN|IMP", 
+                 message = "aplicaSobre debe ser uno de: COSTO, PVP, COSTO_IVA, COSTO_MARGEN, IMP")
         String aplicaSobre,
         @Size(max = 2)
         String cuotas

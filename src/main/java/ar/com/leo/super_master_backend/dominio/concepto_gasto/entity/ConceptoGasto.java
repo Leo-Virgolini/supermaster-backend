@@ -36,12 +36,18 @@ public class ConceptoGasto {
 
     @ColumnDefault("'PVP'")
     @Enumerated(EnumType.STRING)
-    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN') DEFAULT 'PVP'")
+    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','IMP') DEFAULT 'PVP'")
     private AplicaSobre aplicaSobre;
 
     @Size(max = 2)
     @Column(name = "cuotas", length = 2)
     private String cuotas;
+
+    // ----------------------------------------
+    // RELACIÓN CON CANALES
+    // ----------------------------------------
+    // Los conceptos se asocian a canales a través de la tabla canal_concepto
+    // Un concepto puede estar asociado a múltiples canales
 
     @OneToMany(mappedBy = "concepto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanalConcepto> canalConceptos = new LinkedHashSet<>();

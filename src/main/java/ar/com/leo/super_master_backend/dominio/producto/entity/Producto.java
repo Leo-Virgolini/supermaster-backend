@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -52,6 +53,15 @@ public class Producto {
 
     @Column(name = "es_combo")
     private Boolean esCombo;
+
+    /**
+     * Indica si este producto es una máquina.
+     * Las máquinas tienen reglas especiales:
+     * se excluyen los conceptos EMBALAJE y NUBE.
+     */
+    @Column(name = "es_maquina", nullable = false)
+    @ColumnDefault("false")
+    private Boolean esMaquina;
 
     // ---------------------------
     // RELACIONES MANY TO ONE
