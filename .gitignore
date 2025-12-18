@@ -6,6 +6,7 @@ target/
 
 logs/
 *.md
+!README.md
 *.sql
 
 ### STS ###
