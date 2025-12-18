@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.service;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ConceptoGastoService {
 
-    List<ConceptoGastoDTO> listar();
+    Page<ConceptoGastoDTO> listar(Pageable pageable);
 
     ConceptoGastoDTO obtener(Integer id);
 

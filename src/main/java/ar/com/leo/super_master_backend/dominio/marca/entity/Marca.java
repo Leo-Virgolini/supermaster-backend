@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.marca.entity;
 
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -46,6 +47,12 @@ public class Marca {
     // -------------------------------------
     @OneToMany(mappedBy = "marca")
     private Set<Producto> productos = new LinkedHashSet<>();
+
+    // -------------------------------------
+    // RELACIÓN CON REGLAS DE CANAL-CONCEPTO
+    // -------------------------------------
+    @OneToMany(mappedBy = "marca")
+    private Set<CanalConceptoRegla> canalConceptoReglas = new LinkedHashSet<>();
 
     public Marca(Integer id) {
         this.id = id;

@@ -1,17 +1,21 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
+import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.entity.TipoRegla;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoReglaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
@@ -28,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,12 +42,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private final ProductoRepository productoRepository;
     private final ProductoCanalRepository productoCanalRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
-    private final ConceptoGastoRepository conceptoGastoRepository;
     private final ReglaDescuentoRepository reglaDescuentoRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final MlaRepository mlaRepository;
     private final CanalRepository canalRepository;
     private final CanalConceptoRepository canalConceptoRepository;
+    private final CanalConceptoReglaRepository canalConceptoReglaRepository;
+    private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
 
     // ====================================================
     // API PÚBLICA
@@ -58,7 +64,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Sistema unificado: todos los conceptos se obtienen desde conceptos_gastos
         // usando id_canal
         String nombreCanal = productoCanal.getCanal().getCanal();
-        boolean esMaquina = Boolean.TRUE.equals(producto.getEsMaquina());
         boolean esCanalNube = nombreCanal != null && (nombreCanal.equalsIgnoreCase("KT HOGAR")
                 || nombreCanal.equalsIgnoreCase("KT GASTRO"));
 
@@ -66,7 +71,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 idCanal,
                 numeroCuotas,
                 esCanalNube,
-                esMaquina);
+                producto);
 
         // Convertir a CanalConcepto para mantener compatibilidad con
         // calcularPrecioInterno
@@ -85,7 +90,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Sistema unificado: todos los conceptos se obtienen desde conceptos_gastos
         // usando id_canal
         String nombreCanal = productoCanal.getCanal().getCanal();
-        boolean esMaquina = Boolean.TRUE.equals(producto.getEsMaquina());
         boolean esCanalNube = nombreCanal != null && (nombreCanal.equalsIgnoreCase("KT HOGAR")
                 || nombreCanal.equalsIgnoreCase("KT GASTRO"));
 
@@ -93,7 +97,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 idCanal,
                 numeroCuotas,
                 esCanalNube,
-                esMaquina);
+                producto);
 
         // Convertir a CanalConcepto para mantener compatibilidad con
         // calcularPrecioInterno
@@ -260,10 +264,25 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 BigDecimal.ONE.add(gastosSobreCostoIvaTotal.divide(cien, 6, RoundingMode.HALF_UP)));
 
         // 10) Calcular gastos totales sobre PVP (para el denominador)
-        BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
-        BigDecimal gastosSobrePVPFrac = gastosSobrePVPTotal.divide(cien, 6, RoundingMode.HALF_UP);
+        // NOTA: Si hay cuotas, los gastos sobre PVP que forman parte de GTML[%] NO se
+        // aplican aquí,
+        // sino solo en el cálculo de cuotas. Por lo tanto, si hay cuotas, no aplicamos
+        // gastos sobre PVP aquí.
+        BigDecimal gastosSobrePVPTotal = BigDecimal.ZERO;
+        BigDecimal gastosSobrePVPFrac = BigDecimal.ZERO;
+
+        // Solo aplicar gastos sobre PVP si NO hay cuotas (pago contado)
+        // Si hay cuotas, estos gastos se aplican en el cálculo de cuotas como parte de
+        // GTML[%]
+        if (productoCanal.getAplicaCuotas() == null || !productoCanal.getAplicaCuotas()
+                || numeroCuotas == null) {
+            gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+            gastosSobrePVPFrac = gastosSobrePVPTotal.divide(cien, 6, RoundingMode.HALF_UP);
+        }
 
         // 11) Calcular PVP base: PVP = costoConImpuestos / (1 - gastosSobrePVP)
+        // Si hay cuotas, gastosSobrePVPFrac será 0, por lo que pvpBase =
+        // costoConImpuestos
         BigDecimal denominador = BigDecimal.ONE.subtract(gastosSobrePVPFrac);
         if (denominador.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("Los gastos sobre PVP son >= 100%, lo cual es inválido");
@@ -275,29 +294,72 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // número de cuotas)
         // Según fórmula Excel: ... / %CUOTAS
         // Donde %CUOTAS = (1 - BUSCARX([@CUOTAS]; GTML[CUOTAS]; GTML[%]))
-        // GTML[%] es una suma de gastos e impuestos de la tabla GTML para ese número de
-        // cuotas
-        // Si numeroCuotas es null o 1, no se aplican gastos de cuotas (pago contado)
+        // GTML[%] = suma de porcentajes de conceptos específicos del canal + porcentaje
+        // de
+        // canal_concepto_cuota
+        // Para ML: COMISION ML + %CUOTAS + MARKETING + EMBALAJE
+        // Para NUBE: MP + %CUOTAS + MARKETING + (NUBE + EMBALAJE si no es máquina)
+        // Estos conceptos deben tener aplica_sobre='PVP' y estar en canal_concepto
+        // Si numeroCuotas es null, no se aplican gastos de cuotas (pago contado)
         if (productoCanal.getAplicaCuotas() != null && productoCanal.getAplicaCuotas()
-                && numeroCuotas != null && numeroCuotas > 1) {
-            // Buscar concepto de gasto relacionado con el número específico de cuotas
-            // Estos conceptos deben estar en conceptos_gastos con campo cuotas = "3", "6",
-            // "9", "12", etc.
-            String cuotasStr = String.valueOf(numeroCuotas);
-            BigDecimal porcentajeCuotas = conceptos.stream()
-                    .filter(cc -> {
-                        String cuotasConcepto = cc.getConcepto().getCuotas();
-                        return cuotasConcepto != null && !cuotasConcepto.isBlank()
-                                && cuotasConcepto.equals(cuotasStr);
-                    })
+                && numeroCuotas != null) {
+            Integer idCanal = productoCanal.getCanal().getId();
+
+            // 1) Obtener todos los conceptos del canal con aplica_sobre='PVP' que forman
+            // parte de GTML[%]
+            // Estos son los conceptos específicos que deben incluirse en el cálculo de
+            // cuotas
+            List<CanalConcepto> todosConceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
+
+            // También incluir conceptos del canal padre si existe (jerarquía)
+            Canal canalActual = canalRepository.findById(idCanal).orElse(null);
+            if (canalActual != null && canalActual.getCanalBase() != null) {
+                todosConceptosCanal.addAll(canalConceptoRepository.findByCanalId(canalActual.getCanalBase().getId()));
+            }
+
+            // Filtrar solo conceptos con aplica_sobre='PVP' que forman parte de GTML[%]
+            BigDecimal porcentajeConceptosCanal = todosConceptosCanal.stream()
+                    .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
                     .map(cc -> cc.getConcepto().getPorcentaje())
+                    .filter(p -> p != null)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            if (porcentajeCuotas.compareTo(BigDecimal.ZERO) > 0) {
+            // 2) Obtener el porcentaje de cuotas de canal_concepto_cuota (si existe)
+            // Buscar cuotas NORMAL primero, luego PROMO si no hay NORMAL
+            BigDecimal porcentajeCuota = BigDecimal.ZERO;
+            List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal,
+                    numeroCuotas);
+
+            // También buscar en el canal padre si existe (jerarquía)
+            if (canalActual != null && canalActual.getCanalBase() != null) {
+                cuotasCanal.addAll(canalConceptoCuotaRepository
+                        .findByCanalIdAndCuotas(canalActual.getCanalBase().getId(), numeroCuotas));
+            }
+
+            // Prioridad: NORMAL primero, luego PROMO
+            Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
+                    .filter(c -> c.getTipo() == TipoCuota.NORMAL)
+                    .findFirst();
+
+            if (cuotaNormal.isPresent()) {
+                porcentajeCuota = cuotaNormal.get().getPorcentaje();
+            } else {
+                Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
+                        .filter(c -> c.getTipo() == TipoCuota.PROMO)
+                        .findFirst();
+                if (cuotaPromo.isPresent()) {
+                    porcentajeCuota = cuotaPromo.get().getPorcentaje();
+                }
+            }
+
+            // 3) GTML[%] = suma de conceptos con aplica_sobre='PVP' + porcentaje de cuotas
+            BigDecimal porcentajeCuotasTotal = porcentajeConceptosCanal.add(porcentajeCuota);
+
+            if (porcentajeCuotasTotal.compareTo(BigDecimal.ZERO) > 0) {
                 // El porcentaje de cuotas se aplica como divisor según Excel: / (1 -
                 // %CUOTAS/100)
                 // Ejemplo: si %CUOTAS = 5%, dividimos por (1 - 0.05) = 0.95
-                BigDecimal cuotasFrac = porcentajeCuotas.divide(cien, 6, RoundingMode.HALF_UP);
+                BigDecimal cuotasFrac = porcentajeCuotasTotal.divide(cien, 6, RoundingMode.HALF_UP);
                 BigDecimal divisorCuotas = BigDecimal.ONE.subtract(cuotasFrac);
                 if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
                     pvpBase = pvpBase.divide(divisorCuotas, 6, RoundingMode.HALF_UP);
@@ -317,12 +379,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pvp = pvp.divide(denominadorDescuento, 6, RoundingMode.HALF_UP);
         }
 
-        // 12.5) Aplicar gasto fijo del 10% (dividir por 0.9) según fórmula Excel para
-        // ML
-        // Según fórmula Excel: ... / 0,9
-        // Esto es equivalente a aplicar un 10% de gasto sobre PVP
-        if (nombreCanal != null && nombreCanal.toUpperCase().contains("ML")) {
-            pvp = pvp.divide(new BigDecimal("0.9"), 6, RoundingMode.HALF_UP);
+        // 12.5) Aplicar gasto fijo según configuración del canal
+        // El porcentaje se obtiene del campo porcentaje_retencion de la tabla canales
+        // Por defecto es 0 (no afecta el cálculo)
+        // Para ML típicamente es 10 (10% de gasto fijo, equivalente a dividir por 0.9)
+        // Fórmula: divisor = 1 - (porcentaje / 100)
+        Canal canal = productoCanal.getCanal();
+        if (canal != null && canal.getPorcentajeRetencion() != null) {
+            BigDecimal porcentaje = canal.getPorcentajeRetencion();
+            if (porcentaje.compareTo(BigDecimal.ZERO) > 0) {
+                // Convertir porcentaje a divisor: divisor = 1 - (porcentaje / 100)
+                BigDecimal divisor = BigDecimal.ONE.subtract(porcentaje.divide(cien, 6, RoundingMode.HALF_UP));
+                if (divisor.compareTo(BigDecimal.ZERO) > 0) {
+                    pvp = pvp.divide(divisor, 6, RoundingMode.HALF_UP);
+                }
+            }
         }
 
         // 13) Aplicar márgenes adicionales (fijo, promoción, oferta)
@@ -463,28 +534,34 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     /**
      * Obtiene todos los conceptos de gasto que aplican al canal según los filtros.
      * 
-     * Sistema unificado: todos los conceptos se asocian a canales a través de canal_concepto.
+     * Sistema unificado: todos los conceptos se asocian a canales a través de
+     * canal_concepto.
      * 
      * Lógica de filtrado:
      * - Canal: Un concepto aplica a un canal si está asociado en canal_concepto
-     * - Jerarquía de canales: Si un concepto está asignado al canal padre (ej: NUBE),
-     *   también aplica a todos sus canales hijos (ej: KT HOGAR, KT GASTRO)
-     * - Cuotas: Si numeroCuotas es null o 1 → conceptos sin cuotas (cuotas = NULL o vacío)
-     *   Si numeroCuotas > 1 → conceptos con ese número específico de cuotas
+     * - Jerarquía de canales: Si un concepto está asignado al canal padre (ej:
+     * NUBE),
+     * también aplica a todos sus canales hijos (ej: KT HOGAR, KT GASTRO)
+     * Nota: Las cuotas ahora se manejan a través de canal_concepto_cuota, no a
+     * través
+     * del campo cuotas en conceptos_gastos
      * 
-     * REGLA ESPECIAL PARA MÁQUINAS EN NUBE:
-     * - Si el canal es NUBE (KT HOGAR o KT GASTRO) y el producto es máquina:
-     *   Se excluyen los conceptos "EMBALAJE" y "NUBE" asociados a NUBE o al canal actual
+     * REGLAS DE CANAL_CONCEPTO_REGLA:
+     * - Si tipo_regla = INCLUIR: el concepto SOLO aplica si el producto cumple
+     * TODAS las condiciones
+     * - Si tipo_regla = EXCLUIR: el concepto NO aplica si el producto cumple ALGUNA
+     * condición
      * 
      * @param idCanal      ID del canal para filtrar conceptos
-     * @param numeroCuotas Número de cuotas. Si es null o 1, retorna conceptos sin cuotas.
-     *                     Si es > 1, retorna conceptos con ese número específico de cuotas.
+     * @param numeroCuotas Número de cuotas (parámetro mantenido por compatibilidad,
+     *                     pero ya no se usa para filtrar conceptos)
      * @param esCanalNube  true si el canal es KT HOGAR o KT GASTRO (canales NUBE)
-     * @param esMaquina    true si el producto es una máquina
+     * @param producto     El producto para aplicar las reglas de
+     *                     canal_concepto_regla
      * @return Lista de conceptos de gasto que aplican según los filtros
      */
     private List<ConceptoGasto> obtenerConceptosAplicables(Integer idCanal, Integer numeroCuotas,
-            boolean esCanalNube, boolean esMaquina) {
+            boolean esCanalNube, Producto producto) {
         // Obtener el canal actual para acceder a su canal padre (canalBase)
         Canal canalActual = canalRepository.findById(idCanal).orElse(null);
         final Integer idCanalPadre = (canalActual != null && canalActual.getCanalBase() != null)
@@ -497,45 +574,34 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (idCanalPadre != null) {
             conceptosPorCanal.addAll(canalConceptoRepository.findByCanalId(idCanalPadre));
         }
-        
+
+        // Obtener todas las reglas del canal (incluyendo el canal padre si existe)
+        List<CanalConceptoRegla> reglasCanal = canalConceptoReglaRepository.findByCanalId(idCanal);
+        if (idCanalPadre != null) {
+            reglasCanal.addAll(canalConceptoReglaRepository.findByCanalId(idCanalPadre));
+        }
+
         // Extraer los conceptos únicos que aplican al canal
         return conceptosPorCanal.stream()
                 .map(CanalConcepto::getConcepto)
                 .filter(concepto -> {
+                    // APLICAR REGLAS DE CANAL_CONCEPTO_REGLA
+                    // Buscar reglas que afecten a este concepto
+                    List<CanalConceptoRegla> reglasConcepto = reglasCanal.stream()
+                            .filter(regla -> regla.getConcepto().getId().equals(concepto.getId()))
+                            .collect(Collectors.toList());
 
-                    // Filtrar por cuotas
-                    String cuotasConcepto = concepto.getCuotas();
+                    for (CanalConceptoRegla regla : reglasConcepto) {
+                        boolean cumpleCondiciones = cumpleCondicionesRegla(regla, producto);
 
-                    if (numeroCuotas == null || numeroCuotas <= 1) {
-                        // Sin cuotas: buscar conceptos sin cuotas (null o vacío)
-                        if (cuotasConcepto != null && !cuotasConcepto.isBlank()) {
-                            return false;
-                        }
-                    } else {
-                        // Con cuotas: buscar conceptos con el número específico de cuotas
-                        if (cuotasConcepto == null || cuotasConcepto.isBlank()
-                                || !cuotasConcepto.equals(String.valueOf(numeroCuotas))) {
-                            return false;
-                        }
-                    }
-
-                    // REGLA ESPECIAL: Excluir EMBALAJE y NUBE para máquinas en canales NUBE
-                    // Si el canal es NUBE (KT HOGAR o KT GASTRO) y el producto es máquina,
-                    // excluir conceptos "EMBALAJE" y "NUBE" asociados a NUBE o al canal actual
-                    if (esCanalNube && esMaquina) {
-                        String nombreConcepto = concepto.getConcepto();
-                        if (nombreConcepto != null) {
-                            String nombreConceptoUpper = nombreConcepto.toUpperCase();
-                            // Verificar si el concepto está asociado a NUBE o al canal actual
-                            boolean estaEnNube = idCanalPadre != null && conceptosPorCanal.stream()
-                                    .anyMatch(cc -> cc.getCanal().getId().equals(idCanalPadre) 
-                                            && cc.getConcepto().getId().equals(concepto.getId()));
-                            boolean estaEnCanalActual = conceptosPorCanal.stream()
-                                    .anyMatch(cc -> cc.getCanal().getId().equals(idCanal) 
-                                            && cc.getConcepto().getId().equals(concepto.getId()));
-                            
-                            if (("EMBALAJE".equals(nombreConceptoUpper) || "NUBE".equals(nombreConceptoUpper))
-                                    && (estaEnNube || estaEnCanalActual)) {
+                        if (regla.getTipoRegla() == TipoRegla.INCLUIR) {
+                            // INCLUIR: el concepto SOLO aplica si cumple TODAS las condiciones
+                            if (!cumpleCondiciones) {
+                                return false;
+                            }
+                        } else if (regla.getTipoRegla() == TipoRegla.EXCLUIR) {
+                            // EXCLUIR: el concepto NO aplica si cumple ALGUNA condición
+                            if (cumpleCondiciones) {
                                 return false;
                             }
                         }
@@ -544,6 +610,59 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     return true;
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Verifica si un producto cumple las condiciones de una regla.
+     * 
+     * @param regla    La regla a verificar
+     * @param producto El producto a evaluar
+     * @return true si el producto cumple TODAS las condiciones especificadas en la
+     *         regla
+     */
+    private boolean cumpleCondicionesRegla(CanalConceptoRegla regla, Producto producto) {
+        // Si la regla no tiene condiciones, no se aplica (retorna false)
+        boolean tieneCondiciones = regla.getTipo() != null
+                || regla.getClasifGral() != null
+                || regla.getClasifGastro() != null
+                || regla.getMarca() != null;
+
+        if (!tieneCondiciones) {
+            return false;
+        }
+
+        // Verificar tipo
+        if (regla.getTipo() != null) {
+            if (producto.getTipo() == null || !producto.getTipo().getId().equals(regla.getTipo().getId())) {
+                return false;
+            }
+        }
+
+        // Verificar clasificación general
+        if (regla.getClasifGral() != null) {
+            if (producto.getClasifGral() == null
+                    || !producto.getClasifGral().getId().equals(regla.getClasifGral().getId())) {
+                return false;
+            }
+        }
+
+        // Verificar clasificación gastro
+        if (regla.getClasifGastro() != null) {
+            if (producto.getClasifGastro() == null
+                    || !producto.getClasifGastro().getId().equals(regla.getClasifGastro().getId())) {
+                return false;
+            }
+        }
+
+        // Verificar marca
+        if (regla.getMarca() != null) {
+            if (producto.getMarca() == null || !producto.getMarca().getId().equals(regla.getMarca().getId())) {
+                return false;
+            }
+        }
+
+        // Si llegamos aquí, el producto cumple TODAS las condiciones especificadas
+        return true;
     }
 
     /**
@@ -564,7 +683,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         cc -> cc.getConcepto().getId(),
                         cc -> cc,
                         (existing, replacement) -> existing));
-        
+
         return conceptos.stream()
                 .map(concepto -> {
                     // Si ya existe una relación en canal_concepto, usarla
@@ -572,7 +691,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     if (cc != null) {
                         return cc;
                     }
-                    // Si no existe, crear una temporal para compatibilidad con calcularPrecioInterno
+                    // Si no existe, crear una temporal para compatibilidad con
+                    // calcularPrecioInterno
                     CanalConcepto ccTemp = new CanalConcepto();
                     ccTemp.setConcepto(concepto);
                     ar.com.leo.super_master_backend.dominio.canal.entity.Canal canal = new ar.com.leo.super_master_backend.dominio.canal.entity.Canal();

@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -39,10 +40,6 @@ public class ConceptoGasto {
     @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','IMP') DEFAULT 'PVP'")
     private AplicaSobre aplicaSobre;
 
-    @Size(max = 2)
-    @Column(name = "cuotas", length = 2)
-    private String cuotas;
-
     // ----------------------------------------
     // RELACIÓN CON CANALES
     // ----------------------------------------
@@ -51,6 +48,12 @@ public class ConceptoGasto {
 
     @OneToMany(mappedBy = "concepto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanalConcepto> canalConceptos = new LinkedHashSet<>();
+
+    // ----------------------------------------
+    // RELACIÓN CON REGLAS DE CANAL-CONCEPTO
+    // ----------------------------------------
+    @OneToMany(mappedBy = "concepto")
+    private Set<CanalConceptoRegla> canalConceptoReglas = new LinkedHashSet<>();
 
     public ConceptoGasto(Integer id) {
         this.id = id;

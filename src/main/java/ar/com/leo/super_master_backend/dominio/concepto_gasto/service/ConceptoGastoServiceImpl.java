@@ -12,6 +12,8 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoP
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +32,9 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ConceptoGastoDTO> listar() {
-        return conceptoRepository.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    public Page<ConceptoGastoDTO> listar(Pageable pageable) {
+        return conceptoRepository.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override
@@ -77,15 +77,10 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
         canales.stream()
                 .map(cc -> cc.getCanal().getId())
                 .distinct()
-                .forEach(idCanal ->
-                        productoCanalRepository.findByCanalId(idCanal)
-                                .forEach(pc ->
-                                        calculoPrecioService.recalcularYGuardarPrecioCanal(
-                                                pc.getProducto().getId(),
-                                                idCanal
-                                        )
-                                )
-                );
+                .forEach(idCanal -> productoCanalRepository.findByCanalId(idCanal)
+                        .forEach(pc -> calculoPrecioService.recalcularYGuardarPrecioCanal(
+                                pc.getProducto().getId(),
+                                idCanal)));
 
         return mapper.toDTO(entity);
     }

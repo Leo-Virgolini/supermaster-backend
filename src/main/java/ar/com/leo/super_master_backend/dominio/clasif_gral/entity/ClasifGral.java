@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.clasif_gral.entity;
 
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.*;
@@ -53,6 +54,12 @@ public class ClasifGral {
     // -------------------------------------
     @OneToMany(mappedBy = "clasifGral")
     private Set<ReglaDescuento> reglasDescuentos = new LinkedHashSet<>();
+
+    // -------------------------------------
+    // RELACIÓN CON REGLAS DE CANAL-CONCEPTO
+    // -------------------------------------
+    @OneToMany(mappedBy = "clasifGral")
+    private Set<CanalConceptoRegla> canalConceptoReglas = new LinkedHashSet<>();
 
     public ClasifGral(Integer id) {
         this.id = id;

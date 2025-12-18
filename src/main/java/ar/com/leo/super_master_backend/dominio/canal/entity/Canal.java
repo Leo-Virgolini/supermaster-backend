@@ -9,9 +9,11 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -37,6 +39,10 @@ public class Canal {
     @JoinColumn(name = "id_canal_base")
     private Canal canalBase;
 
+    @ColumnDefault("0")
+    @Column(name = "porcentaje_retencion", precision = 5, scale = 2)
+    private BigDecimal porcentajeRetencion;
+
     @OneToMany(mappedBy = "canalBase")
     private Set<Canal> subcanales = new LinkedHashSet<>();
 
@@ -51,6 +57,12 @@ public class Canal {
 
     @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReglaDescuento> reglasDescuentos = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "canal")
+    private Set<CanalConceptoRegla> canalConceptoReglas = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CanalConceptoCuota> canalConceptoCuotas = new LinkedHashSet<>();
 
     public Canal(Integer idCanal) {
         this.id = idCanal;

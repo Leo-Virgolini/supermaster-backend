@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.tipo.service;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface TipoService {
 
-    List<TipoDTO> listar();
+    Page<TipoDTO> listar(Pageable pageable);
 
     TipoDTO obtener(Integer id);
 

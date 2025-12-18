@@ -8,10 +8,10 @@ import ar.com.leo.super_master_backend.dominio.apto.mapper.AptoMapper;
 import ar.com.leo.super_master_backend.dominio.apto.repository.AptoRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,11 +30,9 @@ public class AptoServiceImpl implements AptoService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AptoDTO> listar() {
-        return repo.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    public Page<AptoDTO> listar(Pageable pageable) {
+        return repo.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override

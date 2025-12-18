@@ -8,12 +8,13 @@ import ar.com.leo.super_master_backend.dominio.catalogo.service.CatalogoService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,8 +27,8 @@ public class CatalogoController {
     // LISTAR
     // ===============================
     @GetMapping
-    public ResponseEntity<List<CatalogoDTO>> listar() {
-        return ResponseEntity.ok(service.listar());
+    public ResponseEntity<Page<CatalogoDTO>> listar(Pageable pageable) {
+        return ResponseEntity.ok(service.listar(pageable));
     }
 
     // ===============================

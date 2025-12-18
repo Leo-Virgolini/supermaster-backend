@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.material.service;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialCreateDTO;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialDTO;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface MaterialService {
 
-    List<MaterialDTO> listar();
+    Page<MaterialDTO> listar(Pageable pageable);
 
     MaterialDTO obtener(Integer id);
 

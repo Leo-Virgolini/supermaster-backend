@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.marca.service;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface MarcaService {
 
-    List<MarcaDTO> listar();
+    Page<MarcaDTO> listar(Pageable pageable);
 
     MarcaDTO obtener(Integer id);
 

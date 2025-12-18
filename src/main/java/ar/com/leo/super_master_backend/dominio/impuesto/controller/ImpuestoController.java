@@ -7,12 +7,13 @@ import ar.com.leo.super_master_backend.dominio.impuesto.service.ImpuestoService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,8 +26,8 @@ public class ImpuestoController {
     // LISTAR TODOS
     // -------------------------
     @GetMapping
-    public ResponseEntity<List<ImpuestoDTO>> listar() {
-        return ResponseEntity.ok(service.listar());
+    public ResponseEntity<Page<ImpuestoDTO>> listar(Pageable pageable) {
+        return ResponseEntity.ok(service.listar(pageable));
     }
 
     // -------------------------

@@ -8,10 +8,10 @@ import ar.com.leo.super_master_backend.dominio.clasif_gral.mapper.ClasifGralMapp
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,11 +22,9 @@ public class ClasifGralServiceImpl implements ClasifGralService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ClasifGralDTO> listar() {
-        return repo.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    public Page<ClasifGralDTO> listar(Pageable pageable) {
+        return repo.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override

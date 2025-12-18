@@ -3,11 +3,11 @@ package ar.com.leo.super_master_backend.dominio.apto.service;
 import ar.com.leo.super_master_backend.dominio.apto.dto.AptoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.apto.dto.AptoDTO;
 import ar.com.leo.super_master_backend.dominio.apto.dto.AptoUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface AptoService {
-    List<AptoDTO> listar();
+    Page<AptoDTO> listar(Pageable pageable);
 
     AptoDTO obtener(Integer id);
 

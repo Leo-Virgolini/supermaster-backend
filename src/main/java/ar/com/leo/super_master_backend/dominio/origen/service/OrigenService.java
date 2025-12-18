@@ -3,12 +3,12 @@ package ar.com.leo.super_master_backend.dominio.origen.service;
 import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenCreateDTO;
 import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenDTO;
 import ar.com.leo.super_master_backend.dominio.origen.dto.OrigenUpdateDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface OrigenService {
 
-    List<OrigenDTO> listar();
+    Page<OrigenDTO> listar(Pageable pageable);
 
     OrigenDTO obtener(Integer id);
 

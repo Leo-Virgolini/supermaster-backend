@@ -8,10 +8,10 @@ import ar.com.leo.super_master_backend.dominio.origen.mapper.OrigenMapper;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,11 +22,9 @@ public class OrigenServiceImpl implements OrigenService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<OrigenDTO> listar() {
-        return repo.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    public Page<OrigenDTO> listar(Pageable pageable) {
+        return repo.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override

@@ -11,6 +11,8 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,11 +34,9 @@ public class CanalServiceImpl implements CanalService {
     // =======================================
     @Override
     @Transactional(readOnly = true)
-    public List<CanalDTO> listar() {
-        return canalRepository.findAll()
-                .stream()
-                .map(canalMapper::toDTO)
-                .toList();
+    public Page<CanalDTO> listar(Pageable pageable) {
+        return canalRepository.findAll(pageable)
+                .map(canalMapper::toDTO);
     }
 
     @Override
@@ -94,12 +94,9 @@ public class CanalServiceImpl implements CanalService {
         productosDelCanal.forEach(pc -> pc.setMargenPorcentaje(nuevoMargen));
 
         // 3) Recalcular precios
-        productosDelCanal.forEach(pc ->
-                calculoPrecioService.recalcularYGuardarPrecioCanal(
-                        pc.getProducto().getId(),
-                        idCanal
-                )
-        );
+        productosDelCanal.forEach(pc -> calculoPrecioService.recalcularYGuardarPrecioCanal(
+                pc.getProducto().getId(),
+                idCanal));
     }
 
 }
