@@ -14,11 +14,11 @@ Backend del sistema Super Master desarrollado con Spring Boot.
 
 1. Crear una base de datos MySQL llamada `supermaster`
 2. Configurar las credenciales en `src/main/resources/application.properties`:
-   ```properties
-   spring.datasource.url=jdbc:mysql://localhost:3306/supermaster?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&characterEncoding=UTF-8
-   spring.datasource.username=root
-   spring.datasource.password=admin
-   ```
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/supermaster?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&characterEncoding=UTF-8
+spring.datasource.username=root
+spring.datasource.password=admin
+```
 
 ## Ejecución
 

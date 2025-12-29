@@ -32,12 +32,12 @@ public class ConceptoGasto {
     private String concepto;
 
     @NotNull
-    @Column(name = "porcentaje", nullable = false, precision = 5, scale = 2)
+    @Column(name = "porcentaje", nullable = false, precision = 6, scale = 3)
     private BigDecimal porcentaje;
 
     @ColumnDefault("'PVP'")
     @Enumerated(EnumType.STRING)
-    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','IMP') DEFAULT 'PVP'")
+    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','IMP','CUPON') DEFAULT 'PVP'")
     private AplicaSobre aplicaSobre;
 
     // ----------------------------------------

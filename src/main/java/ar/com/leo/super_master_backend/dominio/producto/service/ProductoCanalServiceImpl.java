@@ -73,8 +73,6 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
         // MapStruct NO actualiza entidades existentes, así que asignamos a mano
         pc.setMargenPorcentaje(dto.margenPorcentaje());
         pc.setMargenFijo(dto.margenFijo());
-        pc.setMargenPromocion(dto.margenPromocion());
-        pc.setMargenOferta(dto.margenOferta());
         pc.setUsaCanalBase(dto.usaCanalBase());
         pc.setAplicaCuotas(dto.aplicaCuotas());
         pc.setAplicaComision(dto.aplicaComision());

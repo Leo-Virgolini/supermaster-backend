@@ -44,7 +44,8 @@ public class CanalController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CanalDTO> actualizar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id, @Valid @RequestBody CanalUpdateDTO dto) {
+    public ResponseEntity<CanalDTO> actualizar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody CanalUpdateDTO dto) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }
 

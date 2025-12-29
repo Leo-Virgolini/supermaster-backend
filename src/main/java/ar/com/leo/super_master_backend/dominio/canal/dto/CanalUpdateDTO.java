@@ -7,6 +7,6 @@ public record CanalUpdateDTO(
         @Size(max = 45)
         String canal,
         Integer canalBaseId,
-        BigDecimal porcentajeRetencion
+        BigDecimal porcentajeInflacion
 ) {
 }

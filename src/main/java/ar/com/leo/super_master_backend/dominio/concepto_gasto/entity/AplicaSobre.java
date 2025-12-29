@@ -13,12 +13,15 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  * - COSTO_MARGEN: Se aplica sobre el costo después de aplicar margen (se multiplica después de ganancia)
  * - IMP: Se suma al factor de impuestos (IMP = 1 + IVA/100 + concepto/100)
  *        Ejemplo: IIBB se suma directamente al factor IMP
+ * - CUPON: Se aplica como divisor adicional sobre el PVP después de GT3C
+ *          Ejemplo: CUPON se divide por (1 - CUPON/100) al final del cálculo
  */
 public enum AplicaSobre {
     COSTO,
     PVP,
     COSTO_IVA,
     COSTO_MARGEN,
-    IMP
+    IMP,
+    CUPON
 }
 

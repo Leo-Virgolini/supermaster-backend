@@ -32,6 +32,9 @@ public class ClasifGastro {
     @Column(name = "nombre", nullable = false, length = 45)
     private String nombre;
 
+    @Column(name = "es_maquina")
+    private Boolean esMaquina;
+
     // -------------------------------------
     // RELACIÓN JERÁRQUICA (PADRE - HIJOS)
     // -------------------------------------

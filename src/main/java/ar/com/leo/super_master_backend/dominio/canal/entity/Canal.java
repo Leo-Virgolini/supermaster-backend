@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.canal.entity;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -40,8 +41,8 @@ public class Canal {
     private Canal canalBase;
 
     @ColumnDefault("0")
-    @Column(name = "porcentaje_retencion", precision = 5, scale = 2)
-    private BigDecimal porcentajeRetencion;
+    @Column(name = "porcentaje_inflacion", precision = 6, scale = 3)
+    private BigDecimal porcentajeInflacion;
 
     @OneToMany(mappedBy = "canalBase")
     private Set<Canal> subcanales = new LinkedHashSet<>();
@@ -63,6 +64,9 @@ public class Canal {
 
     @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanalConceptoCuota> canalConceptoCuotas = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "canal")
+    private Set<ProductoCanalPromocion> productoCanalPromociones = new LinkedHashSet<>();
 
     public Canal(Integer idCanal) {
         this.id = idCanal;

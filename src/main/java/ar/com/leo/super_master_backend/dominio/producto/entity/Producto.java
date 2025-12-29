@@ -14,7 +14,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -128,7 +127,7 @@ public class Producto {
     private Instant fechaUltCosto;
 
     @NotNull
-    @Column(name = "iva", nullable = false, precision = 5, scale = 2)
+    @Column(name = "iva", nullable = false, precision = 6, scale = 3)
     private BigDecimal iva;
 
     // ---------------------------
@@ -152,6 +151,9 @@ public class Producto {
 
     @OneToMany(mappedBy = "producto")
     private Set<ProductoCliente> productoClientes = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "producto")
+    private Set<ProductoCanalPromocion> productoCanalPromociones = new LinkedHashSet<>();
 
     @Column(name = "fecha_creacion", updatable = false, nullable = false)
     private Instant fechaCreacion;

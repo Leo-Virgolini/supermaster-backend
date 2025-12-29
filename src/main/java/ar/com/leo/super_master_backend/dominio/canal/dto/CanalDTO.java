@@ -6,6 +6,6 @@ public record CanalDTO(
         Integer id,
         String canal,
         Integer canalBaseId,
-        BigDecimal porcentajeRetencion
+        BigDecimal porcentajeInflacion
 ) {
 }

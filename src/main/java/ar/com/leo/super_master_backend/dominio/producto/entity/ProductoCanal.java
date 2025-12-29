@@ -47,17 +47,11 @@ public class ProductoCanal {
     // CAMPOS DE LA ENTIDAD
     // ---------------------------
     @NotNull
-    @Column(name = "margen_porcentaje", nullable = false, precision = 5, scale = 2)
+    @Column(name = "margen_porcentaje", nullable = false, precision = 6, scale = 3)
     private BigDecimal margenPorcentaje;
 
     @Column(name = "margen_fijo", precision = 10, scale = 2)
     private BigDecimal margenFijo;
-
-    @Column(name = "margen_promocion", precision = 5, scale = 2)
-    private BigDecimal margenPromocion;
-
-    @Column(name = "margen_oferta", precision = 5, scale = 2)
-    private BigDecimal margenOferta;
 
     @ColumnDefault("0")
     @Column(name = "usa_canal_base")

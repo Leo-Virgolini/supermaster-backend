@@ -41,7 +41,7 @@ public class Proveedor {
     @Column(name = "entrega")
     private Boolean entrega;
 
-    @Column(name = "porcentaje", precision = 5, scale = 2)
+    @Column(name = "porcentaje", precision = 6, scale = 3)
     private BigDecimal porcentaje;
 
     @OneToMany(mappedBy = "proveedor")

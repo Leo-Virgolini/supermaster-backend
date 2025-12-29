@@ -69,7 +69,7 @@ public class ReglaDescuento {
     private BigDecimal montoMinimo;
 
     @NotNull
-    @Column(name = "descuento_porcentaje", nullable = false, precision = 5, scale = 2)
+    @Column(name = "descuento_porcentaje", nullable = false, precision = 6, scale = 3)
     private BigDecimal descuentoPorcentaje;
 
     @ColumnDefault("1")

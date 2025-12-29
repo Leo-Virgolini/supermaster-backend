@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public record PrecioCalculadoDTO(
         BigDecimal pvp,
+        BigDecimal pvpInflado,
         BigDecimal costoTotal,
         BigDecimal gananciaAbs,
         BigDecimal gananciaPorcentaje,

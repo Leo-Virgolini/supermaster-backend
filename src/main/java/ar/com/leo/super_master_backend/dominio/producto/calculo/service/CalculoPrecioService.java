@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 
 public interface CalculoPrecioService {
 
@@ -38,4 +39,15 @@ public interface CalculoPrecioService {
     default PrecioCalculadoDTO recalcularYGuardarPrecioCanal(Integer idProducto, Integer idCanal) {
         return recalcularYGuardarPrecioCanal(idProducto, idCanal, null);
     }
+
+    /**
+     * Obtiene la fórmula del cálculo de precio para un producto, canal y número de cuotas.
+     * Muestra paso a paso cómo se calcula el precio con los valores reales.
+     * 
+     * @param idProducto ID del producto
+     * @param idCanal ID del canal
+     * @param numeroCuotas Número de cuotas (opcional)
+     * @return DTO con la fórmula desglosada paso a paso
+     */
+    FormulaCalculoDTO obtenerFormulaCalculo(Integer idProducto, Integer idCanal, Integer numeroCuotas);
 }

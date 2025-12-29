@@ -9,6 +9,6 @@ public record CanalCreateDTO(
         @Size(max = 45)
         String canal,
         Integer canalBaseId,
-        BigDecimal porcentajeRetencion
+        BigDecimal porcentajeInflacion
 ) {
 }
