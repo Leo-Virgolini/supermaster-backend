@@ -75,5 +75,8 @@ public class CanalConceptoRegla {
     @JoinColumn(name = "id_marca")
     private Marca marca;
 
+    @Column(name = "es_maquina")
+    private Boolean esMaquina;
+
 }
 

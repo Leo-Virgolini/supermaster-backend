@@ -1,18 +1,28 @@
 package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+import org.hibernate.annotations.ColumnDefault;
+
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
-
-import java.math.BigDecimal;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -37,7 +47,7 @@ public class ConceptoGasto {
 
     @ColumnDefault("'PVP'")
     @Enumerated(EnumType.STRING)
-    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','IMP','CUPON') DEFAULT 'PVP'")
+    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','AUMENTA_MARGEN','REDUCE_MARGEN','IMP','CUPON','DESCUENTO') DEFAULT 'PVP'")
     private AplicaSobre aplicaSobre;
 
     // ----------------------------------------

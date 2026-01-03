@@ -27,7 +27,9 @@ public record CanalConceptoReglaCreateDTO(
         Integer clasifGralId,
 
         @Positive(message = "El ID de marca debe ser positivo")
-        Integer marcaId
+        Integer marcaId,
+
+        Boolean esMaquina
 ) {
 }
 

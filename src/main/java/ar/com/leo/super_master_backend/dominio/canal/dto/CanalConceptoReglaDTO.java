@@ -8,7 +8,8 @@ public record CanalConceptoReglaDTO(
         Integer tipoId,
         Integer clasifGastroId,
         Integer clasifGralId,
-        Integer marcaId
+        Integer marcaId,
+        Boolean esMaquina
 ) {
 }
 

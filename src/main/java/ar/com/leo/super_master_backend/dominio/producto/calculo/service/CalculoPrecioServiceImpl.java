@@ -1,45 +1,46 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
-import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
-import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
-import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
-import ar.com.leo.super_master_backend.dominio.canal.entity.TipoRegla;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
-import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
-import ar.com.leo.super_master_backend.dominio.promocion.entity.TipoPromocionTabla;
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoReglaRepository;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
-import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPromocionRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
-import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
-import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
-import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
+import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.entity.TipoRegla;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoReglaRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
+import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPromocionRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
+import ar.com.leo.super_master_backend.dominio.promocion.entity.TipoPromocionTabla;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +61,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // ====================================================
     // API PÚBLICA
     // ====================================================
-
     @Override
     @Transactional(readOnly = true)
     public PrecioCalculadoDTO calcularPrecioCanal(Integer idProducto, Integer idCanal, Integer numeroCuotas) {
@@ -136,33 +136,27 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // ====================================================
     // LÓGICA DE CÁLCULO
     // ====================================================
-
     /**
      * Calcula el precio de un producto para un canal basándose en la lógica del
      * Excel.
-     * 
-     * Fórmula principal del Excel para ML:
-     * PVP ML = ((([@[ML-COSTO+GAN]] + [@ENVIO]) * [@[IMP.]]) / ([@[%CUOTAS]])) /
-     * 0,9
-     * 
-     * Donde:
-     * - ML-COSTO+GAN = [@COSTO] + ([@COSTO] * [@[GAN.MIN.ML]])
-     * - @COSTO = costo del producto (de DUX, tabla productos.costo)
-     * - @ENVIO = precio de envío de ML (de tabla mlas.precio_envio)
-     * - @[GAN.MIN.ML] = % de ganancia mínima del producto (de
-     * producto_canal.margen_porcentaje)
-     * - @[IMP.] = 1 + [@IVA] + sum(conceptos con aplica_sobre='IMP')
-     * - @IVA = IVA del producto (de DUX, tabla productos.iva, como porcentaje, ej:
-     * 21)
-     * - conceptos IMP = conceptos de conceptos_gastos con aplica_sobre='IMP' (ej:
-     * IIBB = 5%)
-     * - @[%CUOTAS] = (1 - BUSCARX([@CUOTAS]; GTML[CUOTAS]; GTML[%]))
-     * - GTML[%] = suma de porcentajes de conceptos_gastos con campo cuotas = número
-     * de cuotas
-     * - Se obtiene de conceptos_gastos filtrando por id_canal=ML,
-     * cuotas="3"/"6"/"9"/"12", etc.
-     * - 0,9 = gasto fijo del 10% para ML (equivalente a dividir por 0.9)
-     * 
+     *
+     * Fórmula principal del Excel para ML: PVP ML = ((([@[ML-COSTO+GAN]] +
+     * [@ENVIO]) * [@[IMP.]]) / ([@[%CUOTAS]])) / 0,9
+     *
+     * Donde: - ML-COSTO+GAN = [@COSTO] + ([@COSTO] * [@[GAN.MIN.ML]]) - @COSTO
+     * = costo del producto (de DUX, tabla productos.costo) - @ENVIO = precio de
+     * envío de ML (de tabla mlas.precio_envio) - @[GAN.MIN.ML] = % de ganancia
+     * mínima del producto (de producto_canal.margen_porcentaje) - @[IMP.] = 1 +
+     * [@IVA] + sum(conceptos con aplica_sobre='IMP') - @IVA = IVA del producto
+     * (de DUX, tabla productos.iva, como porcentaje, ej: 21) - conceptos IMP =
+     * conceptos de conceptos_gastos con aplica_sobre='IMP' (ej: IIBB = 5%) -
+     *
+     * @[%CUOTAS] = (1 - BUSCARX([@CUOTAS]; GTML[CUOTAS]; GTML[%])) - GTML[%] =
+     * suma de porcentajes de conceptos_gastos con campo cuotas = número de
+     * cuotas - Se obtiene de conceptos_gastos filtrando por id_canal=ML,
+     * cuotas="3"/"6"/"9"/"12", etc. - 0,9 = gasto fijo del 10% para ML
+     * (equivalente a dividir por 0.9)
+     *
      * Para otros canales, la fórmula es similar pero sin envío y sin el divisor
      * 0.9.
      */
@@ -221,8 +215,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO)
                 .collect(Collectors.toList());
 
-        List<CanalConcepto> gastosSobreCostoMargen = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+        List<CanalConcepto> gastosSobreAumentaMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
                 .collect(Collectors.toList());
 
         List<CanalConcepto> gastosSobreCostoIva = conceptos.stream()
@@ -238,16 +233,19 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal costoConGastos = costo.multiply(
                 BigDecimal.ONE.add(gastosSobreCostoTotal.divide(cien, 6, RoundingMode.HALF_UP)));
 
-        // 6) Calcular costo con ganancia (margen porcentual)
-        // Según fórmula Excel: ML-COSTO+GAN = [@COSTO] + ([@COSTO] * [@[GAN.MIN.ML]])
-        // Esto es equivalente a: COSTO * (1 + GAN.MIN.ML/100)
-        BigDecimal margenFrac = margenPorcentaje.divide(cien, 6, RoundingMode.HALF_UP);
-        BigDecimal costoConGanancia = costoConGastos.multiply(BigDecimal.ONE.add(margenFrac));
+        // 6) Calcular ganancia ajustada con AUMENTA_MARGEN
+        // Base: GAN.MIN.ML
+        BigDecimal gananciaAjustada = margenPorcentaje;
 
-        // 7) Aplicar gastos sobre COSTO_MARGEN
-        BigDecimal gastosSobreCostoMargenTotal = calcularGastosPorcentaje(gastosSobreCostoMargen);
-        BigDecimal costoConGananciaFinal = costoConGanancia.multiply(
-                BigDecimal.ONE.add(gastosSobreCostoMargenTotal.divide(cien, 6, RoundingMode.HALF_UP)));
+        // Si hay AUMENTA_MARGEN: GANANCIA_AJUSTADA += AUMENTA_MARGEN (suma directa)
+        BigDecimal aumentaMargenTotal = calcularGastosPorcentaje(gastosSobreAumentaMargen);
+        if (aumentaMargenTotal.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.add(aumentaMargenTotal);
+        }
+
+        // 7) Calcular costo con ganancia ajustada
+        BigDecimal gananciaFrac = gananciaAjustada.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal costoConGananciaFinal = costoConGastos.multiply(BigDecimal.ONE.add(gananciaFrac));
 
         // 7.5) Sumar envío (solo para canal ML, antes de aplicar IVA)
         // Según fórmula Excel: ((COSTO+GAN)+ENVIO)*IMP
@@ -418,8 +416,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // 16) Calcular gastos totales porcentaje (suma de todos los gastos, incluyendo
         // IMP)
+        BigDecimal aumentaMargenTotalParaGastos = calcularGastosPorcentaje(gastosSobreAumentaMargen);
         BigDecimal gastosTotalPorcentaje = gastosSobreCostoTotal
-                .add(gastosSobreCostoMargenTotal)
+                .add(aumentaMargenTotalParaGastos)
                 .add(gastosSobreCostoIvaTotal)
                 .add(gastosSobrePVPTotal)
                 .add(gastosSobreImpTotal);
@@ -434,9 +433,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Determina si un producto es máquina basándose en la clasificación gastronómica.
-     * Un producto es máquina si su clasifGastro tiene es_maquina = true.
-     * 
+     * Determina si un producto es máquina basándose en la clasificación
+     * gastronómica. Un producto es máquina si su clasifGastro tiene es_maquina
+     * = true.
+     *
      * @param producto El producto a verificar
      * @return true si el producto es máquina, false en caso contrario
      */
@@ -449,18 +449,19 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Calcula el precio para el canal KT HOGAR usando la fórmula especial del Excel.
-     * 
-     * Fórmula: PVP NUBE = ( ( ([@COSTO]+[@COSTO]*( SI( [@[GAN.MIN.ML]]=0; "MARGEN"; [@[GAN.MIN.ML]] + 0,25 ) )) * [@[IMP.]] ) / (1-GTN) ) / (1-CUPON)
-     * 
-     * Donde:
-     * - Si GAN.MIN.ML = 0, usar MARGEN (margen base del canal)
-     * - Si GAN.MIN.ML != 0, usar GAN.MIN.ML + 0.25
-     * - @[IMP.] = 1 + [@IVA] + IIBB
-     * - GTN (NUBE MENAJE X CUOTAS) = MP + NUBE + X CUOTAS + MARKETING + EMBALAJE
-     *   (donde X es el número de cuotas especificado)
-     * - CUPON se obtiene de conceptos_gastos (si existe)
-     * 
+     * Calcula el precio para el canal KT HOGAR usando la fórmula especial del
+     * Excel.
+     *
+     * Fórmula: PVP NUBE = ( ( ([@COSTO]+[@COSTO]*( SI( [@[GAN.MIN.ML]]=0;
+     * "MARGEN"; [@[GAN.MIN.ML]] + 0,25 ) )) * [@[IMP.]] ) / (1-GTN) ) /
+     * (1-CUPON)
+     *
+     * Donde: - Si GAN.MIN.ML = 0, usar MARGEN (margen base del canal) - Si
+     * GAN.MIN.ML != 0, usar GAN.MIN.ML + 0.25 - @[IMP.] = 1 + [@IVA] + IIBB -
+     * GTN (NUBE MENAJE X CUOTAS) = MP + NUBE + X CUOTAS + MARKETING + EMBALAJE
+     * (donde X es el número de cuotas especificado) - CUPON se obtiene de
+     * conceptos_gastos (si existe)
+     *
      * NOTA: NO SE PUEDE VENDER MAQUINA en este canal
      */
     private PrecioCalculadoDTO calcularPrecioKTHogar(
@@ -491,22 +492,23 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
 
         // 2) Calcular ganancia según fórmula:
-        // SI( [@[GAN.MIN.ML]]=0; "MARGEN"; [@[GAN.MIN.ML]] + COSTO_MARGEN )
-        // El COSTO_MARGEN viene de un concepto de gasto con aplica_sobre='COSTO_MARGEN' asociado al canal
+        // SI( [@[GAN.MIN.ML]]=0; "MARGEN"; [@[GAN.MIN.ML]] + AUMENTA_MARGEN )
+        // El AUMENTA_MARGEN viene de un concepto de gasto con aplica_sobre='AUMENTA_MARGEN' asociado al canal
         // El valor en conceptos_gastos se guarda como porcentaje (ej: 25 = 25%)
-        // Se suma directamente al margen sin dividir por 100
+        // Se suma directamente: GAN.MIN.ML + AUMENTA_MARGEN
         // NOTA: Los conceptos ya vienen filtrados por reglas de canal_concepto_regla desde obtenerConceptosAplicables
         BigDecimal margenPorcentaje = productoCanal.getMargenPorcentaje();
         if (margenPorcentaje == null) {
             margenPorcentaje = BigDecimal.ZERO;
         }
 
-        // Filtrar solo los conceptos con aplica_sobre='COSTO_MARGEN' de los conceptos ya filtrados por reglas
-        List<CanalConcepto> gastosSobreCostoMargen = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+        // Filtrar conceptos con aplica_sobre='AUMENTA_MARGEN'
+        List<CanalConcepto> gastosSobreAumentaMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
                 .collect(Collectors.toList());
 
-        BigDecimal conceptoCostoMargen = calcularGastosPorcentaje(gastosSobreCostoMargen);
+        BigDecimal aumentaMargenTotal = calcularGastosPorcentaje(gastosSobreAumentaMargen);
 
         BigDecimal gananciaUsar;
         if (margenPorcentaje.compareTo(BigDecimal.ZERO) == 0) {
@@ -514,9 +516,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             // Por ahora, usamos 0 si no hay margen (esto debería revisarse según la lógica de negocio)
             gananciaUsar = BigDecimal.ZERO;
         } else {
-            // Si GAN.MIN.ML != 0, usar GAN.MIN.ML + conceptoCostoMargen
-            // Ejemplo: si margen = 60% y COSTO_MARGEN = 25%, entonces ganancia = 60% + 25% = 85%
-            gananciaUsar = margenPorcentaje.add(conceptoCostoMargen);
+            // Si GAN.MIN.ML != 0, calcular ganancia ajustada: GAN.MIN.ML + AUMENTA_MARGEN
+            // Ejemplo: si margen = 60% y AUMENTA_MARGEN = 25%, entonces ganancia = 60% + 25% = 85%
+            BigDecimal gananciaAjustada = margenPorcentaje;
+            if (aumentaMargenTotal.compareTo(BigDecimal.ZERO) > 0) {
+                gananciaAjustada = gananciaAjustada.add(aumentaMargenTotal);
+            }
+            gananciaUsar = gananciaAjustada;
         }
 
         // 3) Calcular costo con ganancia: [@COSTO] + [@COSTO] * ganancia
@@ -530,7 +536,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // GTN es la suma de todos los conceptos con aplica_sobre='PVP' del canal
         // más el porcentaje de cuotas
         // NOTA: Los conceptos ya vienen filtrados por reglas de canal_concepto_regla desde obtenerConceptosAplicables
-
         // Sumar porcentajes de conceptos PVP (MP + NUBE + MARKETING + EMBALAJE) de los conceptos ya filtrados
         BigDecimal porcentajeConceptosPVP = conceptos.stream()
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
@@ -664,89 +669,351 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Calcula el precio para el canal KT GASTRO usando la fórmula especial del Excel.
+     * Calcula el precio para el canal KT GASTRO usando la fórmula especial del
+     * Excel.
+     *
+     * Fórmula: PVP GASTRO = SI( [@TAG]="MAQUINA"; ( [@[PVP ML]] * (1-0,145) );
+     * ( ( [@COSTO] * (1+([@[GAN.MIN.ML]] * (1-REL_ML_KTG))) * [@[IMP.]] ) /
+     * (1-(MARKETING+EMBALAJE+GASTONUBE)) ) )
+     *
+     * Donde: - Si es máquina: PVP GASTRO = PVP ML * (1 - 0.145) - Si NO es
+     * máquina: PVP GASTRO = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING
+     * + EMBALAJE + GASTONUBE)) - [@TAG]="MAQUINA" se determina por
+     * clasif_gastro.es_maquina = true - [@[PVP ML]] = precio calculado para el
+     * canal ML - [@[GAN.MIN.ML]] = margen_porcentaje del producto_canal para KT
+     * GASTRO - REL_ML_KTG = concepto con aplica_sobre='REDUCE_MARGEN' que reduce la ganancia
+     * - MARKETING, EMBALAJE, GASTONUBE = conceptos con aplica_sobre='PVP' del canal KT GASTRO
+     */
+    /**
+     * Calcula el precio para el canal KT GASTRO usando fórmula unificada.
      * 
-     * Fórmula: PVP GASTRO = SI( [@TAG]="MAQUINA"; 
-     *     ( [@[PVP ML]] * (1-0,145) ); 
-     *     ( ( [@COSTO] * (1+([@[GAN.MIN.ML]] * (1-REL_ML_KTG))) * [@[IMP.]] ) / (1-(MARKETING+EMBALAJE+GASTONUBE)) ) )
+     * Fórmula unificada: PVP = (COSTO * (1 + GANANCIA_AJUSTADA) * IMP) / (1 - GASTOS_PVP) * (1 - DESCUENTO)
      * 
      * Donde:
-     * - Si es máquina: PVP GASTRO = PVP ML * (1 - 0.145)
-     * - Si NO es máquina: PVP GASTRO = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING + EMBALAJE + GASTONUBE))
-     * - [@TAG]="MAQUINA" se determina por clasif_gastro.es_maquina = true
-     * - [@[PVP ML]] = precio calculado para el canal ML
-     * - [@[GAN.MIN.ML]] = margen_porcentaje del producto_canal para ML
-     * - REL_ML_KTG = relación entre ML y KT GASTRO (valor a determinar)
-     * - MARKETING, EMBALAJE, GASTONUBE = conceptos con aplica_sobre='PVP' del canal KT GASTRO
+     * - GANANCIA_AJUSTADA se calcula dinámicamente:
+     *   - Base: GAN.MIN.ML (del canal KT GASTRO)
+     *   - Si hay AUMENTA_MARGEN: GANANCIA_AJUSTADA += AUMENTA_MARGEN (suma directa de puntos porcentuales)
+     *   - Si hay REDUCE_MARGEN: GANANCIA_AJUSTADA -= REDUCE_MARGEN (resta directa de puntos porcentuales)
+     *   NOTA: Esta aplicación es consistente para todos los canales
+     * - GASTOS_PVP: Suma de conceptos con aplica_sobre='PVP' (ya filtrados por reglas)
+     * - %CUOTAS: Se incluye en GASTOS_PVP si existe (ya filtrado por reglas)
+     * - DESCUENTO: Suma de conceptos con aplica_sobre='DESCUENTO' (ya filtrados por reglas)
+     * 
+     * Los conceptos ya vienen filtrados por reglas EXCLUIR desde obtenerConceptosAplicables(),
+     * por lo que la fórmula se aplica igual para máquinas y no máquinas, diferenciándose
+     * solo por los conceptos que están incluidos/excluidos según las reglas.
      */
     private PrecioCalculadoDTO calcularPrecioKTGastro(
             Producto producto,
             ProductoCanal productoCanal,
             List<CanalConcepto> conceptos,
             Integer numeroCuotas) {
-        // Verificar si es máquina
-        boolean esMaquina = esProductoMaquina(producto);
-
-        if (esMaquina) {
-            // Si es máquina: PVP GASTRO = PVP ML * (1 - 0.145)
-            return calcularPrecioKTGastroMaquina(producto, productoCanal, numeroCuotas);
-        } else {
-            // Si NO es máquina: usar fórmula completa
-            return calcularPrecioKTGastroNoMaquina(producto, productoCanal, conceptos, numeroCuotas);
-        }
+        // Usar fórmula unificada (los conceptos ya vienen filtrados por reglas según máquina/no máquina)
+        return calcularPrecioKTGastroUnificado(producto, productoCanal, conceptos, numeroCuotas);
     }
 
     /**
-     * Calcula el precio para KT GASTRO cuando el producto es máquina.
-     * Fórmula: PVP GASTRO = PVP ML * (1 - 0.145)
+     * Calcula el precio para KT GASTRO usando fórmula unificada (aplica a máquinas y no máquinas).
+     * Fórmula: PVP = (COSTO * (1 + GANANCIA_AJUSTADA) * IMP) / (1 - GASTOS_PVP) * (1 - DESCUENTO)
+     * 
+     * Donde:
+     * - GANANCIA_AJUSTADA se calcula dinámicamente:
+     *   - Base: GAN.MIN.ML (del canal KT GASTRO)
+     *   - Si hay AUMENTA_MARGEN: GANANCIA_AJUSTADA += AUMENTA_MARGEN (suma directa de puntos porcentuales)
+     *   - Si hay REDUCE_MARGEN: GANANCIA_AJUSTADA -= REDUCE_MARGEN (resta directa de puntos porcentuales)
+     *   NOTA: Esta aplicación es consistente para todos los canales
+     * - GASTOS_PVP: Suma de conceptos con aplica_sobre='PVP' (ya filtrados por reglas)
+     * - %CUOTAS: Se incluye en GASTOS_PVP si existe (ya filtrado por reglas)
+     * - DESCUENTO: Suma de conceptos con aplica_sobre='DESCUENTO' (ya filtrados por reglas)
+     * 
+     * NOTA: Los conceptos ya vienen filtrados por reglas EXCLUIR desde obtenerConceptosAplicables().
+     * Para máquinas: incluye conceptos con regla EXCLUIR (es_maquina=false)
+     * Para no máquinas: incluye conceptos con regla EXCLUIR (es_maquina=true)
+     * El código busca dinámicamente los conceptos necesarios sin hardcodear qué buscar.
+     * KT GASTRO usa sus propios conceptos, no depende del canal ML.
      */
-    private PrecioCalculadoDTO calcularPrecioKTGastroMaquina(
+    private PrecioCalculadoDTO calcularPrecioKTGastroUnificado(
             Producto producto,
-            ProductoCanal productoCanalKTGastro,
+            ProductoCanal productoCanal,
+            List<CanalConcepto> conceptos,
             Integer numeroCuotas) {
-        // Buscar el canal ML
-        Canal canalML = canalRepository.findByCanalIgnoreCase("ML")
-                .orElseThrow(() -> new NotFoundException("No se encontró el canal ML"));
+        if (producto.getCosto() == null) {
+            throw new BadRequestException("El producto no tiene costo cargado");
+        }
 
-        // Obtener ProductoCanal para ML
-        ProductoCanal productoCanalML = productoCanalRepository
-                .findByProductoIdAndCanalId(producto.getId(), canalML.getId())
-                .orElseThrow(() -> new NotFoundException(
-                        "No se encontró la configuración del producto para el canal ML"));
+        if (producto.getIva() == null) {
+            throw new BadRequestException("El producto no tiene IVA cargado");
+        }
 
-        // Obtener conceptos para ML
-        boolean esCanalNube = false; // ML no es canal nube
-        List<ConceptoGasto> conceptosML = obtenerConceptosAplicables(
-                canalML.getId(),
-                numeroCuotas,
-                esCanalNube,
-                producto);
+        BigDecimal costo = producto.getCosto();
+        BigDecimal iva = producto.getIva();
+        BigDecimal cien = BigDecimal.valueOf(100);
 
-        // Convertir a CanalConcepto
-        List<CanalConcepto> conceptosCanalML = convertirConceptosACanalConcepto(conceptosML, canalML.getId());
+        // 1) Calcular factor de impuestos (IMP = 1 + IVA/100 + sum(conceptos IMP)/100)
+        List<CanalConcepto> gastosSobreImp = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
+                .collect(Collectors.toList());
 
-        // Calcular PVP ML
-        PrecioCalculadoDTO precioML = calcularPrecioInterno(producto, productoCanalML, conceptosCanalML, numeroCuotas);
+        BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
+        BigDecimal imp = BigDecimal.ONE
+                .add(iva.divide(cien, 6, RoundingMode.HALF_UP))
+                .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
 
-        // Aplicar descuento del 14.5%: PVP GASTRO = PVP ML * (1 - 0.145)
-        BigDecimal factorDescuento = BigDecimal.valueOf(0.855); // 1 - 0.145
-        BigDecimal pvpSinPromocion = precioML.pvp().multiply(factorDescuento).setScale(2, RoundingMode.HALF_UP);
+        // 2) Obtener GAN.MIN.ML del canal KT GASTRO (base)
+        BigDecimal gananciaMinML = BigDecimal.ZERO;
+        if (productoCanal != null && productoCanal.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanal.getMargenPorcentaje();
+        }
 
-        // Aplicar promociones del canal KT GASTRO (no ML)
-        BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanalKTGastro.getCanal(), pvpSinPromocion);
+        // 3) Obtener AUMENTA_MARGEN (conceptos ya filtrados por reglas)
+        List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
+                .collect(Collectors.toList());
+
+        BigDecimal aumentaMargen = calcularGastosPorcentaje(conceptosAumentaMargen);
+
+        // 4) Obtener REDUCE_MARGEN (conceptos ya filtrados por reglas)
+        List<CanalConcepto> conceptosReduceMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
+                .collect(Collectors.toList());
+
+        BigDecimal reduceMargen = calcularGastosPorcentaje(conceptosReduceMargen);
+
+        // 5) Calcular GANANCIA_AJUSTADA
+        // Inicio: GANANCIA_AJUSTADA = GAN.MIN.ML
+        BigDecimal gananciaAjustada = gananciaMinML;
+
+        // Si hay AUMENTA_MARGEN: GANANCIA_AJUSTADA += AUMENTA_MARGEN (suma directa)
+        if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.add(aumentaMargen);
+        }
+
+        // Si hay REDUCE_MARGEN: GANANCIA_AJUSTADA -= REDUCE_MARGEN (resta directa)
+        if (reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.subtract(reduceMargen);
+        }
+
+        // 6) Calcular: COSTO * (1 + GANANCIA_AJUSTADA/100)
+        BigDecimal gananciaFrac = gananciaAjustada.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal costoConGanancia = costo.multiply(BigDecimal.ONE.add(gananciaFrac));
+
+        // 7) Aplicar impuestos: COSTO_CON_GANANCIA * IMP
+        BigDecimal costoConImpuestos = costoConGanancia.multiply(imp);
+
+        // 8) Obtener gastos PVP (ya filtrados por reglas)
+        List<CanalConcepto> gastosSobrePVP = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+
+        // 9) Obtener %CUOTAS del canal KT GASTRO (si hay cuotas y está en los conceptos filtrados)
+        BigDecimal porcentajeCuota = BigDecimal.ZERO;
+        if (numeroCuotas != null && numeroCuotas > 0) {
+            Integer idCanalKTGastro = productoCanal.getCanal().getId();
+            List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanalKTGastro,
+                    numeroCuotas);
+            Canal canalKTGastro = canalRepository.findById(idCanalKTGastro).orElse(null);
+            if (canalKTGastro != null && canalKTGastro.getCanalBase() != null) {
+                cuotasCanal.addAll(canalConceptoCuotaRepository
+                        .findByCanalIdAndCuotas(canalKTGastro.getCanalBase().getId(), numeroCuotas));
+            }
+            Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
+                    .filter(c -> c.getTipo() == TipoCuota.NORMAL)
+                    .findFirst();
+            if (cuotaNormal.isPresent()) {
+                porcentajeCuota = cuotaNormal.get().getPorcentaje();
+            } else {
+                Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
+                        .filter(c -> c.getTipo() == TipoCuota.PROMO)
+                        .findFirst();
+                if (cuotaPromo.isPresent()) {
+                    porcentajeCuota = cuotaPromo.get().getPorcentaje();
+                }
+            }
+        }
+
+        // 10) Calcular denominador: 1 - (GASTOS_PVP + %CUOTAS)/100
+        BigDecimal gastosTotalPVP = gastosSobrePVPTotal.add(porcentajeCuota);
+        BigDecimal gastosTotalPVPFrac = gastosTotalPVP.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal denominador = BigDecimal.ONE.subtract(gastosTotalPVPFrac);
+        if (denominador.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Los gastos sobre PVP son >= 100%, lo cual es inválido");
+        }
+
+        // 11) Calcular PVP: COSTO_CON_IMPUESTOS / (1 - GASTOS_PVP/100)
+        BigDecimal pvpAntesDescuento = costoConImpuestos.divide(denominador, 6, RoundingMode.HALF_UP);
+
+        // 12) Obtener descuentos (conceptos con aplica_sobre='DESCUENTO', ya filtrados por reglas)
+        BigDecimal descuentoTotal = obtenerDescuentoMaquina(conceptos);
+
+        // 13) Aplicar descuentos: PVP *= (1 - DESCUENTO/100)
+        BigDecimal factorDescuento = BigDecimal.ONE.subtract(descuentoTotal.divide(cien, 6, RoundingMode.HALF_UP));
+        BigDecimal pvp = pvpAntesDescuento.multiply(factorDescuento);
+        BigDecimal pvpSinPromocion = pvp.setScale(2, RoundingMode.HALF_UP);
+
+        // 14) Aplicar promociones
+        BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanal.getCanal(), pvpSinPromocion);
         pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
 
-        // Calcular ganancia desde el PVP ML original
-        BigDecimal gananciaAbs = precioML.gananciaAbs();
-        BigDecimal gananciaPorcentaje = precioML.gananciaPorcentaje();
+        // 15) Calcular ganancia
+        BigDecimal costoTotal = costo.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gananciaAbs = costoConGanancia.subtract(costo).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gananciaPorcentaje = gananciaAbs
+                .multiply(cien)
+                .divide(costo, 2, RoundingMode.HALF_UP);
 
-        // Gastos totales (usar los de ML ya que se basa en ese precio)
-        BigDecimal gastosTotalPorcentaje = precioML.gastosTotalPorcentaje();
+        // 16) Calcular gastos totales porcentaje
+        BigDecimal gastosTotalPorcentaje = gastosSobreImpTotal.add(gastosSobrePVPTotal).add(porcentajeCuota);
 
         return new PrecioCalculadoDTO(
                 pvpSinPromocion,
                 pvpInflado,
-                precioML.costoTotal(),
+                costoTotal,
+                gananciaAbs,
+                gananciaPorcentaje,
+                gastosTotalPorcentaje);
+    }
+
+    /**
+     * Calcula el precio para KT GASTRO cuando el producto es máquina. Fórmula:
+     * ( ( (COSTO * (1 + GAN.MIN.ML)) * IMP) / (1 - COMISION ML + %CUOTAS +
+     * MARKETING + EMBALAJE) ) * (1 - DESCUENTO_MAQUINA)
+     *
+     * NOTA: Los conceptos en el parámetro 'conceptos' ya vienen filtrados por
+     * reglas EXCLUIR desde obtenerConceptosAplicables(). Para productos
+     * máquinas, los conceptos con regla EXCLUIR (es_maquina=false) ya fueron
+     * excluidos de la lista. Este método busca dinámicamente conceptos con los
+     * aplica_sobre necesarios para la fórmula (IMP, PVP, DESCUENTO) sin
+     * hardcodear qué conceptos buscar. Si no existen conceptos con un
+     * aplica_sobre específico, retorna cero.
+     * 
+     * @deprecated Usar calcularPrecioKTGastroUnificado en su lugar
+     */
+    @Deprecated
+    private PrecioCalculadoDTO calcularPrecioKTGastroMaquina(
+            Producto producto,
+            ProductoCanal productoCanalKTGastro,
+            List<CanalConcepto> conceptos,
+            Integer numeroCuotas) {
+        if (producto.getCosto() == null) {
+            throw new BadRequestException("El producto no tiene costo cargado");
+        }
+
+        if (producto.getIva() == null) {
+            throw new BadRequestException("El producto no tiene IVA cargado");
+        }
+
+        BigDecimal costo = producto.getCosto();
+        BigDecimal iva = producto.getIva();
+        BigDecimal cien = BigDecimal.valueOf(100);
+
+        // 1) Obtener GAN.MIN.ML del canal ML
+        // GAN.MIN.ML es el margen_porcentaje de la tabla producto_canal para el canal ML
+        Canal canalML = canalRepository.findByCanalIgnoreCase("ML")
+                .orElseThrow(() -> new NotFoundException("No se encontró el canal ML"));
+
+        ProductoCanal productoCanalML = productoCanalRepository
+                .findByProductoIdAndCanalId(producto.getId(), canalML.getId())
+                .orElse(null);
+
+        BigDecimal gananciaMinML = BigDecimal.ZERO;
+        if (productoCanalML != null && productoCanalML.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanalML.getMargenPorcentaje();
+        }
+
+        // 2) Calcular COSTO * (1 + GAN.MIN.ML)
+        BigDecimal gananciaFrac = gananciaMinML.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal costoConGanancia = costo.multiply(BigDecimal.ONE.add(gananciaFrac));
+
+        // 3) Obtener IMP de conceptos con aplica_sobre='IMP' del canal KT GASTRO
+        List<CanalConcepto> gastosSobreImp = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
+        BigDecimal imp = BigDecimal.ONE
+                .add(iva.divide(cien, 6, RoundingMode.HALF_UP))
+                .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
+
+        // 4) Aplicar impuestos: costoConGanancia * IMP
+        BigDecimal costoConImpuestos = costoConGanancia.multiply(imp);
+
+        // 5) Obtener TODOS los conceptos PVP del canal KT GASTRO (COMISION ML + MARKETING + EMBALAJE)
+        List<CanalConcepto> gastosSobrePVP = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+
+        // 6) Obtener %CUOTAS del canal KT GASTRO (si hay cuotas)
+        BigDecimal porcentajeCuota = BigDecimal.ZERO;
+        if (numeroCuotas != null && numeroCuotas > 0) {
+            Integer idCanalKTGastro = productoCanalKTGastro.getCanal().getId();
+            List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanalKTGastro,
+                    numeroCuotas);
+            Canal canalKTGastro = canalRepository.findById(idCanalKTGastro).orElse(null);
+            if (canalKTGastro != null && canalKTGastro.getCanalBase() != null) {
+                cuotasCanal.addAll(canalConceptoCuotaRepository
+                        .findByCanalIdAndCuotas(canalKTGastro.getCanalBase().getId(), numeroCuotas));
+            }
+            Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
+                    .filter(c -> c.getTipo() == TipoCuota.NORMAL)
+                    .findFirst();
+            if (cuotaNormal.isPresent()) {
+                porcentajeCuota = cuotaNormal.get().getPorcentaje();
+            } else {
+                Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
+                        .filter(c -> c.getTipo() == TipoCuota.PROMO)
+                        .findFirst();
+                if (cuotaPromo.isPresent()) {
+                    porcentajeCuota = cuotaPromo.get().getPorcentaje();
+                }
+            }
+        }
+
+        // 7) Calcular denominador: 1 - (suma_conceptos_PVP + %CUOTAS)/100
+        BigDecimal gastosTotalPVP = gastosSobrePVPTotal.add(porcentajeCuota);
+        BigDecimal gastosTotalPVPFrac = gastosTotalPVP.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal denominador = BigDecimal.ONE.subtract(gastosTotalPVPFrac);
+        if (denominador.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Los gastos sobre PVP son >= 100%, lo cual es inválido");
+        }
+
+        // 8) Dividir: costoConImpuestos / denominador
+        BigDecimal pvpAntesDescuento = costoConImpuestos.divide(denominador, 6, RoundingMode.HALF_UP);
+
+        // 9) Obtener conceptos con aplica_sobre='DESCUENTO' de la lista ya filtrada por reglas EXCLUIR
+        // Los conceptos ya vienen filtrados: los conceptos con regla EXCLUIR (es_maquina=false) ya fueron excluidos
+        // Este método busca dinámicamente cualquier concepto con aplica_sobre='DESCUENTO' en la lista filtrada
+        // Si no existe (porque fue excluido), retorna cero (comportamiento correcto)
+        BigDecimal descuentoMaquina = obtenerDescuentoMaquina(conceptos);
+
+        // 10) Multiplicar por (1 - DESCUENTO_MAQUINA/100)
+        BigDecimal factorDescuento = BigDecimal.ONE.subtract(descuentoMaquina.divide(cien, 6, RoundingMode.HALF_UP));
+        BigDecimal pvp = pvpAntesDescuento.multiply(factorDescuento);
+        BigDecimal pvpSinPromocion = pvp.setScale(2, RoundingMode.HALF_UP);
+
+        // 11) Aplicar promociones del canal KT GASTRO
+        BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanalKTGastro.getCanal(), pvpSinPromocion);
+        pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+
+        // 12) Calcular ganancia
+        BigDecimal costoTotal = costo.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gananciaAbs = costoConGanancia.subtract(costo).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gananciaPorcentaje = gananciaAbs
+                .multiply(cien)
+                .divide(costo, 2, RoundingMode.HALF_UP);
+
+        // 13) Calcular gastos totales porcentaje
+        BigDecimal gastosTotalPorcentaje = gastosSobreImpTotal.add(gastosSobrePVPTotal).add(porcentajeCuota);
+
+        return new PrecioCalculadoDTO(
+                pvpSinPromocion,
+                pvpInflado,
+                costoTotal,
                 gananciaAbs,
                 gananciaPorcentaje,
                 gastosTotalPorcentaje);
@@ -754,8 +1021,26 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Calcula el precio para KT GASTRO cuando el producto NO es máquina.
-     * Fórmula: PVP GASTRO = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING + EMBALAJE + GASTONUBE))
+     * Fórmula: PVP GASTRO = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING
+     * + EMBALAJE + GASTONUBE))
+     *
+     * Donde:
+     * - GAN.MIN.ML viene de producto_canal.margen_porcentaje del canal KT GASTRO
+     * - REL_ML_KTG viene de conceptos con aplica_sobre='REDUCE_MARGEN' del canal KT GASTRO
+     * - REL_ML_KTG reduce la ganancia multiplicando por (1 - REL_ML_KTG/100)
+     * - Si no existe REL_ML_KTG (no hay conceptos REDUCE_MARGEN), REL_ML_KTG = 0, entonces GANANCIA_AJUSTADA = GAN.MIN.ML
+     *
+     * NOTA: Los conceptos en el parámetro 'conceptos' ya vienen filtrados por
+     * reglas EXCLUIR desde obtenerConceptosAplicables(). Para productos no
+     * máquinas, los conceptos con regla EXCLUIR (es_maquina=true) ya fueron
+     * excluidos de la lista. Este método busca dinámicamente conceptos con los
+     * aplica_sobre necesarios para la fórmula (IMP, PVP, REDUCE_MARGEN) sin hardcodear qué
+     * conceptos buscar. Si no existen conceptos con un aplica_sobre específico,
+     * retorna cero.
+     * 
+     * @deprecated Usar calcularPrecioKTGastroUnificado en su lugar
      */
+    @Deprecated
     private PrecioCalculadoDTO calcularPrecioKTGastroNoMaquina(
             Producto producto,
             ProductoCanal productoCanal,
@@ -783,32 +1068,29 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .add(iva.divide(cien, 6, RoundingMode.HALF_UP))
                 .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
 
-        // 2) Obtener GAN.MIN.ML del canal ML
-        Canal canalML = canalRepository.findByCanalIgnoreCase("ML")
-                .orElseThrow(() -> new NotFoundException("No se encontró el canal ML"));
-
-        ProductoCanal productoCanalML = productoCanalRepository
-                .findByProductoIdAndCanalId(producto.getId(), canalML.getId())
-                .orElse(null);
-
+        // 2) Obtener GAN.MIN.ML del canal KT GASTRO
+        // GAN.MIN.ML es el margen_porcentaje de la tabla producto_canal para el canal KT GASTRO
         BigDecimal gananciaMinML = BigDecimal.ZERO;
-        if (productoCanalML != null && productoCanalML.getMargenPorcentaje() != null) {
-            gananciaMinML = productoCanalML.getMargenPorcentaje();
+        if (productoCanal != null && productoCanal.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanal.getMargenPorcentaje();
         }
 
-        // 3) Obtener REL_ML_KTG desde conceptos_gastos
-        // Buscar conceptos con aplica_sobre='COSTO_MARGEN' asociados al canal KT GASTRO
-        // REL_ML_KTG se usa para ajustar la ganancia mínima de ML: GAN.MIN.ML * (1 - REL_ML_KTG)
+        // 2.5) Obtener REL_ML_KTG (concepto REDUCE_MARGEN que reduce la ganancia)
+        // REL_ML_KTG viene de conceptos con aplica_sobre='REDUCE_MARGEN' del canal KT GASTRO
+        // Los conceptos ya vienen filtrados por reglas EXCLUIR desde obtenerConceptosAplicables()
         List<CanalConcepto> conceptosRelMLKTG = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
                 .collect(Collectors.toList());
 
         BigDecimal relMLKTG = calcularGastosPorcentaje(conceptosRelMLKTG);
 
-        // 4) Calcular: COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG)))
+        // 3) Calcular ganancia ajustada: GAN.MIN.ML * (1 - REL_ML_KTG/100)
+        // REL_ML_KTG reduce la ganancia multiplicando por (1 - REL_ML_KTG/100)
         BigDecimal factorRelacion = BigDecimal.ONE.subtract(relMLKTG.divide(cien, 6, RoundingMode.HALF_UP));
         BigDecimal gananciaAjustada = gananciaMinML.multiply(factorRelacion);
+
+        // 4) Calcular: COSTO * (1 + GANANCIA_AJUSTADA/100)
         BigDecimal gananciaFrac = gananciaAjustada.divide(cien, 6, RoundingMode.HALF_UP);
         BigDecimal costoConGanancia = costo.multiply(BigDecimal.ONE.add(gananciaFrac));
 
@@ -843,7 +1125,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .multiply(cien)
                 .divide(costo, 2, RoundingMode.HALF_UP);
 
-        // 10) Calcular gastos totales porcentaje
+        // 10) Calcular gastos totales porcentaje (incluyendo REL_ML_KTG si existe)
         BigDecimal gastosTotalPorcentaje = gastosSobreImpTotal.add(gastosSobrePVPTotal);
 
         return new PrecioCalculadoDTO(
@@ -866,17 +1148,42 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Obtiene el descuento aplicable al producto según las reglas de descuento del
-     * canal.
-     * Retorna el descuento porcentual de la regla de mayor prioridad que cumpla
-     * todas las condiciones.
-     * 
+     * Obtiene el descuento de máquina desde los conceptos. Busca dinámicamente
+     * conceptos con aplica_sobre='DESCUENTO' en la lista ya filtrada por reglas
+     * EXCLUIR.
+     *
+     * NOTA: Los conceptos ya vienen filtrados por canal_concepto_regla desde
+     * obtenerConceptosAplicables(). Para productos máquinas, los conceptos con
+     * regla EXCLUIR (es_maquina=false) ya fueron excluidos de la lista. Este
+     * método busca dinámicamente cualquier concepto con
+     * aplica_sobre='DESCUENTO' en la lista filtrada, sin hardcodear nombres de
+     * conceptos específicos. Si no existe (porque fue excluido), retorna cero.
+     *
+     * @param conceptos Lista de CanalConcepto ya filtrada por reglas EXCLUIR
+     * (solo incluye conceptos aplicables)
+     * @return Porcentaje total de descuento, o BigDecimal.ZERO si no hay
+     * conceptos con aplica_sobre='DESCUENTO'
+     */
+    private BigDecimal obtenerDescuentoMaquina(List<CanalConcepto> conceptos) {
+        return conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.DESCUENTO)
+                .map(cc -> cc.getConcepto().getPorcentaje())
+                .filter(p -> p != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Obtiene el descuento aplicable al producto según las reglas de descuento
+     * del canal. Retorna el descuento porcentual de la regla de mayor prioridad
+     * que cumpla todas las condiciones.
+     *
      * @param producto El producto al que se aplicará el descuento
-     * @param canalId  El ID del canal
-     * @param pvpBase  El PVP base antes de aplicar descuentos (para validar monto
-     *                 mínimo)
+     * @param canalId El ID del canal
+     * @param pvpBase El PVP base antes de aplicar descuentos (para validar
+     * monto mínimo)
      * @return El porcentaje de descuento aplicable (0 si no hay descuento
-     *         aplicable)
+     * aplicable)
      */
     private BigDecimal obtenerDescuentoAplicable(Producto producto, Integer canalId, BigDecimal pvpBase) {
         // Obtener todas las reglas activas del canal, ordenadas por prioridad
@@ -897,8 +1204,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 continue;
             }
 
-            // Verificar catálogo (si la regla tiene catálogo, el producto debe estar en ese
-            // catálogo)
+            // Verificar catálogo (si la regla tiene catálogo, el producto debe estar en ese catálogo)
             if (regla.getCatalogo() != null) {
                 if (!catalogosProducto.contains(regla.getCatalogo().getId())) {
                     continue;
@@ -908,8 +1214,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             // Verificar clasificación general (si la regla tiene clasifGral, debe
             // coincidir)
             if (regla.getClasifGral() != null) {
-                if (producto.getClasifGral() == null ||
-                        !producto.getClasifGral().getId().equals(regla.getClasifGral().getId())) {
+                if (producto.getClasifGral() == null
+                        || !producto.getClasifGral().getId().equals(regla.getClasifGral().getId())) {
                     continue;
                 }
             }
@@ -917,8 +1223,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             // Verificar clasificación gastro (si la regla tiene clasifGastro, debe
             // coincidir)
             if (regla.getClasifGastro() != null) {
-                if (producto.getClasifGastro() == null ||
-                        !producto.getClasifGastro().getId().equals(regla.getClasifGastro().getId())) {
+                if (producto.getClasifGastro() == null
+                        || !producto.getClasifGastro().getId().equals(regla.getClasifGastro().getId())) {
                     continue;
                 }
             }
@@ -934,7 +1240,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // ====================================================
     // HELPERS
     // ====================================================
-
     private Producto obtenerProducto(Integer idProducto) {
         return productoRepository.findById(idProducto)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
@@ -947,32 +1252,62 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Obtiene todos los conceptos de gasto que aplican al canal según los filtros.
-     * 
+     * Obtiene todos los conceptos de gasto que aplican al canal según los
+     * filtros.
+     *
      * Sistema unificado: todos los conceptos se asocian a canales a través de
      * canal_concepto.
-     * 
-     * Lógica de filtrado:
-     * - Canal: Un concepto aplica a un canal si está asociado en canal_concepto
-     * - Jerarquía de canales: Si un concepto está asignado al canal padre (ej:
-     * NUBE),
-     * también aplica a todos sus canales hijos (ej: KT HOGAR, KT GASTRO)
-     * Nota: Las cuotas ahora se manejan a través de canal_concepto_cuota, no a
-     * través
-     * del campo cuotas en conceptos_gastos
-     * 
-     * REGLAS DE CANAL_CONCEPTO_REGLA:
-     * - Si tipo_regla = INCLUIR: el concepto SOLO aplica si el producto cumple
-     * TODAS las condiciones
-     * - Si tipo_regla = EXCLUIR: el concepto NO aplica si el producto cumple ALGUNA
-     * condición
-     * 
-     * @param idCanal      ID del canal para filtrar conceptos
-     * @param numeroCuotas Número de cuotas (parámetro mantenido por compatibilidad,
-     *                     pero ya no se usa para filtrar conceptos)
-     * @param esCanalNube  true si el canal es KT HOGAR o KT GASTRO (canales NUBE)
-     * @param producto     El producto para aplicar las reglas de
-     *                     canal_concepto_regla
+     *
+     * Lógica de filtrado: - Canal: Un concepto aplica a un canal si está
+     * asociado en canal_concepto - Jerarquía de canales: Si un concepto está
+     * asignado al canal padre (ej: NUBE), también aplica a todos sus canales
+     * hijos (ej: KT HOGAR, KT GASTRO) Nota: Las cuotas ahora se manejan a
+     * través de canal_concepto_cuota, no a través del campo cuotas en
+     * conceptos_gastos
+     *
+     * REGLAS DE CANAL_CONCEPTO_REGLA: - Si tipo_regla = INCLUIR: el concepto
+     * SOLO aplica si el producto cumple TODAS las condiciones - Si tipo_regla =
+     * EXCLUIR: el concepto NO aplica si el producto cumple ALGUNA condición -
+     * Condiciones disponibles: id_tipo, id_clasif_gral, id_clasif_gastro,
+     * id_marca, es_maquina - es_maquina: filtra por máquina/no máquina
+     * (true=solo máquinas, false=solo no máquinas, NULL=no filtra)
+     *
+     * ENFOQUE RECOMENDADO PARA KT GASTRO (usar EXCLUIR):
+     *
+     * 1. Conceptos comunes (no requieren reglas): - MARKETING, EMBALAJE,
+     * GASTONUBE, COMISION ML (aplica_sobre='PVP') - IIBB (aplica_sobre='IMP')
+     * Estos conceptos aplican a todos los productos del canal.
+     *
+     * 2. DESCUENTO_MAQUINA (solo para máquinas): - Debe estar en canal_concepto
+     * para KT GASTRO - Debe tener regla EXCLUIR con es_maquina=false (excluir
+     * cuando NO es máquina) Ejemplo: tipo_regla='EXCLUIR', es_maquina=false
+     * Resultado: Se excluye cuando producto.clasif_gastro.es_maquina = false →
+     * Solo aplica a máquinas (es_maquina = true)
+     *
+     * NOTA: REL_ML_KTG se usa para KT GASTRO NO MÁQUINA como concepto con
+     * aplica_sobre='REDUCE_MARGEN' que reduce la ganancia restando directamente.
+     * Debe tener regla EXCLUIR con es_maquina=true para que solo aplique a no máquinas.
+     *
+     * NOTA: Los valores de aplica_sobre incluyen:
+     * - AUMENTA_MARGEN: Suma puntos porcentuales directamente al margen (GAN.MIN.ML + AUMENTA_MARGEN)
+     *                   Ejemplo: Si GAN.MIN.ML = 60% y AUMENTA_MARGEN = 25%, entonces ganancia = 60% + 25% = 85%
+     * - REDUCE_MARGEN: Resta puntos porcentuales directamente del margen (GAN.MIN.ML - REDUCE_MARGEN)
+     *                  Ejemplo: Si GAN.MIN.ML = 60% y REDUCE_MARGEN = 20%, entonces ganancia = 60% - 20% = 40%
+     * - COSTO_MARGEN: Deprecado. Usar AUMENTA_MARGEN o REDUCE_MARGEN según corresponda.
+     * NOTA: Esta aplicación es consistente para todos los canales.
+     *
+     * NOTA: Todos los conceptos (comunes y específicos) deben estar en
+     * canal_concepto. Las reglas EXCLUIR filtran cuáles conceptos NO aplican
+     * según las condiciones del producto. Los métodos de cálculo buscan
+     * dinámicamente conceptos por aplica_sobre sin hardcodear qué buscar.
+     *
+     * @param idCanal ID del canal para filtrar conceptos
+     * @param numeroCuotas Número de cuotas (parámetro mantenido por
+     * compatibilidad, pero ya no se usa para filtrar conceptos)
+     * @param esCanalNube true si el canal es KT HOGAR o KT GASTRO (canales
+     * NUBE)
+     * @param producto El producto para aplicar las reglas de
+     * canal_concepto_regla
      * @return Lista de conceptos de gasto que aplican según los filtros
      */
     private List<ConceptoGasto> obtenerConceptosAplicables(Integer idCanal, Integer numeroCuotas,
@@ -1029,18 +1364,19 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Verifica si un producto cumple las condiciones de una regla.
-     * 
-     * @param regla    La regla a verificar
+     *
+     * @param regla La regla a verificar
      * @param producto El producto a evaluar
-     * @return true si el producto cumple TODAS las condiciones especificadas en la
-     *         regla
+     * @return true si el producto cumple TODAS las condiciones especificadas en
+     * la regla
      */
     private boolean cumpleCondicionesRegla(CanalConceptoRegla regla, Producto producto) {
         // Si la regla no tiene condiciones, no se aplica (retorna false)
         boolean tieneCondiciones = regla.getTipo() != null
                 || regla.getClasifGral() != null
                 || regla.getClasifGastro() != null
-                || regla.getMarca() != null;
+                || regla.getMarca() != null
+                || regla.getEsMaquina() != null;
 
         if (!tieneCondiciones) {
             return false;
@@ -1076,18 +1412,29 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             }
         }
 
+        // Verificar es_maquina si está especificado en la regla
+        if (regla.getEsMaquina() != null) {
+            Boolean esMaquinaProducto = producto.getClasifGastro() != null
+                    ? producto.getClasifGastro().getEsMaquina()
+                    : null;
+
+            if (esMaquinaProducto == null || !regla.getEsMaquina().equals(esMaquinaProducto)) {
+                return false;
+            }
+        }
+
         // Si llegamos aquí, el producto cumple TODAS las condiciones especificadas
         return true;
     }
 
     /**
      * Convierte una lista de ConceptoGasto a CanalConcepto para mantener
-     * compatibilidad
-     * con el método calcularPrecioInterno que espera List<CanalConcepto>.
-     * 
+     * compatibilidad con el método calcularPrecioInterno que espera
+     * List<CanalConcepto>.
+     *
      * @param conceptos Lista de ConceptoGasto
-     * @param idCanal   ID del canal para establecer en los objetos CanalConcepto
-     *                  temporales
+     * @param idCanal ID del canal para establecer en los objetos CanalConcepto
+     * temporales
      * @return Lista de CanalConcepto (objetos temporales para compatibilidad)
      */
     private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoGasto> conceptos, Integer idCanal) {
@@ -1120,8 +1467,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Obtiene los nombres de los conceptos filtrados por aplicaSobre.
-     * 
-     * @param conceptos   Lista de CanalConcepto
+     *
+     * @param conceptos Lista de CanalConcepto
      * @param aplicaSobre Tipo de aplicación sobre el cual filtrar
      * @return Lista de nombres de conceptos (campo concepto de ConceptoGasto)
      */
@@ -1137,9 +1484,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Formatea una lista de nombres de conceptos concatenándolos con " + ".
-     * 
+     *
      * @param nombres Lista de nombres de conceptos
-     * @return String con los nombres concatenados, o cadena vacía si la lista está vacía
+     * @return String con los nombres concatenados, o cadena vacía si la lista
+     * está vacía
      */
     private String formatearNombresConceptos(List<String> nombres) {
         if (nombres == null || nombres.isEmpty()) {
@@ -1149,13 +1497,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Aplica promociones al precio calculado:
-     * 1. Primero aplica porcentaje_inflacion del canal (si existe)
-     * 2. Luego aplica la promoción de producto_canal_promocion (si existe y está activa)
-     * 
+     * Aplica promociones al precio calculado: 1. Primero aplica
+     * porcentaje_inflacion del canal (si existe) 2. Luego aplica la promoción
+     * de producto_canal_promocion (si existe y está activa)
+     *
      * @param productoId ID del producto
-     * @param canal      Canal con el porcentaje_inflacion
-     * @param pvp        Precio calculado antes de aplicar promociones
+     * @param canal Canal con el porcentaje_inflacion
+     * @param pvp Precio calculado antes de aplicar promociones
      * @return Precio con promociones aplicadas
      */
     private BigDecimal aplicarPromocion(Integer productoId, Canal canal, BigDecimal pvp) {
@@ -1331,22 +1679,27 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ? productoCanal.getMargenPorcentaje()
                 : BigDecimal.ZERO;
         List<CanalConcepto> gastosSobreCostoMargen = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
                 .collect(Collectors.toList());
-        BigDecimal conceptoCostoMargen = calcularGastosPorcentaje(gastosSobreCostoMargen);
-        BigDecimal gananciaUsar = margenPorcentaje.compareTo(BigDecimal.ZERO) == 0
-                ? BigDecimal.ZERO
-                : margenPorcentaje.add(conceptoCostoMargen);
+        BigDecimal aumentaMargenTotal = calcularGastosPorcentaje(gastosSobreCostoMargen);
+        BigDecimal gananciaUsar;
+        if (margenPorcentaje.compareTo(BigDecimal.ZERO) == 0) {
+            gananciaUsar = BigDecimal.ZERO;
+        } else {
+            // Calcular ganancia ajustada: MARGEN + AUMENTA_MARGEN (suma directa)
+            gananciaUsar = margenPorcentaje.add(aumentaMargenTotal);
+        }
 
-        List<String> nombresConceptosCostoMargen = obtenerNombresConceptos(conceptos, AplicaSobre.COSTO_MARGEN);
-        String nombresCostoMargenFormateados = formatearNombresConceptos(nombresConceptosCostoMargen);
-        String formulaGanancia = nombresCostoMargenFormateados.isEmpty()
+        List<String> nombresConceptosAumentaMargen = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN);
+        String nombresAumentaMargenFormateados = formatearNombresConceptos(nombresConceptosAumentaMargen);
+        String formulaGanancia = nombresAumentaMargenFormateados.isEmpty()
                 ? "GANANCIA = MARGEN"
-                : String.format("GANANCIA = MARGEN + %s", nombresCostoMargenFormateados);
+                : String.format("GANANCIA = MARGEN + %s", nombresAumentaMargenFormateados);
 
         String detalleGanancia = String.format("MARGEN: %s%%", margenPorcentaje);
-        if (conceptoCostoMargen.compareTo(BigDecimal.ZERO) > 0 && !nombresCostoMargenFormateados.isEmpty()) {
-            detalleGanancia += String.format(" + %s: %s%%", nombresCostoMargenFormateados, conceptoCostoMargen);
+        if (aumentaMargenTotal.compareTo(BigDecimal.ZERO) > 0 && !nombresAumentaMargenFormateados.isEmpty()) {
+            detalleGanancia += String.format(" + %s", nombresAumentaMargenFormateados);
         }
         detalleGanancia += String.format(" → GANANCIA = %s%%", gananciaUsar);
         pasos.add(new FormulaCalculoDTO.PasoCalculo(3, "Ganancia",
@@ -1588,35 +1941,370 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Genera la fórmula de cálculo para el canal KT GASTRO.
+     *
+     * Fórmula: PVP GASTRO = SI( [@TAG]="MAQUINA"; ( [@[PVP ML]] * (1-0,145) );
+     * ( ( [@COSTO] * (1+[@[GAN.MIN.ML]]) * [@[IMP.]] ) /
+     * (1-(MARKETING+EMBALAJE+GASTONUBE)) ) )
+     *
+     * Donde GAN.MIN.ML se obtiene directamente de
+     * producto_canal.margen_porcentaje del canal KT GASTRO.
+     */
+    /**
+     * Genera la fórmula de cálculo para el canal KT GASTRO usando fórmula unificada.
      * 
-     * Fórmula: PVP GASTRO = SI( [@TAG]="MAQUINA"; 
-     *     ( [@[PVP ML]] * (1-0,145) ); 
-     *     ( ( [@COSTO] * (1+([@[GAN.MIN.ML]] * (1-REL_ML_KTG))) * [@[IMP.]] ) / (1-(MARKETING+EMBALAJE+GASTONUBE)) ) )
+     * Fórmula unificada: PVP = (COSTO * (1 + GANANCIA_AJUSTADA) * IMP) / (1 - GASTOS_PVP) * (1 - DESCUENTO)
+     * 
+     * Donde GANANCIA_AJUSTADA se calcula dinámicamente según los conceptos aplicables.
      */
     private FormulaCalculoDTO generarFormulaKTGastro(
             Producto producto,
             ProductoCanal productoCanal,
             List<CanalConcepto> conceptos,
             Integer numeroCuotas) {
-        // Verificar si es máquina
-        boolean esMaquina = esProductoMaquina(producto);
+        // Usar fórmula unificada (los conceptos ya vienen filtrados por reglas según máquina/no máquina)
+        return generarFormulaKTGastroUnificado(producto, productoCanal, conceptos, numeroCuotas);
+    }
 
-        if (esMaquina) {
-            return generarFormulaKTGastroMaquina(producto, productoCanal, numeroCuotas);
+    /**
+     * Genera la fórmula unificada para KT GASTRO (aplica a máquinas y no máquinas).
+     * Fórmula: PVP = (COSTO * (1 + GANANCIA_AJUSTADA) * IMP) / (1 - GASTOS_PVP) * (1 - DESCUENTO)
+     */
+    private FormulaCalculoDTO generarFormulaKTGastroUnificado(
+            Producto producto,
+            ProductoCanal productoCanal,
+            List<CanalConcepto> conceptos,
+            Integer numeroCuotas) {
+        List<FormulaCalculoDTO.PasoCalculo> pasos = new java.util.ArrayList<>();
+        BigDecimal cien = BigDecimal.valueOf(100);
+        int pasoNumero = 1;
+
+        // Paso 1: Costo
+        BigDecimal costo = producto.getCosto();
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo base del producto",
+                "COSTO",
+                costo,
+                String.format("Costo: $%s", costo)));
+
+        // Paso 2: IVA e IMP
+        BigDecimal iva = producto.getIva();
+        List<CanalConcepto> gastosSobreImp = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
+                .collect(Collectors.toList());
+        BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
+        BigDecimal imp = BigDecimal.ONE
+                .add(iva.divide(cien, 6, RoundingMode.HALF_UP))
+                .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
+
+        List<String> nombresConceptosImp = obtenerNombresConceptos(conceptos, AplicaSobre.IMP);
+        String nombresImpFormateados = formatearNombresConceptos(nombresConceptosImp);
+        String formulaImp = nombresImpFormateados.isEmpty()
+                ? "IMP = 1 + IVA/100"
+                : String.format("IMP = 1 + IVA/100 + %s/100", nombresImpFormateados);
+
+        String detalleImp = String.format("IVA: %s%%", iva);
+        if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0 && !nombresImpFormateados.isEmpty()) {
+            detalleImp += String.format(" + %s: %s%%", nombresImpFormateados, gastosSobreImpTotal);
+        }
+        detalleImp += String.format(" → IMP = 1 + %s/100", iva);
+        if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0) {
+            detalleImp += String.format(" + %s/100 = %s", gastosSobreImpTotal, imp);
         } else {
-            return generarFormulaKTGastroNoMaquina(producto, productoCanal, conceptos, numeroCuotas);
+            detalleImp += String.format(" = %s", imp);
+        }
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Factor de impuestos (IMP)",
+                formulaImp,
+                imp,
+                detalleImp));
+
+        // Paso 3: Obtener GAN.MIN.ML del canal KT GASTRO
+        BigDecimal gananciaMinML = BigDecimal.ZERO;
+        if (productoCanal != null && productoCanal.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanal.getMargenPorcentaje();
+        }
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Ganancia mínima (GAN.MIN.ML)",
+                "GAN.MIN.ML",
+                gananciaMinML,
+                String.format("Margen porcentaje (producto_canal.margen_porcentaje) del canal KT GASTRO: %s%%",
+                        gananciaMinML)));
+
+        // Paso 4: Obtener AUMENTA_MARGEN
+        List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
+                .collect(Collectors.toList());
+
+        BigDecimal aumentaMargen = calcularGastosPorcentaje(conceptosAumentaMargen);
+        List<String> nombresAumentaMargen = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN);
+        String nombresAumentaMargenFormateados = formatearNombresConceptos(nombresAumentaMargen);
+
+        if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Aumentar margen (AUMENTA_MARGEN)",
+                    nombresAumentaMargenFormateados.isEmpty() ? "AUMENTA_MARGEN"
+                            : String.format("AUMENTA_MARGEN = %s", nombresAumentaMargenFormateados),
+                    aumentaMargen,
+                    nombresAumentaMargenFormateados.isEmpty()
+                            ? String.format("AUMENTA_MARGEN = %s%%", aumentaMargen)
+                            : String.format("%s = %s%%", nombresAumentaMargenFormateados, aumentaMargen)));
+        }
+
+        // Paso 5: Obtener REDUCE_MARGEN
+        List<CanalConcepto> conceptosReduceMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
+                .collect(Collectors.toList());
+
+        BigDecimal reduceMargen = calcularGastosPorcentaje(conceptosReduceMargen);
+        List<String> nombresReduceMargen = obtenerNombresConceptos(conceptos, AplicaSobre.REDUCE_MARGEN);
+        String nombresReduceMargenFormateados = formatearNombresConceptos(nombresReduceMargen);
+
+        if (reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Reducir margen (REDUCE_MARGEN)",
+                    nombresReduceMargenFormateados.isEmpty() ? "REDUCE_MARGEN"
+                            : String.format("REDUCE_MARGEN = %s", nombresReduceMargenFormateados),
+                    reduceMargen,
+                    nombresReduceMargenFormateados.isEmpty()
+                            ? String.format("REDUCE_MARGEN = %s%%", reduceMargen)
+                            : String.format("%s = %s%%", nombresReduceMargenFormateados, reduceMargen)));
+        }
+
+        // Paso 6: Calcular ganancia ajustada
+        BigDecimal gananciaAjustada = gananciaMinML;
+        String detalleGananciaAjustada = String.format("GANANCIA_AJUSTADA = %s%%", gananciaMinML);
+
+        if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.add(aumentaMargen);
+            detalleGananciaAjustada += String.format(" + %s = %s%%", aumentaMargen, gananciaAjustada);
+        }
+
+        if (reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.subtract(reduceMargen);
+            detalleGananciaAjustada += String.format(" - %s = %s%%", reduceMargen, gananciaAjustada);
+        }
+
+        if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0 || reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Ganancia ajustada",
+                    "GANANCIA_AJUSTADA = GAN.MIN.ML" +
+                            (aumentaMargen.compareTo(BigDecimal.ZERO) > 0 ? " + AUMENTA_MARGEN" : "") +
+                            (reduceMargen.compareTo(BigDecimal.ZERO) > 0 ? " - REDUCE_MARGEN" : ""),
+                    gananciaAjustada,
+                    detalleGananciaAjustada));
+        }
+
+        // Paso 7: Calcular costo con ganancia
+        BigDecimal gananciaFrac = gananciaAjustada.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal costoConGanancia = costo.multiply(BigDecimal.ONE.add(gananciaFrac));
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo con ganancia",
+                "COSTO_CON_GANANCIA = COSTO * (1 + GANANCIA_AJUSTADA/100)",
+                costoConGanancia,
+                String.format("%s * (1 + %s/100) = %s * %s = %s",
+                        costo, gananciaAjustada, costo, BigDecimal.ONE.add(gananciaFrac), costoConGanancia)));
+
+        // Paso 8: Aplicar impuestos
+        BigDecimal costoConImpuestos = costoConGanancia.multiply(imp);
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo con impuestos",
+                "COSTO_CON_IMPUESTOS = COSTO_CON_GANANCIA * IMP",
+                costoConImpuestos,
+                String.format("%s * %s = %s", costoConGanancia, imp, costoConImpuestos)));
+
+        // Paso 9: Obtener gastos PVP
+        List<CanalConcepto> gastosSobrePVP = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+        List<String> nombresConceptosPVP = obtenerNombresConceptos(conceptos, AplicaSobre.PVP);
+        String nombresPVPFormateados = formatearNombresConceptos(nombresConceptosPVP);
+
+        String formulaGastosPVP = nombresPVPFormateados.isEmpty()
+                ? "GASTOS_PVP = 0"
+                : String.format("GASTOS_PVP = %s", nombresPVPFormateados);
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Gastos sobre PVP",
+                formulaGastosPVP,
+                gastosSobrePVPTotal,
+                nombresPVPFormateados.isEmpty()
+                        ? String.format("Gastos PVP: %s%%", gastosSobrePVPTotal)
+                        : String.format("Gastos PVP (%s): %s%%", nombresPVPFormateados, gastosSobrePVPTotal)));
+
+        // Paso 10: Obtener %CUOTAS
+        BigDecimal porcentajeCuota = BigDecimal.ZERO;
+        if (numeroCuotas != null && numeroCuotas > 0) {
+            Integer idCanalKTGastro = productoCanal.getCanal().getId();
+            List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanalKTGastro,
+                    numeroCuotas);
+            Canal canalKTGastro = canalRepository.findById(idCanalKTGastro).orElse(null);
+            if (canalKTGastro != null && canalKTGastro.getCanalBase() != null) {
+                cuotasCanal.addAll(canalConceptoCuotaRepository
+                        .findByCanalIdAndCuotas(canalKTGastro.getCanalBase().getId(), numeroCuotas));
+            }
+            Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
+                    .filter(c -> c.getTipo() == TipoCuota.NORMAL)
+                    .findFirst();
+            if (cuotaNormal.isPresent()) {
+                porcentajeCuota = cuotaNormal.get().getPorcentaje();
+            } else {
+                Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
+                        .filter(c -> c.getTipo() == TipoCuota.PROMO)
+                        .findFirst();
+                if (cuotaPromo.isPresent()) {
+                    porcentajeCuota = cuotaPromo.get().getPorcentaje();
+                }
+            }
+        }
+
+        if (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Porcentaje de cuotas",
+                    String.format("%%CUOTAS = %s", numeroCuotas),
+                    porcentajeCuota,
+                    String.format("Porcentaje de cuotas (%s cuotas): %s%%", numeroCuotas, porcentajeCuota)));
+        }
+
+        // Paso 11: Calcular PVP
+        BigDecimal gastosTotalPVP = gastosSobrePVPTotal.add(porcentajeCuota);
+        BigDecimal gastosTotalPVPFrac = gastosTotalPVP.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal denominador = BigDecimal.ONE.subtract(gastosTotalPVPFrac);
+        BigDecimal pvpAntesDescuento = costoConImpuestos.divide(denominador, 6, RoundingMode.HALF_UP);
+
+        String formulaPVP = nombresPVPFormateados.isEmpty() && porcentajeCuota.compareTo(BigDecimal.ZERO) == 0
+                ? "PVP = COSTO_CON_IMPUESTOS / (1 - GASTOS_PVP/100)"
+                : String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s%s)/100)",
+                        nombresPVPFormateados.isEmpty() ? "" : nombresPVPFormateados,
+                        porcentajeCuota.compareTo(BigDecimal.ZERO) > 0
+                                ? (nombresPVPFormateados.isEmpty() ? "" : " + ")
+                                        + String.format("%s cuotas", numeroCuotas)
+                                : "");
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "PVP antes de descuentos",
+                formulaPVP,
+                pvpAntesDescuento,
+                String.format("%s / (1 - %s/100) = %s",
+                        costoConImpuestos, gastosTotalPVP, pvpAntesDescuento)));
+
+        // Paso 12: Obtener descuentos
+        BigDecimal descuentoTotal = obtenerDescuentoMaquina(conceptos);
+        List<String> nombresConceptosDescuento = obtenerNombresConceptos(conceptos, AplicaSobre.DESCUENTO);
+        String nombresDescuentoFormateados = formatearNombresConceptos(nombresConceptosDescuento);
+
+        if (descuentoTotal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal factorDescuento = BigDecimal.ONE.subtract(descuentoTotal.divide(cien, 6, RoundingMode.HALF_UP));
+            BigDecimal pvp = pvpAntesDescuento.multiply(factorDescuento);
+            BigDecimal pvpSinPromocion = pvp.setScale(2, RoundingMode.HALF_UP);
+
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Aplicar descuentos",
+                    nombresDescuentoFormateados.isEmpty() ? "PVP = PVP * (1 - DESCUENTO/100)"
+                            : String.format("PVP = PVP * (1 - %s/100)", nombresDescuentoFormateados),
+                    pvpSinPromocion,
+                    String.format("%s * (1 - %s/100) = %s",
+                            pvpAntesDescuento, descuentoTotal, pvpSinPromocion)));
+
+            // Paso 13: Aplicar promociones
+            BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanal.getCanal(), pvpSinPromocion);
+            pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+
+            if (pvpInflado.compareTo(pvpSinPromocion) != 0) {
+                pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                        "Aplicar promociones del canal KT GASTRO",
+                        "PVP_INFLADO = aplicarPromocion(PVP_SIN_PROMOCION)",
+                        pvpInflado,
+                        String.format("PVP con promociones: %s", pvpInflado)));
+            }
+
+            // Construir fórmula general
+            StringBuilder formulaGeneralBuilder = new StringBuilder(
+                    "PVP = (COSTO * (1 + GANANCIA_AJUSTADA/100) * IMP) / (1 - GASTOS_PVP/100) * (1 - DESCUENTO/100)");
+            if (!nombresAumentaMargenFormateados.isEmpty() || !nombresReduceMargenFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" donde GANANCIA_AJUSTADA = GAN.MIN.ML");
+                if (!nombresAumentaMargenFormateados.isEmpty()) {
+                    formulaGeneralBuilder.append(" * (1 + ").append(nombresAumentaMargenFormateados).append("/100)");
+                }
+                if (!nombresReduceMargenFormateados.isEmpty()) {
+                    formulaGeneralBuilder.append(" * (1 - ").append(nombresReduceMargenFormateados).append("/100)");
+                }
+            }
+            if (!nombresPVPFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" y GASTOS_PVP = ").append(nombresPVPFormateados);
+            }
+            if (!nombresDescuentoFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" y DESCUENTO = ").append(nombresDescuentoFormateados);
+            }
+
+            return new FormulaCalculoDTO(
+                    productoCanal.getCanal().getCanal(),
+                    numeroCuotas,
+                    formulaGeneralBuilder.toString(),
+                    pasos,
+                    pvpInflado);
+        } else {
+            // Sin descuentos
+            BigDecimal pvpSinPromocion = pvpAntesDescuento.setScale(2, RoundingMode.HALF_UP);
+
+            // Paso 13: Aplicar promociones
+            BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanal.getCanal(), pvpSinPromocion);
+            pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+
+            if (pvpInflado.compareTo(pvpSinPromocion) != 0) {
+                pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                        "Aplicar promociones del canal KT GASTRO",
+                        "PVP_INFLADO = aplicarPromocion(PVP_SIN_PROMOCION)",
+                        pvpInflado,
+                        String.format("PVP con promociones: %s", pvpInflado)));
+            }
+
+            // Construir fórmula general
+            StringBuilder formulaGeneralBuilder = new StringBuilder(
+                    "PVP = (COSTO * (1 + GANANCIA_AJUSTADA/100) * IMP) / (1 - GASTOS_PVP/100)");
+            if (!nombresAumentaMargenFormateados.isEmpty() || !nombresReduceMargenFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" donde GANANCIA_AJUSTADA = GAN.MIN.ML");
+                if (!nombresAumentaMargenFormateados.isEmpty()) {
+                    formulaGeneralBuilder.append(" * (1 + ").append(nombresAumentaMargenFormateados).append("/100)");
+                }
+                if (!nombresReduceMargenFormateados.isEmpty()) {
+                    formulaGeneralBuilder.append(" * (1 - ").append(nombresReduceMargenFormateados).append("/100)");
+                }
+            }
+            if (!nombresPVPFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" y GASTOS_PVP = ").append(nombresPVPFormateados);
+            }
+
+            return new FormulaCalculoDTO(
+                    productoCanal.getCanal().getCanal(),
+                    numeroCuotas,
+                    formulaGeneralBuilder.toString(),
+                    pasos,
+                    pvpInflado);
         }
     }
 
     /**
-     * Genera la fórmula cuando el producto es máquina.
-     * Fórmula: PVP GASTRO = PVP ML * (1 - 0.145)
+     * Genera la fórmula cuando el producto es máquina. Fórmula: ( ( (COSTO * (1
+     * + GAN.MIN.ML)) * IMP) / (1 - COMISION ML + %CUOTAS + MARKETING +
+     * EMBALAJE) ) * (1 - DESCUENTO_MAQUINA)
+     * 
+     * @deprecated Usar generarFormulaKTGastroUnificado en su lugar
      */
+    @Deprecated
     private FormulaCalculoDTO generarFormulaKTGastroMaquina(
             Producto producto,
             ProductoCanal productoCanal,
+            List<CanalConcepto> conceptos,
             Integer numeroCuotas) {
         List<FormulaCalculoDTO.PasoCalculo> pasos = new java.util.ArrayList<>();
+        BigDecimal cien = BigDecimal.valueOf(100);
         int pasoNumero = 1;
 
         // Paso 1: Información sobre el producto
@@ -1626,62 +2314,325 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 BigDecimal.ONE,
                 "El producto pertenece a una clasificación gastronómica marcada como máquina"));
 
-        // Paso 2: Obtener PVP ML
+        // Paso 2: Costo
+        BigDecimal costo = producto.getCosto();
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo base del producto",
+                "COSTO",
+                costo,
+                String.format("Costo: $%s", costo)));
+
+        // Paso 3: Obtener GAN.MIN.ML del canal ML
         Canal canalML = canalRepository.findByCanalIgnoreCase("ML")
                 .orElseThrow(() -> new NotFoundException("No se encontró el canal ML"));
 
         ProductoCanal productoCanalML = productoCanalRepository
                 .findByProductoIdAndCanalId(producto.getId(), canalML.getId())
-                .orElseThrow(() -> new NotFoundException(
-                        "No se encontró la configuración del producto para el canal ML"));
+                .orElse(null);
 
-        // Obtener conceptos para ML
-        boolean esCanalNube = false;
-        List<ConceptoGasto> conceptosML = obtenerConceptosAplicables(
-                canalML.getId(),
-                numeroCuotas,
-                esCanalNube,
-                producto);
-
-        List<CanalConcepto> conceptosCanalML = convertirConceptosACanalConcepto(conceptosML, canalML.getId());
-
-        // Calcular PVP ML usando el método de fórmula general
-        FormulaCalculoDTO formulaML = generarFormulaGeneral(producto, productoCanalML, conceptosCanalML, numeroCuotas);
-        BigDecimal pvpML = formulaML.resultadoFinal();
-
-        // Agregar pasos de ML con numeración ajustada
-        for (FormulaCalculoDTO.PasoCalculo pasoML : formulaML.pasos()) {
-            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                    "Cálculo ML: " + pasoML.descripcion(),
-                    pasoML.formula(),
-                    pasoML.valor(),
-                    pasoML.detalle()));
+        BigDecimal gananciaMinML = BigDecimal.ZERO;
+        if (productoCanalML != null && productoCanalML.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanalML.getMargenPorcentaje();
         }
-
-        // Paso final: Aplicar descuento del 14.5%
-        BigDecimal factorDescuento = BigDecimal.valueOf(0.855); // 1 - 0.145
-        BigDecimal pvpGastro = pvpML.multiply(factorDescuento).setScale(2, RoundingMode.HALF_UP);
 
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                "Aplicar descuento para KT GASTRO (máquina)",
-                "PVP_GASTRO = PVP_ML * (1 - 0.145)",
-                pvpGastro,
-                String.format("PVP ML: %s * (1 - 0.145) = %s * 0.855 = %s",
-                        pvpML, pvpML, pvpGastro)));
+                "Ganancia mínima ML (GAN.MIN.ML)",
+                "GAN.MIN.ML",
+                gananciaMinML,
+                String.format("Margen porcentaje (producto_canal.margen_porcentaje) del canal ML: %s%%",
+                        gananciaMinML)));
 
-        // Aplicar promociones del canal KT GASTRO
-        BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanal.getCanal(), pvpGastro);
-        pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+        // Paso 4: Calcular COSTO * (1 + GAN.MIN.ML)
+        BigDecimal gananciaFrac = gananciaMinML.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal costoConGanancia = costo.multiply(BigDecimal.ONE.add(gananciaFrac));
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo con ganancia",
+                "COSTO_CON_GANANCIA = COSTO * (1 + GAN.MIN.ML/100)",
+                costoConGanancia,
+                String.format("GAN.MIN.ML: %s%% → %s * (1 + %s/100) = %s",
+                        gananciaMinML, costo, gananciaMinML, costoConGanancia)));
 
-        if (pvpInflado.compareTo(pvpGastro) != 0) {
-            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                    "Aplicar promociones del canal KT GASTRO",
-                    "PVP_INFLADO = aplicarPromocion(PVP_GASTRO)",
-                    pvpInflado,
-                    String.format("PVP con promociones: %s", pvpInflado)));
+        // Paso 5: Factor de impuestos (IMP)
+        BigDecimal iva = producto.getIva();
+        List<CanalConcepto> gastosSobreImp = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
+        BigDecimal imp = BigDecimal.ONE
+                .add(iva.divide(cien, 6, RoundingMode.HALF_UP))
+                .add(gastosSobreImpTotal.divide(cien, 6, RoundingMode.HALF_UP));
+
+        List<String> nombresConceptosImp = obtenerNombresConceptos(conceptos, AplicaSobre.IMP);
+        String nombresImpFormateados = formatearNombresConceptos(nombresConceptosImp);
+        String formulaImp = nombresImpFormateados.isEmpty()
+                ? "IMP = 1 + IVA/100"
+                : String.format("IMP = 1 + IVA/100 + %s/100", nombresImpFormateados);
+
+        String detalleImp = String.format("IVA: %s%%", iva);
+        if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0 && !nombresImpFormateados.isEmpty()) {
+            detalleImp += String.format(" + %s: %s%%", nombresImpFormateados, gastosSobreImpTotal);
+        }
+        detalleImp += String.format(" → IMP = 1 + %s/100", iva);
+        if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0) {
+            detalleImp += String.format(" + %s/100 = %s", gastosSobreImpTotal, imp);
+        } else {
+            detalleImp += String.format(" = %s", imp);
+        }
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Factor de impuestos (IMP)",
+                formulaImp,
+                imp,
+                detalleImp));
+
+        // Paso 6: Aplicar impuestos: costoConGanancia * IMP
+        BigDecimal costoConImpuestos = costoConGanancia.multiply(imp);
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Costo con impuestos",
+                "COSTO_CON_IMPUESTOS = COSTO_CON_GANANCIA * IMP",
+                costoConImpuestos,
+                String.format("%s * %s = %s", costoConGanancia, imp, costoConImpuestos)));
+
+        // Paso 7: Obtener TODOS los conceptos PVP del canal KT GASTRO
+        List<CanalConcepto> gastosSobrePVP = conceptos.stream()
+                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
+                .collect(Collectors.toList());
+
+        BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+        List<String> nombresConceptosPVP = obtenerNombresConceptos(conceptos, AplicaSobre.PVP);
+        String nombresPVPFormateados = formatearNombresConceptos(nombresConceptosPVP);
+
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "Gastos sobre PVP",
+                nombresPVPFormateados.isEmpty() ? "GASTOS_PVP" : nombresPVPFormateados,
+                gastosSobrePVPTotal,
+                String.format("Gastos PVP (%s): %s%%",
+                        nombresPVPFormateados.isEmpty() ? "sin conceptos" : nombresPVPFormateados,
+                        gastosSobrePVPTotal)));
+
+        // Paso 8: Obtener %CUOTAS del canal KT GASTRO
+        BigDecimal porcentajeCuota = BigDecimal.ZERO;
+        if (numeroCuotas != null && numeroCuotas > 0) {
+            Integer idCanalKTGastro = productoCanal.getCanal().getId();
+            List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanalKTGastro,
+                    numeroCuotas);
+            Canal canalKTGastro = canalRepository.findById(idCanalKTGastro).orElse(null);
+            if (canalKTGastro != null && canalKTGastro.getCanalBase() != null) {
+                cuotasCanal.addAll(canalConceptoCuotaRepository
+                        .findByCanalIdAndCuotas(canalKTGastro.getCanalBase().getId(), numeroCuotas));
+            }
+            Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
+                    .filter(c -> c.getTipo() == TipoCuota.NORMAL)
+                    .findFirst();
+            if (cuotaNormal.isPresent()) {
+                porcentajeCuota = cuotaNormal.get().getPorcentaje();
+            } else {
+                Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
+                        .filter(c -> c.getTipo() == TipoCuota.PROMO)
+                        .findFirst();
+                if (cuotaPromo.isPresent()) {
+                    porcentajeCuota = cuotaPromo.get().getPorcentaje();
+                }
+            }
         }
 
-        String formulaGeneral = "PVP_GASTRO = PVP_ML * (1 - 0.145)";
+        if (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Porcentaje de cuotas",
+                    String.format("%s cuotas", numeroCuotas),
+                    porcentajeCuota,
+                    String.format("Porcentaje para %s cuotas: %s%%", numeroCuotas, porcentajeCuota)));
+        }
+
+        // Paso 9: Calcular denominador y dividir
+        BigDecimal gastosTotalPVP = gastosSobrePVPTotal.add(porcentajeCuota);
+        BigDecimal gastosTotalPVPFrac = gastosTotalPVP.divide(cien, 6, RoundingMode.HALF_UP);
+        BigDecimal denominador = BigDecimal.ONE.subtract(gastosTotalPVPFrac);
+
+        String formulaGastosTotal = nombresPVPFormateados.isEmpty()
+                ? (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0
+                        ? String.format("%s cuotas", numeroCuotas)
+                        : "0")
+                : (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0
+                        ? String.format("%s + %s cuotas", nombresPVPFormateados, numeroCuotas)
+                        : nombresPVPFormateados);
+
+        BigDecimal pvpAntesDescuento = costoConImpuestos.divide(denominador, 6, RoundingMode.HALF_UP);
+        pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                "PVP antes de descuento máquina",
+                String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s)/100)", formulaGastosTotal),
+                pvpAntesDescuento,
+                String.format("%s / (1 - %s/100) = %s",
+                        costoConImpuestos, gastosTotalPVP, pvpAntesDescuento)));
+
+        // Paso 10: Obtener DESCUENTO_MAQUINA
+        BigDecimal descuentoMaquina = obtenerDescuentoMaquina(conceptos);
+        List<String> nombresConceptosDescuento = obtenerNombresConceptos(conceptos, AplicaSobre.DESCUENTO);
+        String nombresDescuentoFormateados = formatearNombresConceptos(nombresConceptosDescuento);
+
+        if (descuentoMaquina.compareTo(BigDecimal.ZERO) > 0) {
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "Descuento máquina",
+                    nombresDescuentoFormateados.isEmpty() ? "DESCUENTO_MAQUINA" : nombresDescuentoFormateados,
+                    descuentoMaquina,
+                    String.format("Descuento máquina (%s): %s%%",
+                            nombresDescuentoFormateados.isEmpty() ? "DESCUENTO" : nombresDescuentoFormateados,
+                            descuentoMaquina)));
+
+            // Paso 11: Aplicar descuento máquina
+            BigDecimal factorDescuento = BigDecimal.ONE
+                    .subtract(descuentoMaquina.divide(cien, 6, RoundingMode.HALF_UP));
+            BigDecimal pvp = pvpAntesDescuento.multiply(factorDescuento);
+            BigDecimal pvpSinPromocion = pvp.setScale(2, RoundingMode.HALF_UP);
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "PVP con descuento máquina",
+                    String.format("PVP = PVP * (1 - %s/100)",
+                            nombresDescuentoFormateados.isEmpty() ? "DESCUENTO_MAQUINA" : nombresDescuentoFormateados),
+                    pvpSinPromocion,
+                    String.format("%s * (1 - %s/100) = %s",
+                            pvpAntesDescuento, descuentoMaquina, pvpSinPromocion)));
+        } else {
+            BigDecimal pvpSinPromocion = pvpAntesDescuento.setScale(2, RoundingMode.HALF_UP);
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
+                    "PVP sin descuento máquina",
+                    "PVP = PVP_ANTES_DESCUENTO",
+                    pvpSinPromocion,
+                    String.format("Sin descuento máquina aplicable: %s", pvpSinPromocion)));
+        }
+
+        // Paso 12: Aplicar promociones del canal KT GASTRO
+        BigDecimal pvpAntesPromo = pasoNumero > 1
+                ? pasos.get(pasos.size() - 1).valor()
+                : BigDecimal.ZERO;
+        BigDecimal pvpInflado = aplicarPromocion(producto.getId(), productoCanal.getCanal(), pvpAntesPromo);
+        pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+
+        if (pvpInflado.compareTo(pvpAntesPromo) != 0) {
+            // Detallar promociones como en generarFormulaGeneral
+            int pasoNumeroPromo = pasoNumero;
+            Canal canal = productoCanal.getCanal();
+
+            // Aplicar porcentaje_inflacion del canal
+            if (canal.getPorcentajeInflacion() != null
+                    && canal.getPorcentajeInflacion().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal porcentajeInflacion = canal.getPorcentajeInflacion();
+                BigDecimal inflacionFrac = porcentajeInflacion.divide(cien, 6, RoundingMode.HALF_UP);
+                BigDecimal divisorInflacion = BigDecimal.ONE.subtract(inflacionFrac);
+                BigDecimal pvpConInflacion = pvpAntesPromo.divide(divisorInflacion, 6, RoundingMode.HALF_UP);
+                pvpInflado = pvpConInflacion.setScale(2, RoundingMode.HALF_UP);
+
+                pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumeroPromo++,
+                        "Inflación del canal",
+                        "PVP = PVP / (1 - PORCENTAJE_INFLACION/100)",
+                        pvpInflado,
+                        String.format("Inflación: %s%% → %s / (1 - %s/100) = %s",
+                                porcentajeInflacion, pvpAntesPromo, porcentajeInflacion, pvpInflado)));
+            }
+
+            // Aplicar promociones de producto_canal_promocion
+            Optional<ProductoCanalPromocion> promocionOpt = productoCanalPromocionRepository
+                    .findByProductoIdAndCanalId(producto.getId(), canal.getId());
+
+            if (promocionOpt.isPresent()) {
+                ProductoCanalPromocion pcp = promocionOpt.get();
+                if (pcp.getActiva() != null && pcp.getActiva()) {
+                    Promocion promocion = pcp.getPromocion();
+                    if (promocion != null) {
+                        BigDecimal valor = promocion.getValor();
+                        TipoPromocionTabla tipo = promocion.getTipo();
+
+                        BigDecimal pvpAntesPromoActual = pvpInflado;
+
+                        switch (tipo) {
+                            case MULTIPLICADOR:
+                                if (valor.compareTo(BigDecimal.ZERO) > 0) {
+                                    pvpInflado = pvpInflado.multiply(valor);
+                                    pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+                                    pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumeroPromo++,
+                                            "Aplicar promoción multiplicador",
+                                            "PVP = PVP * VALOR",
+                                            pvpInflado,
+                                            String.format("Multiplicador: %s → %s * %s = %s",
+                                                    valor, pvpAntesPromoActual, valor, pvpInflado)));
+                                }
+                                break;
+
+                            case DESCUENTO_PORC:
+                                if (valor.compareTo(BigDecimal.ZERO) > 0 && valor.compareTo(cien) < 0) {
+                                    BigDecimal promocionFrac = valor.divide(cien, 6, RoundingMode.HALF_UP);
+                                    BigDecimal denominadorPromo = BigDecimal.ONE.subtract(promocionFrac);
+                                    pvpInflado = pvpInflado.divide(denominadorPromo, 6, RoundingMode.HALF_UP);
+                                    pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+                                    pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumeroPromo++,
+                                            "Inflar precio (promoción porcentual)",
+                                            "PVP = PVP / (1 - VALOR/100)",
+                                            pvpInflado,
+                                            String.format("Inflación: %s%% → %s / (1 - %s/100) = %s",
+                                                    valor, pvpAntesPromoActual, valor, pvpInflado)));
+                                }
+                                break;
+
+                            case DIVISOR:
+                                if (valor.compareTo(BigDecimal.ZERO) > 0) {
+                                    pvpInflado = pvpInflado.divide(valor, 6, RoundingMode.HALF_UP);
+                                    pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+                                    pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumeroPromo++,
+                                            "Inflar precio (divisor)",
+                                            "PVP = PVP / VALOR",
+                                            pvpInflado,
+                                            String.format("Divisor: %s → %s / %s = %s",
+                                                    valor, pvpAntesPromoActual, valor, pvpInflado)));
+                                }
+                                break;
+
+                            case PRECIO_FIJO:
+                                if (valor.compareTo(BigDecimal.ZERO) > 0) {
+                                    pvpInflado = valor;
+                                    pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumeroPromo++,
+                                            "Establecer precio fijo",
+                                            "PVP = VALOR",
+                                            pvpInflado,
+                                            String.format("Precio fijo: %s", valor)));
+                                }
+                                break;
+
+                            default:
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        pvpInflado = pvpInflado.setScale(2, RoundingMode.HALF_UP);
+
+        // Construir fórmula general dinámicamente
+        StringBuilder formulaGeneralBuilder = new StringBuilder("PVP = (((COSTO * (1 + GAN.MIN.ML)) * IMP");
+        if (!nombresImpFormateados.isEmpty()) {
+            formulaGeneralBuilder.append(" (").append(nombresImpFormateados).append(")");
+        }
+        formulaGeneralBuilder.append(") / (1 - (");
+        if (!nombresPVPFormateados.isEmpty()) {
+            formulaGeneralBuilder.append(nombresPVPFormateados);
+            if (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0) {
+                formulaGeneralBuilder.append(" + %CUOTAS");
+            }
+        } else if (porcentajeCuota.compareTo(BigDecimal.ZERO) > 0) {
+            formulaGeneralBuilder.append("%CUOTAS");
+        } else {
+            formulaGeneralBuilder.append("0");
+        }
+        formulaGeneralBuilder.append(")/100)");
+        if (descuentoMaquina.compareTo(BigDecimal.ZERO) > 0) {
+            formulaGeneralBuilder.append(" * (1 - ");
+            if (!nombresDescuentoFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(nombresDescuentoFormateados);
+            } else {
+                formulaGeneralBuilder.append("DESCUENTO_MAQUINA");
+            }
+            formulaGeneralBuilder.append("/100)");
+        }
+        String formulaGeneral = formulaGeneralBuilder.toString();
 
         return new FormulaCalculoDTO(
                 productoCanal.getCanal().getCanal(),
@@ -1692,9 +2643,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Genera la fórmula cuando el producto NO es máquina.
-     * Fórmula: PVP GASTRO = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING + EMBALAJE + GASTONUBE))
+     * Genera la fórmula cuando el producto NO es máquina. Fórmula: PVP GASTRO =
+     * (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG))) * IMP) / (1 - (MARKETING + EMBALAJE +
+     * GASTONUBE))
+     * 
+     * @deprecated Usar generarFormulaKTGastroUnificado en su lugar
      */
+    @Deprecated
     private FormulaCalculoDTO generarFormulaKTGastroNoMaquina(
             Producto producto,
             ProductoCanal productoCanal,
@@ -1738,44 +2693,40 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Factor de impuestos (IMP)",
                 formulaImp, imp, detalleImp));
 
-        // Paso 3: Obtener GAN.MIN.ML del canal ML
-        Canal canalML = canalRepository.findByCanalIgnoreCase("ML")
-                .orElseThrow(() -> new NotFoundException("No se encontró el canal ML"));
-
-        ProductoCanal productoCanalML = productoCanalRepository
-                .findByProductoIdAndCanalId(producto.getId(), canalML.getId())
-                .orElse(null);
-
+        // Paso 3: Obtener GAN.MIN.ML del canal KT GASTRO
+        // GAN.MIN.ML es el margen_porcentaje de la tabla producto_canal para el canal KT GASTRO (ya incluye el ajuste)
         BigDecimal gananciaMinML = BigDecimal.ZERO;
-        if (productoCanalML != null && productoCanalML.getMargenPorcentaje() != null) {
-            gananciaMinML = productoCanalML.getMargenPorcentaje();
+        if (productoCanal != null && productoCanal.getMargenPorcentaje() != null) {
+            gananciaMinML = productoCanal.getMargenPorcentaje();
         }
 
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                "Ganancia mínima ML (GAN.MIN.ML)",
+                "Ganancia mínima (GAN.MIN.ML)",
                 "GAN.MIN.ML",
                 gananciaMinML,
-                String.format("Margen porcentaje del canal ML: %s%%", gananciaMinML)));
+                String.format("Margen porcentaje (producto_canal.margen_porcentaje) del canal KT GASTRO: %s%%",
+                        gananciaMinML)));
 
-        // Paso 4: Obtener REL_ML_KTG
+        // Paso 4: Obtener REL_ML_KTG (conceptos REDUCE_MARGEN)
         List<CanalConcepto> conceptosRelMLKTG = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
                 .collect(Collectors.toList());
 
         BigDecimal relMLKTG = calcularGastosPorcentaje(conceptosRelMLKTG);
-        List<String> nombresRelMLKTG = obtenerNombresConceptos(conceptos, AplicaSobre.COSTO_MARGEN);
+        List<String> nombresRelMLKTG = obtenerNombresConceptos(conceptos, AplicaSobre.REDUCE_MARGEN);
         String nombresRelMLKTGFormateados = formatearNombresConceptos(nombresRelMLKTG);
 
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                 "Relación ML-KT GASTRO (REL_ML_KTG)",
-                nombresRelMLKTGFormateados.isEmpty() ? "REL_ML_KTG = 0" : String.format("REL_ML_KTG = %s", nombresRelMLKTGFormateados),
+                nombresRelMLKTGFormateados.isEmpty() ? "REL_ML_KTG = 0"
+                        : String.format("REL_ML_KTG = %s", nombresRelMLKTGFormateados),
                 relMLKTG,
                 nombresRelMLKTGFormateados.isEmpty()
                         ? String.format("REL_ML_KTG = %s%%", relMLKTG)
                         : String.format("%s = %s%%", nombresRelMLKTGFormateados, relMLKTG)));
 
-        // Paso 5: Calcular ganancia ajustada: GAN.MIN.ML * (1 - REL_ML_KTG)
+        // Paso 5: Calcular ganancia ajustada: GAN.MIN.ML * (1 - REL_ML_KTG/100)
         BigDecimal factorRelacion = BigDecimal.ONE.subtract(relMLKTG.divide(cien, 6, RoundingMode.HALF_UP));
         BigDecimal gananciaAjustada = gananciaMinML.multiply(factorRelacion);
 
@@ -1857,9 +2808,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // Construir fórmula general
-        StringBuilder formulaGeneralBuilder = new StringBuilder("PVP = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG/100))) * IMP) / (1 - GASTOS_PVP/100)");
+        StringBuilder formulaGeneralBuilder = new StringBuilder(
+                "PVP = (COSTO * (1 + (GAN.MIN.ML * (1 - REL_ML_KTG/100))/100) * IMP) / (1 - GASTOS_PVP/100)");
+        if (!nombresRelMLKTGFormateados.isEmpty()) {
+            formulaGeneralBuilder.append(" donde REL_ML_KTG = ").append(nombresRelMLKTGFormateados);
+        }
         if (!nombresPVPFormateados.isEmpty()) {
-            formulaGeneralBuilder.append(" donde GASTOS_PVP = ").append(nombresPVPFormateados);
+            if (!nombresRelMLKTGFormateados.isEmpty()) {
+                formulaGeneralBuilder.append(" y GASTOS_PVP = ");
+            } else {
+                formulaGeneralBuilder.append(" donde GASTOS_PVP = ");
+            }
+            formulaGeneralBuilder.append(nombresPVPFormateados);
         }
 
         return new FormulaCalculoDTO(
@@ -1948,27 +2908,33 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 String.format("MARGEN: %s%% → %s * (1 + %s/100) = %s",
                         margenPorcentaje, costoConGastos, margenPorcentaje, costoConGanancia)));
 
-        // Paso 5: Gastos sobre COSTO_MARGEN
-        List<CanalConcepto> gastosSobreCostoMargen = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_MARGEN)
+        // Paso 5: Gastos sobre AUMENTA_MARGEN
+        List<CanalConcepto> gastosSobreAumentaMargen = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
                 .collect(Collectors.toList());
-        BigDecimal gastosSobreCostoMargenTotal = calcularGastosPorcentaje(gastosSobreCostoMargen);
+        BigDecimal gastosSobreAumentaMargenTotal = calcularGastosPorcentaje(gastosSobreAumentaMargen);
         BigDecimal costoConGananciaFinal = costoConGanancia;
-        if (gastosSobreCostoMargenTotal.compareTo(BigDecimal.ZERO) > 0) {
-            costoConGananciaFinal = costoConGanancia.multiply(
-                    BigDecimal.ONE.add(gastosSobreCostoMargenTotal.divide(cien, 6, RoundingMode.HALF_UP)));
-            List<String> nombresConceptosCostoMargen = obtenerNombresConceptos(conceptos, AplicaSobre.COSTO_MARGEN);
-            String nombresCostoMargenFormateados = formatearNombresConceptos(nombresConceptosCostoMargen);
-            String nombreGastosCostoMargen = nombresCostoMargenFormateados.isEmpty() ? "GASTOS_COSTO_MARGEN"
-                    : nombresCostoMargenFormateados;
-            String formulaCostoMargen = String.format("COSTO_CON_GANANCIA_FINAL = COSTO_CON_GANANCIA * (1 + %s/100)",
-                    nombreGastosCostoMargen);
-            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Gastos sobre COSTO_MARGEN",
-                    formulaCostoMargen,
+        if (gastosSobreAumentaMargenTotal.compareTo(BigDecimal.ZERO) > 0) {
+            // Aplicar AUMENTA_MARGEN sumando directamente al margen
+            BigDecimal gananciaAjustada = margenPorcentaje.add(gastosSobreAumentaMargenTotal);
+            BigDecimal gananciaAjustadaFrac = gananciaAjustada.divide(cien, 6, RoundingMode.HALF_UP);
+            costoConGananciaFinal = costoConGastos.multiply(BigDecimal.ONE.add(gananciaAjustadaFrac));
+
+            List<String> nombresConceptosAumentaMargen = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN);
+            String nombresAumentaMargenFormateados = formatearNombresConceptos(nombresConceptosAumentaMargen);
+            String nombreGastosAumentaMargen = nombresAumentaMargenFormateados.isEmpty() ? "AUMENTA_MARGEN"
+                    : nombresAumentaMargenFormateados;
+            String formulaAumentaMargen = String.format(
+                    "COSTO_CON_GANANCIA_FINAL = COSTO_CON_GASTOS * (1 + GANANCIA_AJUSTADA/100) donde GANANCIA_AJUSTADA = MARGEN + %s",
+                    nombreGastosAumentaMargen);
+            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Aumentar margen (AUMENTA_MARGEN)",
+                    formulaAumentaMargen,
                     costoConGananciaFinal,
-                    String.format("Gastos COSTO_MARGEN (%s): %s%% → %s * (1 + %s/100) = %s",
-                            nombresCostoMargenFormateados, gastosSobreCostoMargenTotal, costoConGanancia,
-                            gastosSobreCostoMargenTotal,
+                    String.format(
+                            "AUMENTA_MARGEN (%s): %s%% → GANANCIA_AJUSTADA = %s%% + %s%% = %s%% → %s * (1 + %s/100) = %s",
+                            nombresAumentaMargenFormateados, gastosSobreAumentaMargenTotal, margenPorcentaje,
+                            gastosSobreAumentaMargenTotal, gananciaAjustada, costoConGastos, gananciaAjustadaFrac,
                             costoConGananciaFinal)));
         }
 
@@ -2290,11 +3256,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Construir fórmula general usando nombres definidos en los pasos anteriores
         StringBuilder formulaGeneralBuilder = new StringBuilder("PVP = (((COSTO");
 
-        // Agregar gastos sobre COSTO_MARGEN si existen
-        List<String> nombresConceptosCostoMargenFinal = obtenerNombresConceptos(conceptos, AplicaSobre.COSTO_MARGEN);
-        String nombresCostoMargenFinalFormateados = formatearNombresConceptos(nombresConceptosCostoMargenFinal);
-        if (!nombresCostoMargenFinalFormateados.isEmpty()) {
-            formulaGeneralBuilder.append(" + ").append(nombresCostoMargenFinalFormateados);
+        // Agregar gastos sobre AUMENTA_MARGEN si existen
+        List<String> nombresConceptosAumentaMargenFinal = obtenerNombresConceptos(conceptos,
+                AplicaSobre.AUMENTA_MARGEN);
+        String nombresAumentaMargenFinalFormateados = formatearNombresConceptos(nombresConceptosAumentaMargenFinal);
+        if (!nombresAumentaMargenFinalFormateados.isEmpty()) {
+            formulaGeneralBuilder.append(" + ").append(nombresAumentaMargenFinalFormateados);
         }
 
         formulaGeneralBuilder.append(") * IMP");
