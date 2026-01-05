@@ -1,27 +1,28 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
-import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
-import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
-import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
-import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.List;
+import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class ProductoServiceImpl implements ProductoService {
 
     private final ProductoRepository productoRepository;
     private final ProductoMapper productoMapper;
-    private final ProductoCanalRepository productoCanalRepository;
+    private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final CalculoPrecioService calculoPrecioService;
 
     // ============================
@@ -188,12 +189,12 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setCosto(nuevoCosto);
         productoRepository.save(producto);
 
-        // 2) Obtener todos los canales donde participa el producto
-        List<ProductoCanal> canales = productoCanalRepository.findByProductoId(idProducto);
+        // 2) Obtener todos los canales donde el producto tiene precios calculados
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoId(idProducto);
 
         // 3) Recalcular automáticamente el precio para cada canal
-        canales.forEach(pc -> {
-            Integer idCanal = pc.getCanal().getId();
+        precios.forEach(precio -> {
+            Integer idCanal = precio.getCanal().getId();
             calculoPrecioService.recalcularYGuardarPrecioCanal(idProducto, idCanal);
         });
     }

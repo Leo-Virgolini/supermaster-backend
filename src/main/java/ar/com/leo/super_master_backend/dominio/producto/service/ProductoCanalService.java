@@ -1,9 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
 
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
-
 import java.util.List;
+
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
 
 public interface ProductoCanalService {
 

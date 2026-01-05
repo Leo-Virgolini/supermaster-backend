@@ -47,7 +47,7 @@ public class ConceptoGasto {
 
     @ColumnDefault("'PVP'")
     @Enumerated(EnumType.STRING)
-    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','COSTO_MARGEN','AUMENTA_MARGEN','REDUCE_MARGEN','IMP','CUPON','DESCUENTO') DEFAULT 'PVP'")
+    @Column(name = "aplica_sobre", columnDefinition = "ENUM('COSTO','PVP','COSTO_IVA','AUMENTA_MARGEN','REDUCE_MARGEN','IMP','RECARGO_CUPON','DESCUENTO','ENVIO','INFLACION','PROVEEDOR_FIN','COSTO_GANANCIA') DEFAULT 'PVP'")
     private AplicaSobre aplicaSobre;
 
     // ----------------------------------------

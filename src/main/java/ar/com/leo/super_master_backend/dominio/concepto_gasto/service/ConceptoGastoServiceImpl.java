@@ -1,7 +1,16 @@
 package ar.com.leo.super_master_backend.dominio.concepto_gasto.service;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
@@ -9,16 +18,8 @@ import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGas
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.mapper.ConceptoGastoMapper;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
-import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +27,7 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
 
     private final ConceptoGastoRepository conceptoRepository;
     private final CanalConceptoRepository canalConceptoRepository;
-    private final ProductoCanalRepository productoCanalRepository;
+    private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final CalculoPrecioService calculoPrecioService;
     private final ConceptoGastoMapper mapper;
 
@@ -77,9 +78,9 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
         canales.stream()
                 .map(cc -> cc.getCanal().getId())
                 .distinct()
-                .forEach(idCanal -> productoCanalRepository.findByCanalId(idCanal)
-                        .forEach(pc -> calculoPrecioService.recalcularYGuardarPrecioCanal(
-                                pc.getProducto().getId(),
+                .forEach(idCanal -> productoCanalPrecioRepository.findByCanalId(idCanal)
+                        .forEach(precio -> calculoPrecioService.recalcularYGuardarPrecioCanal(
+                                precio.getProducto().getId(),
                                 idCanal)));
 
         return mapper.toDTO(entity);

@@ -1,12 +1,11 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
-import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
+
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface ProductoCanalMapper {

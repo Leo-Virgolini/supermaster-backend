@@ -1,23 +1,34 @@
 package ar.com.leo.super_master_backend.dominio.producto.entity;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
+
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import java.math.BigDecimal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "producto_canal", schema = "supermaster")
+@Table(name = "producto_canal", schema = "supermaster", 
+       uniqueConstraints = @UniqueConstraint(columnNames = {"id_producto", "id_canal"}))
 public class ProductoCanal {
 
     @Id

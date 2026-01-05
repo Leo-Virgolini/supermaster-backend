@@ -10,28 +10,41 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  *          NOTA: Para conceptos de cuotas (con campo cuotas != NULL), usar PVP.
  *                Estos conceptos se procesan de manera especial como divisor sobre el PVP base.
  * - COSTO_IVA: Se aplica sobre el costo después de aplicar IVA (se multiplica después de IMP)
- * - COSTO_MARGEN: Se aplica sobre el costo después de aplicar margen (se multiplica después de ganancia)
- *                  NOTA: Deprecado. Usar AUMENTA_MARGEN o REDUCE_MARGEN según corresponda.
  * - AUMENTA_MARGEN: Suma puntos porcentuales directamente al margen: GAN.MIN.ML + AUMENTA_MARGEN
  *                   Ejemplo: Si GAN.MIN.ML = 60% y AUMENTA_MARGEN = 25%, entonces ganancia = 60% + 25% = 85%
  * - REDUCE_MARGEN: Resta puntos porcentuales directamente del margen: GAN.MIN.ML - REDUCE_MARGEN
  *                  Ejemplo: Si GAN.MIN.ML = 60% y REDUCE_MARGEN = 20%, entonces ganancia = 60% - 20% = 40%
  * - IMP: Se suma al factor de impuestos (IMP = 1 + IVA/100 + concepto/100)
  *        Ejemplo: IIBB se suma directamente al factor IMP
- * - CUPON: Se aplica como divisor adicional sobre el PVP después de GT3C
- *          Ejemplo: CUPON se divide por (1 - CUPON/100) al final del cálculo
- * - DESCUENTO: Se aplica como descuento al final del cálculo sobre el PVP
+ * - RECARGO_CUPON: Se aplica como divisor adicional sobre el PVP después de GT3C, aumentando el precio
+ *                  Ejemplo: RECARGO_CUPON se divide por (1 - RECARGO_CUPON/100) al final del cálculo
+ * - DESCUENTO: Se aplica como descuento al final del cálculo sobre el PVP, reduciendo el precio
  *              Ejemplo: DESCUENTO_MAQUINA se multiplica por (1 - DESCUENTO/100) al final
+ * - ENVIO: Indicador que indica que se debe buscar el precio de envío de mlas.precio_envio para el producto
+ *          El concepto actúa como marcador, el valor real viene de mlas.precio_envio
+ * - INFLACION: Se aplica como divisor sobre el PVP: PVP / (1 - INFLACION/100)
+ *              Ejemplo: INFLACION = 10% → PVP / (1 - 10/100) = PVP / 0.9
+ * - PROVEEDOR_FIN: Obtiene el porcentaje de financiación del proveedor (proveedores.porcentaje)
+ *                  Se aplica como multiplicador sobre el COSTO: COSTO * (1 + %FIN/100)
+ *                  El concepto actúa como marcador, el valor real viene de proveedor.porcentaje
+ *                  Ejemplo: Si proveedor.porcentaje = 5%, entonces COSTO * (1 + 5/100) = COSTO * 1.05
+ * - COSTO_GANANCIA: Se aplica después de calcular el costo con ganancia, pero antes de aplicar impuestos
+ *                   Multiplica: COSTO_CON_GANANCIA * (1 + concepto/100)
+ *                   Diferente de COSTO_IVA que se aplica después de impuestos
+ *                   Ejemplo: LGELOG, LGEMKT se aplican con este tipo
  */
 public enum AplicaSobre {
     COSTO,
     PVP,
     COSTO_IVA,
-    COSTO_MARGEN,
     AUMENTA_MARGEN,
     REDUCE_MARGEN,
     IMP,
-    CUPON,
-    DESCUENTO
+    RECARGO_CUPON,
+    DESCUENTO,
+    ENVIO,
+    INFLACION,
+    PROVEEDOR_FIN,
+    COSTO_GANANCIA
 }
 

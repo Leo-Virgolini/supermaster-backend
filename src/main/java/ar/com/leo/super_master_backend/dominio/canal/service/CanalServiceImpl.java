@@ -1,23 +1,25 @@
 package ar.com.leo.super_master_backend.dominio.canal.service;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalCreateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class CanalServiceImpl implements CanalService {
     private final CanalMapper canalMapper;
 
     private final ProductoCanalRepository productoCanalRepository;
+    private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final CalculoPrecioService calculoPrecioService;
 
     // =======================================
@@ -87,15 +90,22 @@ public class CanalServiceImpl implements CanalService {
         Canal canal = canalRepository.findById(idCanal)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
-        // 1) Obtener todos los productos asignados al canal
-        List<ProductoCanal> productosDelCanal = productoCanalRepository.findByCanalId(idCanal);
+        // 1) Obtener todos los productos que tienen precios calculados para este canal
+        List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(idCanal);
 
-        // 2) Actualizar margen (dirty checking hace el save)
-        productosDelCanal.forEach(pc -> pc.setMargenPorcentaje(nuevoMargen));
+        // 2) Actualizar margen de cada producto para este canal específico
+        preciosCanal.forEach(precio -> {
+            Integer productoId = precio.getProducto().getId();
+            productoCanalRepository.findByProductoIdAndCanalId(productoId, idCanal)
+                    .ifPresent(productoCanal -> {
+                        productoCanal.setMargenPorcentaje(nuevoMargen);
+                        productoCanalRepository.save(productoCanal);
+                    });
+        });
 
         // 3) Recalcular precios
-        productosDelCanal.forEach(pc -> calculoPrecioService.recalcularYGuardarPrecioCanal(
-                pc.getProducto().getId(),
+        preciosCanal.forEach(precio -> calculoPrecioService.recalcularYGuardarPrecioCanal(
+                precio.getProducto().getId(),
                 idCanal));
     }
 
