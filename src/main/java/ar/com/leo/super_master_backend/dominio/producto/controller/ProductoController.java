@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.controller;
 
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
@@ -45,6 +46,12 @@ public class ProductoController {
     @GetMapping("/{id}")
     public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(productoService.obtener(id));
+    }
+
+    @GetMapping("/{id}/precios")
+    public ResponseEntity<ProductoConPreciosDTO> obtenerConPrecios(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        return ResponseEntity.ok(productoService.obtenerConPrecios(id));
     }
 
     @PutMapping("/{id}")

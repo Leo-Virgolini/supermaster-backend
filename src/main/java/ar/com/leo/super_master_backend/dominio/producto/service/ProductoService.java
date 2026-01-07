@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
@@ -15,6 +16,8 @@ public interface ProductoService {
 
     ProductoDTO obtener(Integer id);
 
+    ProductoConPreciosDTO obtenerConPrecios(Integer id);
+
     ProductoDTO crear(ProductoCreateDTO dto);
 
     ProductoDTO actualizar(Integer id, ProductoUpdateDTO dto);
@@ -25,6 +28,5 @@ public interface ProductoService {
 
     Page<ProductoDTO> filtrar(ProductoFilter filter, Pageable pageable);
 
-    // 🔥 regla de negocio que sí modifica entidades
     void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto);
 }

@@ -1,15 +1,19 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
+import java.util.List;
+
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import org.mapstruct.*;
@@ -65,4 +69,37 @@ public interface ProductoMapper {
     // ================================================================
     @Named("toResumen")
     ProductoResumenDTO toResumenDTO(Producto entity);
+
+    // ================================================================
+    // PRODUCTO CON PRECIOS POR CANAL
+    // ================================================================
+    default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, List<ProductoCanalPrecio> precios) {
+        List<ProductoConPreciosDTO.CanalPrecioDTO> preciosCanales = precios.stream()
+                .map(pcp -> new ProductoConPreciosDTO.CanalPrecioDTO(
+                        pcp.getCanal().getId(),
+                        pcp.getCanal().getCanal(),
+                        pcp.getPvp(),
+                        pcp.getCostoTotal(),
+                        pcp.getGananciaAbs(),
+                        pcp.getGananciaPorcentaje(),
+                        pcp.getGastosTotalPorcentaje(),
+                        pcp.getFechaUltimoCalculo()
+                ))
+                .toList();
+
+        return new ProductoConPreciosDTO(
+                producto.getId(),
+                producto.getSku(),
+                producto.getCodExt(),
+                producto.getDescripcion(),
+                producto.getTituloWeb(),
+                producto.getCosto(),
+                producto.getIva(),
+                producto.getMarca() != null ? producto.getMarca().getNombre() : null,
+                producto.getOrigen() != null ? producto.getOrigen().getOrigen() : null,
+                producto.getTipo() != null ? producto.getTipo().getNombre() : null,
+                producto.getProveedor() != null ? producto.getProveedor().getProveedor() : null,
+                preciosCanales
+        );
+    }
 }

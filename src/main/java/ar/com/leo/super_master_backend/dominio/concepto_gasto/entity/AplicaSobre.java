@@ -32,6 +32,17 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  *                   Multiplica: COSTO_CON_GANANCIA * (1 + concepto/100)
  *                   Diferente de COSTO_IVA que se aplica después de impuestos
  *                   Ejemplo: LGELOG, LGEMKT se aplican con este tipo
+ * - IVA: Habilita la aplicación del IVA del producto para el canal.
+ *        Si existe un concepto con este tipo para el canal, se aplica el IVA del producto.
+ *        Si NO existe el concepto IVA para el canal, NO se aplica IVA (0%).
+ *        El porcentaje del concepto se ignora, solo actúa como habilitador.
+ *        Ejemplo: Canal con IVA → crear concepto con aplicaSobre=IVA
+ *                 Canal sin IVA → no asociar concepto IVA al canal
+ * - SOBRE_PVP_BASE: Calcula el PVP basándose en el PVP del canal base (canalBase).
+ *        Si existe un concepto con este tipo, se omite el cálculo normal y se usa:
+ *        PVP = PVP_CANAL_BASE * (1 + porcentaje/100)
+ *        Ejemplo: porcentaje = 8 → PVP = PVP_BASE * 1.08 (+8% sobre el canal base)
+ *        Requiere que el canal tenga un canalBase configurado y que ese canal tenga PVP calculado.
  */
 public enum AplicaSobre {
     COSTO,
@@ -45,6 +56,8 @@ public enum AplicaSobre {
     ENVIO,
     INFLACION,
     PROVEEDOR_FIN,
-    COSTO_GANANCIA
+    COSTO_GANANCIA,
+    IVA,
+    SOBRE_PVP_BASE
 }
 

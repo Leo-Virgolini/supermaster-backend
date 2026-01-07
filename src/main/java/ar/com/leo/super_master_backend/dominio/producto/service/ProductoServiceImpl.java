@@ -55,6 +55,20 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     // ============================
+    // OBTENER CON PRECIOS POR CANAL
+    // ============================
+    @Override
+    @Transactional(readOnly = true)
+    public ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO obtenerConPrecios(Integer id) {
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
+
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoId(id);
+
+        return productoMapper.toProductoConPreciosDTO(producto, precios);
+    }
+
+    // ============================
     // CREAR
     // ============================
     @Override
