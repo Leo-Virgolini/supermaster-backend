@@ -5,27 +5,56 @@ import java.time.Instant;
 import java.util.List;
 
 public record ProductoConPreciosDTO(
+        // Identificación
         Integer id,
         String sku,
         String codExt,
         String descripcion,
         String tituloWeb,
-        BigDecimal costo,
-        BigDecimal iva,
+        Boolean esCombo,
+
+        // Relaciones (nombres)
         String marcaNombre,
         String origenNombre,
+        String clasifGralNombre,
+        String clasifGastroNombre,
         String tipoNombre,
         String proveedorNombre,
+        String materialNombre,
+
+        // Dimensiones y atributos
+        Integer uxb,
+        String capacidad,
+        BigDecimal largo,
+        BigDecimal ancho,
+        BigDecimal alto,
+        String diamboca,
+        String diambase,
+        String espesor,
+
+        // Precios y costos
+        BigDecimal costo,
+        Instant fechaUltCosto,
+        BigDecimal iva,
+
+        // Fechas
+        Instant fechaCreacion,
+        Instant fechaModificacion,
+
+        // Precios por canal
         List<CanalPrecioDTO> preciosCanales
 ) {
     public record CanalPrecioDTO(
             Integer canalId,
             String canalNombre,
+            Integer cuotas,
             BigDecimal pvp,
+            BigDecimal pvpInflado,
             BigDecimal costoTotal,
             BigDecimal gananciaAbs,
             BigDecimal gananciaPorcentaje,
             BigDecimal gastosTotalPorcentaje,
             Instant fechaUltimoCalculo
-    ) {}
+    ) {
+    }
 }

@@ -63,7 +63,8 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
-        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoId(id);
+        // Ordenado por canal y cuotas (null primero = contado, luego 3, 6, 12...)
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoIdOrderByCanalIdAscCuotasAsc(id);
 
         return productoMapper.toProductoConPreciosDTO(producto, precios);
     }

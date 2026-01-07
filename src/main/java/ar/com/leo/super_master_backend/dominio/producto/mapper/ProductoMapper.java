@@ -78,7 +78,9 @@ public interface ProductoMapper {
                 .map(pcp -> new ProductoConPreciosDTO.CanalPrecioDTO(
                         pcp.getCanal().getId(),
                         pcp.getCanal().getCanal(),
+                        pcp.getCuotas(),
                         pcp.getPvp(),
+                        pcp.getPvpInflado(),
                         pcp.getCostoTotal(),
                         pcp.getGananciaAbs(),
                         pcp.getGananciaPorcentaje(),
@@ -88,17 +90,43 @@ public interface ProductoMapper {
                 .toList();
 
         return new ProductoConPreciosDTO(
+                // Identificación
                 producto.getId(),
                 producto.getSku(),
                 producto.getCodExt(),
                 producto.getDescripcion(),
                 producto.getTituloWeb(),
-                producto.getCosto(),
-                producto.getIva(),
+                producto.getEsCombo(),
+
+                // Relaciones (nombres)
                 producto.getMarca() != null ? producto.getMarca().getNombre() : null,
                 producto.getOrigen() != null ? producto.getOrigen().getOrigen() : null,
+                producto.getClasifGral() != null ? producto.getClasifGral().getNombre() : null,
+                producto.getClasifGastro() != null ? producto.getClasifGastro().getNombre() : null,
                 producto.getTipo() != null ? producto.getTipo().getNombre() : null,
                 producto.getProveedor() != null ? producto.getProveedor().getProveedor() : null,
+                producto.getMaterial() != null ? producto.getMaterial().getMaterial() : null,
+
+                // Dimensiones y atributos
+                producto.getUxb(),
+                producto.getCapacidad(),
+                producto.getLargo(),
+                producto.getAncho(),
+                producto.getAlto(),
+                producto.getDiamboca(),
+                producto.getDiambase(),
+                producto.getEspesor(),
+
+                // Precios y costos
+                producto.getCosto(),
+                producto.getFechaUltCosto(),
+                producto.getIva(),
+
+                // Fechas
+                producto.getFechaCreacion(),
+                producto.getFechaModificacion(),
+
+                // Precios por canal
                 preciosCanales
         );
     }

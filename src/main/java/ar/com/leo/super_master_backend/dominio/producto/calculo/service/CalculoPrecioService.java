@@ -3,6 +3,8 @@ package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 
+import java.util.List;
+
 public interface CalculoPrecioService {
 
     /**
@@ -43,11 +45,31 @@ public interface CalculoPrecioService {
     /**
      * Obtiene la fórmula del cálculo de precio para un producto, canal y número de cuotas.
      * Muestra paso a paso cómo se calcula el precio con los valores reales.
-     * 
+     *
      * @param idProducto ID del producto
      * @param idCanal ID del canal
      * @param numeroCuotas Número de cuotas (opcional)
      * @return DTO con la fórmula desglosada paso a paso
      */
     FormulaCalculoDTO obtenerFormulaCalculo(Integer idProducto, Integer idCanal, Integer numeroCuotas);
+
+    /**
+     * Calcula el precio de un producto para todas las cuotas configuradas en el canal (sin persistir).
+     * Incluye contado (null) y todas las cuotas de canal_concepto_cuota.
+     *
+     * @param idProducto ID del producto
+     * @param idCanal ID del canal
+     * @return Lista de precios calculados (contado + cada opción de cuotas)
+     */
+    List<PrecioCalculadoDTO> calcularPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal);
+
+    /**
+     * Calcula y guarda los precios de un producto para todas las cuotas configuradas en el canal.
+     * Incluye contado (null) y todas las cuotas de canal_concepto_cuota.
+     *
+     * @param idProducto ID del producto
+     * @param idCanal ID del canal
+     * @return Lista de precios calculados y guardados
+     */
+    List<PrecioCalculadoDTO> recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal);
 }
