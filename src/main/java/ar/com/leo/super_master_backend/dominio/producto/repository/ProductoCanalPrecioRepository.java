@@ -22,4 +22,6 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
 
     List<ProductoCanalPrecio> findByProductoIdAndCanalIdOrderByCuotasAsc(Integer productoId, Integer canalId);
 
+    List<ProductoCanalPrecio> findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(List<Integer> productoIds);
+
 }

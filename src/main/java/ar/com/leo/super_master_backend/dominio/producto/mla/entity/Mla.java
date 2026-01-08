@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -22,17 +24,20 @@ public class Mla {
     @Column(name = "id_mla", nullable = false)
     private Integer id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_producto", nullable = false)
-    private Producto producto;
-
     @Size(max = 20)
     @NotNull
-    @Column(name = "mla", nullable = false, length = 20)
+    @Column(name = "mla", nullable = false, length = 20, unique = true)
     private String mla;
+
+    @Size(max = 20)
+    @Column(name = "mlau", length = 20, unique = true)
+    private String mlau;
 
     @Column(name = "precio_envio", precision = 10, scale = 2)
     private BigDecimal precioEnvio;
+
+    // Relación inversa: un MLA puede estar en varios productos
+    @OneToMany(mappedBy = "mla")
+    private Set<Producto> productos = new LinkedHashSet<>();
 
 }

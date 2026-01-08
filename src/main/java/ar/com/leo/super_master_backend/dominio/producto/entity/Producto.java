@@ -131,11 +131,16 @@ public class Producto {
     private BigDecimal iva;
 
     // ---------------------------
-    // RELACIONES ONE TO MANY
+    // RELACIÓN MANY TO ONE CON MLA
     // ---------------------------
 
-    @OneToMany(mappedBy = "producto")
-    private Set<Mla> mlas = new LinkedHashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_mla")
+    private Mla mla;
+
+    // ---------------------------
+    // RELACIONES ONE TO MANY
+    // ---------------------------
 
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ProductoApto> productosApto = new LinkedHashSet<>();

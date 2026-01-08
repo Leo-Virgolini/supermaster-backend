@@ -15,9 +15,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -27,8 +25,7 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
     private final CanalConceptoRepository canalConceptoRepository;
     private final CanalRepository canalRepository;
     private final ConceptoGastoRepository conceptoRepository;
-    private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
-    private final CalculoPrecioService calculoPrecioService;
+    private final RecalculoPrecioFacade recalculoFacade;
     private final CanalConceptoMapper canalConceptoMapper;
 
     // ==========================================
@@ -67,8 +64,8 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
 
         canalConceptoRepository.save(cc);
 
-        // 4) 🔥 recalcular precios de todos los productos del canal
-        recalcularProductosDelCanal(canalId);
+        // Recalcular precios de todos los productos del canal
+        recalculoFacade.recalcularTodosProductosDelCanal(canalId);
 
         return canalConceptoMapper.toDTO(cc);
     }
@@ -86,24 +83,8 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
 
         canalConceptoRepository.deleteByCanalIdAndConceptoId(canalId, conceptoId);
 
-        // 🔥 recalcular
-        recalcularProductosDelCanal(canalId);
-    }
-
-    // ==========================================
-    // MÉTODO CENTRAL DE RECÁLCULO
-    // ==========================================
-    private void recalcularProductosDelCanal(Integer canalId) {
-
-        List<ProductoCanalPrecio> preciosCanal =
-                productoCanalPrecioRepository.findByCanalId(canalId);
-
-        preciosCanal.forEach(precio ->
-                calculoPrecioService.recalcularYGuardarPrecioCanal(
-                        precio.getProducto().getId(),
-                        canalId
-                )
-        );
+        // Recalcular precios de todos los productos del canal
+        recalculoFacade.recalcularTodosProductosDelCanal(canalId);
     }
 
 }

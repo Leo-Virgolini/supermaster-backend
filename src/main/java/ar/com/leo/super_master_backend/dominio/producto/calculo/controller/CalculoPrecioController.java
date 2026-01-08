@@ -18,23 +18,10 @@ public class CalculoPrecioController {
     private final CalculoPrecioService service;
 
     // -------------------------------------------------
-    // 1) Obtener cálculo sin persistir (todas las cuotas)
+    // 1) Calcular y guardar precios (todas las cuotas)
     // -------------------------------------------------
-    @GetMapping("/{idProducto}/canales/{idCanal}/calculo")
-    public ResponseEntity<List<PrecioCalculadoDTO>> calcularPrecio(
-            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer idProducto,
-            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer idCanal
-    ) {
-        return ResponseEntity.ok(
-                service.calcularPrecioCanalTodasCuotas(idProducto, idCanal)
-        );
-    }
-
-    // -------------------------------------------------
-    // 2) Recalcular y guardar en producto_canal_precios (todas las cuotas)
-    // -------------------------------------------------
-    @PostMapping("/{idProducto}/canales/{idCanal}/recalcular")
-    public ResponseEntity<List<PrecioCalculadoDTO>> recalcularYGuardar(
+    @PostMapping("/{idProducto}/canales/{idCanal}/calculo")
+    public ResponseEntity<List<PrecioCalculadoDTO>> calcularYGuardar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer idProducto,
             @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer idCanal
     ) {
@@ -44,7 +31,7 @@ public class CalculoPrecioController {
     }
 
     // -------------------------------------------------
-    // 3) Obtener fórmula del cálculo paso a paso
+    // 2) Obtener fórmula del cálculo paso a paso
     // -------------------------------------------------
     @GetMapping("/{idProducto}/canales/{idCanal}/formula")
     public ResponseEntity<FormulaCalculoDTO> obtenerFormula(

@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -9,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
@@ -25,6 +28,7 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
     private final ProductoCanalMapper mapper;
     private final ProductoRepository productoRepository;
     private final CanalRepository canalRepository;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -73,15 +77,24 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
         ProductoCanal pc = repo.findByProductoIdAndCanalId(productoId, canalId)
                 .orElseThrow(() -> new NotFoundException("Configuración de Producto-Canal no existe."));
 
-        // MapStruct NO actualiza entidades existentes, así que asignamos a mano
-        pc.setMargenPorcentaje(dto.margenPorcentaje());
-        pc.setMargenFijo(dto.margenFijo());
-        pc.setUsaCanalBase(dto.usaCanalBase());
-        pc.setAplicaCuotas(dto.aplicaCuotas());
-        pc.setAplicaComision(dto.aplicaComision());
-        pc.setNotas(dto.notas());
+        // Guardar valores anteriores para detectar cambios
+        BigDecimal margenPorcAnterior = pc.getMargenPorcentaje();
+        BigDecimal margenFijoAnterior = pc.getMargenFijo();
+        Boolean aplicaCuotasAnterior = pc.getAplicaCuotas();
+
+        // Actualizar solo campos no-null del DTO
+        mapper.updateEntityFromDTO(dto, pc);
 
         repo.save(pc);
+
+        // Recalcular si cambió algo que afecta el precio (comparar con valores actuales de la entidad)
+        boolean cambioMargenPorc = !Objects.equals(margenPorcAnterior, pc.getMargenPorcentaje());
+        boolean cambioMargenFijo = !Objects.equals(margenFijoAnterior, pc.getMargenFijo());
+        boolean cambioAplicaCuotas = !Objects.equals(aplicaCuotasAnterior, pc.getAplicaCuotas());
+
+        if (cambioMargenPorc || cambioMargenFijo || cambioAplicaCuotas) {
+            recalculoFacade.recalcularPorCambioProductoCanal(productoId, canalId);
+        }
 
         return mapper.toDTO(pc);
     }

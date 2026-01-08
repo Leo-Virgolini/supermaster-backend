@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 public record MlaDTO(
         Integer id,
-        Integer productoId,
         String mla,
+        String mlau,
         BigDecimal precioEnvio
 ) {}

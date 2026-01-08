@@ -120,6 +120,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         pcp.setCostoTotal(dto.costoTotal());
         pcp.setGananciaAbs(dto.gananciaAbs());
         pcp.setGananciaPorcentaje(dto.gananciaPorcentaje());
+        pcp.setGananciaRealPorcentaje(dto.gananciaRealPorcentaje());
         pcp.setGastosTotalPorcentaje(dto.gastosTotalPorcentaje());
 
         productoCanalPrecioRepository.save(pcp);
@@ -140,7 +141,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * 1. COSTO: Costo base del producto
      * 2. Gastos sobre COSTO: Conceptos con aplica_sobre='COSTO' (multiplican el costo)
      * 2.5. PROVEEDOR_FIN: Obtiene porcentaje de proveedores.porcentaje y aplica COSTO * (1 + %FIN/100)
-     * 3. Ganancia: GAN.MIN.ML + AUMENTA_MARGEN - REDUCE_MARGEN (suma directa)
+     * 3. Ganancia: (GAN.MIN.ML + AUMENTA_MARGEN_PTS - REDUCE_MARGEN_PTS) * (1 + AUMENTA_MARGEN_PROP/100) * (1 - REDUCE_MARGEN_PROP/100)
      * 4. Costo con ganancia: COSTO_CON_GASTOS * (1 + GANANCIA/100)
      * 4.5. COSTO_GANANCIA: Conceptos con aplica_sobre='COSTO_GANANCIA' (multiplican después de ganancia, antes de IMP)
      * 5. Envío: Si existe concepto con aplica_sobre='ENVIO', buscar mlas.precio_envio y sumarlo
@@ -242,24 +243,50 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Obtener AUMENTA_MARGEN
         List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN_PTS)
                 .collect(Collectors.toList());
         BigDecimal aumentaMargen = calcularGastosPorcentaje(conceptosAumentaMargen);
 
         // Obtener REDUCE_MARGEN
         List<CanalConcepto> conceptosReduceMargen = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN_PTS)
                 .collect(Collectors.toList());
         BigDecimal reduceMargen = calcularGastosPorcentaje(conceptosReduceMargen);
 
-        // Calcular ganancia ajustada: GAN.MIN.ML + AUMENTA_MARGEN - REDUCE_MARGEN
+        // Obtener AUMENTA_MARGEN_PROP (proporcional)
+        List<CanalConcepto> conceptosAumentaMargenProp = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN_PROP)
+                .collect(Collectors.toList());
+        BigDecimal aumentaMargenProp = calcularGastosPorcentaje(conceptosAumentaMargenProp);
+
+        // Obtener REDUCE_MARGEN_PROP (proporcional)
+        List<CanalConcepto> conceptosReduceMargenProp = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN_PROP)
+                .collect(Collectors.toList());
+        BigDecimal reduceMargenProp = calcularGastosPorcentaje(conceptosReduceMargenProp);
+
+        // Calcular ganancia ajustada: GAN.MIN.ML + AUMENTA_MARGEN_PTS - REDUCE_MARGEN_PTS
         BigDecimal gananciaAjustada = margenPorcentaje;
         if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0) {
             gananciaAjustada = gananciaAjustada.add(aumentaMargen);
         }
         if (reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
             gananciaAjustada = gananciaAjustada.subtract(reduceMargen);
+        }
+
+        // Aplicar ajustes proporcionales: ganancia * (1 +/- porcentaje/100)
+        if (aumentaMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            // ganancia * (1 + porcentaje/100)
+            gananciaAjustada = gananciaAjustada.multiply(
+                    BigDecimal.ONE.add(aumentaMargenProp.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)));
+        }
+        if (reduceMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            // ganancia * (1 - porcentaje/100)
+            gananciaAjustada = gananciaAjustada.multiply(
+                    BigDecimal.ONE.subtract(reduceMargenProp.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)));
         }
 
         // Si GAN.MIN.ML = 0 y no hay ajustes, usar 0
@@ -295,13 +322,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .collect(Collectors.toList());
 
         if (!conceptosEnvio.isEmpty()) {
-            // Buscar precio_envio de mlas para este producto
-            BigDecimal precioEnvio = mlaRepository.findByProductoId(producto.getId())
-                    .stream()
-                    .findFirst()
-                    .map(mla -> mla.getPrecioEnvio())
-                    .filter(envio -> envio != null && envio.compareTo(BigDecimal.ZERO) > 0)
-                    .orElse(BigDecimal.ZERO);
+            // Buscar precio_envio del MLA asociado al producto
+            BigDecimal precioEnvio = BigDecimal.ZERO;
+            if (producto.getMla() != null && producto.getMla().getPrecioEnvio() != null
+                    && producto.getMla().getPrecioEnvio().compareTo(BigDecimal.ZERO) > 0) {
+                precioEnvio = producto.getMla().getPrecioEnvio();
+            }
 
             if (precioEnvio.compareTo(BigDecimal.ZERO) > 0) {
                 costoConGananciaYEnvio = costoConGanancia.add(precioEnvio);
@@ -515,6 +541,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .add(porcentajeRecargoCupon)
                 .add(descuentoConceptos);
 
+        // Calcular ganancia real sobre el PVP final: (PVP - costoTotal) / costoTotal * 100
+        BigDecimal gananciaRealPorcentaje = BigDecimal.ZERO;
+        if (costoTotal.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaRealPorcentaje = pvpSinPromocion.subtract(costoTotal)
+                    .multiply(CIEN)
+                    .divide(costoTotal, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        }
+
         return new PrecioCalculadoDTO(
                 numeroCuotas,
                 pvpSinPromocion,
@@ -522,6 +556,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costoTotal,
                 gananciaAbs,
                 gananciaPorcentaje,
+                gananciaRealPorcentaje,
                 gastosTotalPorcentaje);
     }
 
@@ -625,15 +660,29 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN_PTS)
                 .collect(Collectors.toList());
         BigDecimal aumentaMargen = calcularGastosPorcentaje(conceptosAumentaMargen);
 
         List<CanalConcepto> conceptosReduceMargen = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN)
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN_PTS)
                 .collect(Collectors.toList());
         BigDecimal reduceMargen = calcularGastosPorcentaje(conceptosReduceMargen);
+
+        // Obtener AUMENTA_MARGEN_PROP (proporcional)
+        List<CanalConcepto> conceptosAumentaMargenProp = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.AUMENTA_MARGEN_PROP)
+                .collect(Collectors.toList());
+        BigDecimal aumentaMargenProp = calcularGastosPorcentaje(conceptosAumentaMargenProp);
+
+        // Obtener REDUCE_MARGEN_PROP (proporcional)
+        List<CanalConcepto> conceptosReduceMargenProp = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.REDUCE_MARGEN_PROP)
+                .collect(Collectors.toList());
+        BigDecimal reduceMargenProp = calcularGastosPorcentaje(conceptosReduceMargenProp);
 
         BigDecimal gananciaAjustada = margenPorcentaje;
         if (aumentaMargen.compareTo(BigDecimal.ZERO) > 0) {
@@ -643,14 +692,30 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             gananciaAjustada = gananciaAjustada.subtract(reduceMargen);
         }
 
+        // Aplicar ajustes proporcionales: ganancia * (1 +/- porcentaje/100)
+        if (aumentaMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.multiply(
+                    BigDecimal.ONE.add(aumentaMargenProp.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)));
+        }
+        if (reduceMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            gananciaAjustada = gananciaAjustada.multiply(
+                    BigDecimal.ONE.subtract(reduceMargenProp.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)));
+        }
+
         BigDecimal gananciaUsar = gananciaAjustada;
 
-        List<String> nombresAumentaMargen = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN);
-        List<String> nombresReduceMargen = obtenerNombresConceptos(conceptos, AplicaSobre.REDUCE_MARGEN);
+        List<String> nombresAumentaMargen = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN_PTS);
+        List<String> nombresReduceMargen = obtenerNombresConceptos(conceptos, AplicaSobre.REDUCE_MARGEN_PTS);
+        List<String> nombresAumentaMargenProp = obtenerNombresConceptos(conceptos, AplicaSobre.AUMENTA_MARGEN_PROP);
+        List<String> nombresReduceMargenProp = obtenerNombresConceptos(conceptos, AplicaSobre.REDUCE_MARGEN_PROP);
         String nombresAumentaMargenFormateados = formatearNombresConceptos(nombresAumentaMargen);
         String nombresReduceMargenFormateados = formatearNombresConceptos(nombresReduceMargen);
+        String nombresAumentaMargenPropFormateados = formatearNombresConceptos(nombresAumentaMargenProp);
+        String nombresReduceMargenPropFormateados = formatearNombresConceptos(nombresReduceMargenProp);
         String detalleAumentaMargen = formatearDetalleConceptos(conceptosAumentaMargen);
         String detalleReduceMargen = formatearDetalleConceptos(conceptosReduceMargen);
+        String detalleAumentaMargenProp = formatearDetalleConceptos(conceptosAumentaMargenProp);
+        String detalleReduceMargenProp = formatearDetalleConceptos(conceptosReduceMargenProp);
 
         String formulaGanancia = "GANANCIA = MARGEN";
         String detalleGanancia = String.format("MARGEN: %s%%", margenPorcentaje);
@@ -661,6 +726,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (reduceMargen.compareTo(BigDecimal.ZERO) > 0) {
             formulaGanancia += String.format(" - %s", nombresReduceMargenFormateados);
             detalleGanancia += String.format(" - %s", detalleReduceMargen);
+        }
+        if (aumentaMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            formulaGanancia += String.format(" * (1 + %s/100)", nombresAumentaMargenPropFormateados);
+            detalleGanancia += String.format(" * (1 + %s/100)", detalleAumentaMargenProp);
+        }
+        if (reduceMargenProp.compareTo(BigDecimal.ZERO) > 0) {
+            formulaGanancia += String.format(" * (1 - %s/100)", nombresReduceMargenPropFormateados);
+            detalleGanancia += String.format(" * (1 - %s/100)", detalleReduceMargenProp);
         }
         detalleGanancia += String.format(" → GANANCIA = %s%%", gananciaUsar);
 
@@ -707,12 +780,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .collect(Collectors.toList());
 
         if (!conceptosEnvio.isEmpty()) {
-            BigDecimal precioEnvio = mlaRepository.findByProductoId(producto.getId())
-                    .stream()
-                    .findFirst()
-                    .map(mla -> mla.getPrecioEnvio())
-                    .filter(envio -> envio != null && envio.compareTo(BigDecimal.ZERO) > 0)
-                    .orElse(BigDecimal.ZERO);
+            BigDecimal precioEnvio = BigDecimal.ZERO;
+            if (producto.getMla() != null && producto.getMla().getPrecioEnvio() != null
+                    && producto.getMla().getPrecioEnvio().compareTo(BigDecimal.ZERO) > 0) {
+                precioEnvio = producto.getMla().getPrecioEnvio();
+            }
 
             if (precioEnvio.compareTo(BigDecimal.ZERO) > 0) {
                 costoConGananciaYEnvio = costoConGanancia.add(precioEnvio);
@@ -1129,6 +1201,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .filter(p -> p != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Ganancia real sobre PVP final (igual a gananciaPorcentaje en este caso)
+        BigDecimal gananciaRealPorcentaje = gananciaPorcentaje;
+
         return new PrecioCalculadoDTO(
                 numeroCuotas,
                 pvp,        // pvp sin promoción
@@ -1136,6 +1211,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costoTotal,
                 gananciaAbs,
                 gananciaPorcentaje,
+                gananciaRealPorcentaje,
                 gastosTotalPorcentaje);
     }
 
@@ -1392,14 +1468,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Solo aplica a máquinas (es_maquina = true)
      * <p>
      * NOTA: REL_ML_KTG se usa para KT GASTRO NO MÁQUINA como concepto con
-     * aplica_sobre='REDUCE_MARGEN' que reduce la ganancia restando directamente.
+     * aplica_sobre='REDUCE_MARGEN_PTS' que reduce la ganancia restando directamente.
      * Debe tener regla EXCLUIR con es_maquina=true para que solo aplique a no máquinas.
      * <p>
      * NOTA: Los valores de aplica_sobre incluyen:
-     * - AUMENTA_MARGEN: Suma puntos porcentuales directamente al margen (GAN.MIN.ML + AUMENTA_MARGEN)
-     * Ejemplo: Si GAN.MIN.ML = 60% y AUMENTA_MARGEN = 25%, entonces ganancia = 60% + 25% = 85%
-     * - REDUCE_MARGEN: Resta puntos porcentuales directamente del margen (GAN.MIN.ML - REDUCE_MARGEN)
-     * Ejemplo: Si GAN.MIN.ML = 60% y REDUCE_MARGEN = 20%, entonces ganancia = 60% - 20% = 40%
+     * - AUMENTA_MARGEN_PTS: Suma puntos porcentuales directamente al margen (GAN.MIN.ML + porcentaje)
+     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 25%, entonces ganancia = 60% + 25% = 85%
+     * - REDUCE_MARGEN_PTS: Resta puntos porcentuales directamente del margen (GAN.MIN.ML - porcentaje)
+     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 20%, entonces ganancia = 60% - 20% = 40%
+     * - AUMENTA_MARGEN_PROP: Aumenta el margen proporcionalmente (MARGEN * (1 + porcentaje/100))
+     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 10%, entonces ganancia = 60% * 1.10 = 66%
+     * - REDUCE_MARGEN_PROP: Reduce el margen proporcionalmente (MARGEN * (1 - porcentaje/100))
+     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 10%, entonces ganancia = 60% * 0.90 = 54%
      * NOTA: Esta aplicación es consistente para todos los canales.
      * <p>
      * NOTA: Todos los conceptos (comunes y específicos) deben estar en

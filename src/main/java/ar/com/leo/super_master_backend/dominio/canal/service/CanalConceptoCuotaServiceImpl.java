@@ -9,12 +9,14 @@ import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalConceptoCuotaMa
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -24,6 +26,7 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
     private final CanalConceptoCuotaRepository repository;
     private final CanalRepository canalRepository;
     private final CanalConceptoCuotaMapper mapper;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,6 +60,10 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
 
         CanalConceptoCuota entity = mapper.toEntity(dto);
         repository.save(entity);
+
+        // Recalcular precios del canal
+        recalculoFacade.recalcularPorCambioCuotaCanal(dto.canalId());
+
         return mapper.toDTO(entity);
     }
 
@@ -83,18 +90,32 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
                     });
         }
 
+        BigDecimal porcentajeAnterior = entity.getPorcentaje();
+        Integer canalId = entity.getCanal().getId();
+
         mapper.updateEntityFromDTO(dto, entity);
         repository.save(entity);
+
+        // Recalcular si cambió el porcentaje
+        if (dto.porcentaje() != null && porcentajeAnterior.compareTo(dto.porcentaje()) != 0) {
+            recalculoFacade.recalcularPorCambioCuotaCanal(canalId);
+        }
+
         return mapper.toDTO(entity);
     }
 
     @Override
     @Transactional
     public void eliminar(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NotFoundException("Cuota no encontrada");
-        }
+        CanalConceptoCuota entity = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Cuota no encontrada"));
+
+        Integer canalId = entity.getCanal().getId();
+
         repository.deleteById(id);
+
+        // Recalcular precios del canal
+        recalculoFacade.recalcularPorCambioCuotaCanal(canalId);
     }
 
     @Override

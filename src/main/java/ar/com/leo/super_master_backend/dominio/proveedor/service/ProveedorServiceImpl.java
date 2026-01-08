@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.proveedor.service;
 
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorCreateDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorUpdateDTO;
@@ -13,12 +14,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 public class ProveedorServiceImpl implements ProveedorService {
 
     private final ProveedorRepository repo;
     private final ProveedorMapper mapper;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,10 +54,23 @@ public class ProveedorServiceImpl implements ProveedorService {
         Proveedor entity = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Proveedor no encontrado"));
 
-        mapper.updateEntityFromDTO(dto, entity);
+        BigDecimal porcentajeAnterior = entity.getPorcentaje();
 
+        mapper.updateEntityFromDTO(dto, entity);
         repo.save(entity);
+
+        // Recalcular precios si cambió el porcentaje de financiación
+        if (cambioPorcentaje(porcentajeAnterior, entity.getPorcentaje())) {
+            recalculoFacade.recalcularPorCambioProveedor(id);
+        }
+
         return mapper.toDTO(entity);
+    }
+
+    private boolean cambioPorcentaje(BigDecimal anterior, BigDecimal nuevo) {
+        if (anterior == null && nuevo == null) return false;
+        if (anterior == null || nuevo == null) return true;
+        return anterior.compareTo(nuevo) != 0;
     }
 
     @Override

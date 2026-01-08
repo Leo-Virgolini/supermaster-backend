@@ -52,6 +52,7 @@ public class ProductoCanalPrecioServiceImpl implements ProductoCanalPrecioServic
         entity.setCostoTotal(calculado.costoTotal());
         entity.setGananciaAbs(calculado.gananciaAbs());
         entity.setGananciaPorcentaje(calculado.gananciaPorcentaje());
+        entity.setGananciaRealPorcentaje(calculado.gananciaRealPorcentaje());
         entity.setGastosTotalPorcentaje(calculado.gastosTotalPorcentaje());
 
         // fecha_ultimo_calculo se actualiza por DB (default CURRENT_TIMESTAMP)

@@ -8,20 +8,16 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.TipoRegla;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
-import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
-import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface CanalConceptoReglaMapper {
 
     // =============================
@@ -51,7 +47,6 @@ public interface CanalConceptoReglaMapper {
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(source = "canalId", target = "canal", qualifiedByName = "canalFromId")
     @Mapping(source = "conceptoId", target = "concepto", qualifiedByName = "conceptoFromId")
     @Mapping(source = "tipoRegla", target = "tipoRegla", qualifiedByName = "stringToEnum")

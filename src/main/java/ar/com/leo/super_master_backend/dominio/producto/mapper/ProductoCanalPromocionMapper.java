@@ -1,21 +1,18 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
-import ar.com.leo.super_master_backend.dominio.promocion.mapper.PromocionMapper;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
-import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(config = GlobalMapperConfig.class)
 public interface ProductoCanalPromocionMapper {
 
     @Mapping(source = "producto.id", target = "productoId")
@@ -29,7 +26,6 @@ public interface ProductoCanalPromocionMapper {
     @Mapping(target = "id", ignore = true)
     ProductoCanalPromocion toEntity(ProductoCanalPromocionCreateDTO dto);
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "producto", ignore = true)
     @Mapping(target = "canal", ignore = true)

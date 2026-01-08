@@ -1,13 +1,13 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
-
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import org.mapstruct.*;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(config = GlobalMapperConfig.class)
 public interface ProductoCanalMapper {
 
     @Mapping(source = "producto.id", target = "productoId")
@@ -17,4 +17,9 @@ public interface ProductoCanalMapper {
     @Mapping(target = "producto", expression = "java(new Producto(dto.productoId()))")
     @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
     ProductoCanal toEntity(ProductoCanalDTO dto);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "producto", ignore = true)
+    @Mapping(target = "canal", ignore = true)
+    void updateEntityFromDTO(ProductoCanalDTO dto, @MappingTarget ProductoCanal entity);
 }

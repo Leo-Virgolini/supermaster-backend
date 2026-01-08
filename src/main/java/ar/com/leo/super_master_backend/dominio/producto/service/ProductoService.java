@@ -28,5 +28,7 @@ public interface ProductoService {
 
     Page<ProductoDTO> filtrar(ProductoFilter filter, Pageable pageable);
 
+    Page<ProductoConPreciosDTO> listarConPrecios(ProductoFilter filter, Pageable pageable);
+
     void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto);
 }

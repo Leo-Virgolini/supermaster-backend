@@ -1,15 +1,13 @@
 package ar.com.leo.super_master_backend.dominio.marca.mapper;
 
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import org.mapstruct.*;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface MarcaMapper {
 
     // =============================
@@ -27,7 +25,6 @@ public interface MarcaMapper {
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "padre", expression = "java(dto.padreId() != null ? new Marca(dto.padreId()) : entity.getPadre())")
     void updateEntityFromDTO(MarcaUpdateDTO dto, @MappingTarget Marca entity);
 }

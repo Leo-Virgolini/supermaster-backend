@@ -9,6 +9,7 @@ public record PrecioCalculadoDTO(
         BigDecimal costoTotal,
         BigDecimal gananciaAbs,
         BigDecimal gananciaPorcentaje,
+        BigDecimal gananciaRealPorcentaje,
         BigDecimal gastosTotalPorcentaje
 ) {
 }

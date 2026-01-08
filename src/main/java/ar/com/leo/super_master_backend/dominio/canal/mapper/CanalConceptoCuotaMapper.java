@@ -6,17 +6,13 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoCuotaUpdat
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
 import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
-import org.mapstruct.BeanMapping;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
-import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface CanalConceptoCuotaMapper {
 
     // =============================
@@ -37,7 +33,6 @@ public interface CanalConceptoCuotaMapper {
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "canal", ignore = true)
     @Mapping(source = "tipo", target = "tipo", qualifiedByName = "stringToEnum")

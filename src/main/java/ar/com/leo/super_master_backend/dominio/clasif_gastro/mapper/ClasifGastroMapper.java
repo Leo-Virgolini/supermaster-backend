@@ -4,12 +4,10 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroCre
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import org.mapstruct.*;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface ClasifGastroMapper {
 
     // =============================
@@ -21,19 +19,12 @@ public interface ClasifGastroMapper {
     // =============================
     // CREATE DTO → ENTITY
     // =============================
-    @Mapping(
-            target = "padre",
-            expression = "java(dto.padreId() != null ? new ClasifGastro(dto.padreId()) : null)"
-    )
+    @Mapping(target = "padre", expression = "java(dto.padreId() != null ? new ClasifGastro(dto.padreId()) : null)")
     ClasifGastro toEntity(ClasifGastroCreateDTO dto);
 
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(
-            target = "padre",
-            expression = "java(dto.padreId() != null ? new ClasifGastro(dto.padreId()) : entity.getPadre())"
-    )
+    @Mapping(target = "padre", expression = "java(dto.padreId() != null ? new ClasifGastro(dto.padreId()) : entity.getPadre())")
     void updateEntityFromDTO(ClasifGastroUpdateDTO dto, @MappingTarget ClasifGastro entity);
 }

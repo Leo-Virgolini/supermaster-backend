@@ -1,9 +1,11 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
@@ -18,7 +20,7 @@ import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+@Mapper(config = GlobalMapperConfig.class)
 public interface ProductoMapper {
 
     // ================================================================
@@ -52,7 +54,6 @@ public interface ProductoMapper {
     // ================================================================
     // DTO UPDATE → ENTITY (solo patch, ignora nulls)
     // ================================================================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "marca", expression = "java(dto.marcaId() != null ? new Marca(dto.marcaId()) : entity.getMarca())")
     @Mapping(target = "origen", expression = "java(dto.origenId() != null ? new Origen(dto.origenId()) : entity.getOrigen())")
     @Mapping(target = "clasifGral", expression = "java(dto.clasifGralId() != null ? new ClasifGral(dto.clasifGralId()) : entity.getClasifGral())")
@@ -74,6 +75,13 @@ public interface ProductoMapper {
     // PRODUCTO CON PRECIOS POR CANAL
     // ================================================================
     default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, List<ProductoCanalPrecio> precios) {
+        // Obtener MLA (si existe)
+        var mlaEntity = producto.getMla();
+        String mla = mlaEntity != null ? mlaEntity.getMla() : null;
+        String mlau = mlaEntity != null ? mlaEntity.getMlau() : null;
+        BigDecimal precioEnvio = mlaEntity != null ? mlaEntity.getPrecioEnvio() : null;
+
+        // Mapear precios por canal
         List<ProductoConPreciosDTO.CanalPrecioDTO> preciosCanales = precios.stream()
                 .map(pcp -> new ProductoConPreciosDTO.CanalPrecioDTO(
                         pcp.getCanal().getId(),
@@ -84,6 +92,7 @@ public interface ProductoMapper {
                         pcp.getCostoTotal(),
                         pcp.getGananciaAbs(),
                         pcp.getGananciaPorcentaje(),
+                        pcp.getGananciaRealPorcentaje(),
                         pcp.getGastosTotalPorcentaje(),
                         pcp.getFechaUltimoCalculo()
                 ))
@@ -125,6 +134,11 @@ public interface ProductoMapper {
                 // Fechas
                 producto.getFechaCreacion(),
                 producto.getFechaModificacion(),
+
+                // MLA
+                mla,
+                mlau,
+                precioEnvio,
 
                 // Precios por canal
                 preciosCanales

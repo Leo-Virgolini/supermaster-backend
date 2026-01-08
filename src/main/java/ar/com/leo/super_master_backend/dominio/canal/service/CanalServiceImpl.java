@@ -15,7 +15,7 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
@@ -30,7 +30,7 @@ public class CanalServiceImpl implements CanalService {
 
     private final ProductoCanalRepository productoCanalRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
-    private final CalculoPrecioService calculoPrecioService;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     // =======================================
     // CRUD + DTOs
@@ -103,10 +103,8 @@ public class CanalServiceImpl implements CanalService {
                     });
         });
 
-        // 3) Recalcular precios
-        preciosCanal.forEach(precio -> calculoPrecioService.recalcularYGuardarPrecioCanal(
-                precio.getProducto().getId(),
-                idCanal));
+        // 3) Recalcular precios de todos los productos del canal
+        recalculoFacade.recalcularTodosProductosDelCanal(idCanal);
     }
 
 }

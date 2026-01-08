@@ -10,7 +10,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -68,16 +68,23 @@ public class ProductoCanalPrecio {
     @Column(name = "ganancia_porcentaje", precision = 6, scale = 2)
     private BigDecimal gananciaPorcentaje;
 
+    /**
+     * Ganancia real calculada sobre el PVP final (incluyendo cuotas).
+     * Fórmula: (PVP - costoTotal) / costoTotal * 100
+     */
+    @Column(name = "ganancia_real_porcentaje", precision = 6, scale = 2)
+    private BigDecimal gananciaRealPorcentaje;
+
     @Column(name = "gastos_total_porcentaje", precision = 6, scale = 2)
     private BigDecimal gastosTotalPorcentaje;
 
     @Column(name = "fecha_ultimo_calculo")
-    private Instant fechaUltimoCalculo;
+    private LocalDateTime fechaUltimoCalculo;
 
     @PrePersist
     @PreUpdate
     public void actualizarFechaCalculo() {
-        fechaUltimoCalculo = Instant.now();
+        fechaUltimoCalculo = LocalDateTime.now();
     }
 
 }

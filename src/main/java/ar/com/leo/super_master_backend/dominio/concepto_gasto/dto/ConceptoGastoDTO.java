@@ -7,6 +7,6 @@ public record ConceptoGastoDTO(
         String concepto,
         BigDecimal porcentaje,
         String aplicaSobre,
-        String cuotas
+        String descripcion
 ) {
 }

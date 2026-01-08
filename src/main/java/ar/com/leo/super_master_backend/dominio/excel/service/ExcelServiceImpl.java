@@ -1730,17 +1730,14 @@ public class ExcelServiceImpl implements ExcelService {
                 try {
                     String mlaStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "MLA"));
                     if (mlaStr != null && !mlaStr.isBlank()) {
-                        // Buscar si ya existe un MLA para este producto
-                        List<Mla> mlasExistentes = mlaRepository.findByProductoId(productoFinal.getId());
-                        Optional<Mla> mlaExistente = mlasExistentes.isEmpty() ? Optional.empty() : Optional.of(mlasExistentes.get(0));
+                        // Buscar si ya existe un MLA con este código
+                        Optional<Mla> mlaExistente = mlaRepository.findByMla(mlaStr.trim());
 
                         Mla mla;
                         if (mlaExistente.isPresent()) {
                             mla = mlaExistente.get();
-                            mla.setMla(mlaStr.trim());
                         } else {
                             mla = new Mla();
-                            mla.setProducto(productoFinal);
                             mla.setMla(mlaStr.trim());
                         }
 
@@ -1758,6 +1755,9 @@ public class ExcelServiceImpl implements ExcelService {
                         }
 
                         mlaRepository.save(mla);
+                        // Asignar MLA al producto
+                        productoFinal.setMla(mla);
+                        productoRepository.save(productoFinal);
                     }
                 } catch (Exception e) {
                     log.warn("Error procesando MLA para producto SKU {}: {}", skuFinal, e.getMessage());
@@ -2199,14 +2199,10 @@ public class ExcelServiceImpl implements ExcelService {
                     return productoRepository.save(nuevo);
                 });
 
-        // Buscar si ya existe el MLA para este producto
-        Mla mlaEntity = mlaRepository.findByProductoId(producto.getId())
-                .stream()
-                .filter(m -> m.getMla().equals(mla))
-                .findFirst()
+        // Buscar si ya existe el MLA por código, o crear uno nuevo
+        Mla mlaEntity = mlaRepository.findByMla(mla)
                 .orElseGet(() -> {
                     Mla nuevo = new Mla();
-                    nuevo.setProducto(producto);
                     nuevo.setMla(mla);
                     return nuevo;
                 });
@@ -2225,6 +2221,9 @@ public class ExcelServiceImpl implements ExcelService {
         }
 
         mlaRepository.save(mlaEntity);
+        // Asignar MLA al producto
+        producto.setMla(mlaEntity);
+        productoRepository.save(producto);
     }
 
     // ============================================================

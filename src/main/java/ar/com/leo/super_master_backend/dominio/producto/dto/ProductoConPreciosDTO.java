@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record ProductoConPreciosDTO(
@@ -41,6 +42,11 @@ public record ProductoConPreciosDTO(
         Instant fechaCreacion,
         Instant fechaModificacion,
 
+        // MLA
+        String mla,
+        String mlau,
+        BigDecimal precioEnvio,
+
         // Precios por canal
         List<CanalPrecioDTO> preciosCanales
 ) {
@@ -53,8 +59,9 @@ public record ProductoConPreciosDTO(
             BigDecimal costoTotal,
             BigDecimal gananciaAbs,
             BigDecimal gananciaPorcentaje,
+            BigDecimal gananciaRealPorcentaje,
             BigDecimal gastosTotalPorcentaje,
-            Instant fechaUltimoCalculo
+            LocalDateTime fechaUltimoCalculo
     ) {
     }
 }

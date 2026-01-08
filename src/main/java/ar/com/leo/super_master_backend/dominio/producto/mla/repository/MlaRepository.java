@@ -4,11 +4,11 @@ import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MlaRepository extends JpaRepository<Mla, Integer> {
 
-    List<Mla> findByProductoId(Integer idProducto);
+    Optional<Mla> findByMla(String mla);
 
 }

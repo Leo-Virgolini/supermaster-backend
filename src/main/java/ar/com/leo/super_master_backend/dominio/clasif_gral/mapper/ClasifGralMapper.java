@@ -4,12 +4,10 @@ import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralCreateD
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import org.mapstruct.*;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface ClasifGralMapper {
 
     // =============================
@@ -21,19 +19,12 @@ public interface ClasifGralMapper {
     // =============================
     // CREATE DTO → ENTITY
     // =============================
-    @Mapping(
-            target = "padre",
-            expression = "java(dto.padreId() != null ? new ClasifGral(dto.padreId()) : null)"
-    )
+    @Mapping(target = "padre", expression = "java(dto.padreId() != null ? new ClasifGral(dto.padreId()) : null)")
     ClasifGral toEntity(ClasifGralCreateDTO dto);
 
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(
-            target = "padre",
-            expression = "java(dto.padreId() != null ? new ClasifGral(dto.padreId()) : entity.getPadre())"
-    )
+    @Mapping(target = "padre", expression = "java(dto.padreId() != null ? new ClasifGral(dto.padreId()) : entity.getPadre())")
     void updateEntityFromDTO(ClasifGralUpdateDTO dto, @MappingTarget ClasifGral entity);
 }

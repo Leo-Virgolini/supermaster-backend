@@ -4,12 +4,10 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalCreateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
 import org.mapstruct.*;
 
-@Mapper(
-        componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
-)
+@Mapper(config = GlobalMapperConfig.class)
 public interface CanalMapper {
 
     // ================
@@ -28,7 +26,6 @@ public interface CanalMapper {
     // ================
     // UPDATE DTO → ENTITY (PATCH)
     // ================
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "canalBase",
             expression = "java(dto.canalBaseId() != null ? new Canal(dto.canalBaseId()) : entity.getCanalBase())")
     void updateEntityFromDTO(CanalUpdateDTO dto, @MappingTarget Canal entity);

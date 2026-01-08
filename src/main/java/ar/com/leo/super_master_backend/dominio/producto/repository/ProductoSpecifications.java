@@ -26,7 +26,7 @@ public class ProductoSpecifications {
                     cb.like(cb.lower(root.get("codExt")), pattern),
                     cb.like(cb.lower(root.get("descripcion")), pattern),
                     cb.like(cb.lower(root.get("tituloWeb")), pattern),
-                    cb.like(cb.lower(root.join("mlas").get("mla")), pattern)
+                    cb.like(cb.lower(root.join("mla").get("mla")), pattern)
             );
         };
     }
@@ -183,7 +183,7 @@ public class ProductoSpecifications {
     public static Specification<Producto> mlaIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
-            return root.join("mlas").get("id").in(ids);
+            return root.join("mla").get("id").in(ids);
         };
     }
 
