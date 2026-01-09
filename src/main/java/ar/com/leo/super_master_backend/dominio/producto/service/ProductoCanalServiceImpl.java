@@ -1,15 +1,12 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
@@ -27,73 +24,61 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
     private final ProductoCanalRepository repo;
     private final ProductoCanalMapper mapper;
     private final ProductoRepository productoRepository;
-    private final CanalRepository canalRepository;
     private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductoCanalDTO> listar(Integer productoId) {
+    public Optional<ProductoCanalDTO> obtener(Integer productoId) {
         return repo.findByProductoId(productoId)
-                .stream()
-                .map(mapper::toDTO)
-                .collect(Collectors.toList());
+                .map(mapper::toDTO);
     }
 
     @Override
     @Transactional
-    public ProductoCanalDTO agregar(Integer productoId, Integer canalId) {
+    public ProductoCanalDTO guardar(ProductoCanalDTO dto) {
         // Validar que exista el producto
-        productoRepository.findById(productoId)
+        productoRepository.findById(dto.productoId())
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
-        // Validar que exista el canal
-        canalRepository.findById(canalId)
-                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
+        // Buscar configuracion existente
+        Optional<ProductoCanal> existente = repo.findByProductoId(dto.productoId());
 
-        // Si ya existe, devolverlo
-        var existente = repo.findByProductoIdAndCanalId(productoId, canalId);
+        ProductoCanal pc;
+        BigDecimal margenMinoristaAnterior = null;
+        BigDecimal margenMayoristaAnterior = null;
+        BigDecimal margenFijoMinoristaAnterior = null;
+        BigDecimal margenFijoMayoristaAnterior = null;
+
         if (existente.isPresent()) {
-            return mapper.toDTO(existente.get());
+            pc = existente.get();
+            // Guardar valores anteriores para detectar cambios
+            margenMinoristaAnterior = pc.getMargenMinorista();
+            margenMayoristaAnterior = pc.getMargenMayorista();
+            margenFijoMinoristaAnterior = pc.getMargenFijoMinorista();
+            margenFijoMayoristaAnterior = pc.getMargenFijoMayorista();
+
+            // Actualizar campos
+            mapper.updateEntityFromDTO(dto, pc);
+        } else {
+            pc = new ProductoCanal();
+            pc.setProducto(new Producto(dto.productoId()));
+            pc.setMargenMinorista(dto.margenMinorista());
+            pc.setMargenMayorista(dto.margenMayorista());
+            pc.setMargenFijoMinorista(dto.margenFijoMinorista());
+            pc.setMargenFijoMayorista(dto.margenFijoMayorista());
+            pc.setNotas(dto.notas());
         }
-
-        ProductoCanal pc = new ProductoCanal();
-        pc.setProducto(new Producto(productoId));
-        pc.setCanal(new Canal(canalId));
-
-        // valores por defecto
-        pc.setUsaCanalBase(false);
-        pc.setAplicaComision(true);
-        pc.setAplicaCuotas(true);
 
         pc = repo.save(pc);
 
-        return mapper.toDTO(pc);
-    }
+        // Recalcular si cambió algo que afecta el precio
+        boolean cambioMargenMinorista = !Objects.equals(margenMinoristaAnterior, pc.getMargenMinorista());
+        boolean cambioMargenMayorista = !Objects.equals(margenMayoristaAnterior, pc.getMargenMayorista());
+        boolean cambioMargenFijoMinorista = !Objects.equals(margenFijoMinoristaAnterior, pc.getMargenFijoMinorista());
+        boolean cambioMargenFijoMayorista = !Objects.equals(margenFijoMayoristaAnterior, pc.getMargenFijoMayorista());
 
-    @Override
-    @Transactional
-    public ProductoCanalDTO actualizar(Integer productoId, Integer canalId, ProductoCanalDTO dto) {
-
-        ProductoCanal pc = repo.findByProductoIdAndCanalId(productoId, canalId)
-                .orElseThrow(() -> new NotFoundException("Configuración de Producto-Canal no existe."));
-
-        // Guardar valores anteriores para detectar cambios
-        BigDecimal margenPorcAnterior = pc.getMargenPorcentaje();
-        BigDecimal margenFijoAnterior = pc.getMargenFijo();
-        Boolean aplicaCuotasAnterior = pc.getAplicaCuotas();
-
-        // Actualizar solo campos no-null del DTO
-        mapper.updateEntityFromDTO(dto, pc);
-
-        repo.save(pc);
-
-        // Recalcular si cambió algo que afecta el precio (comparar con valores actuales de la entidad)
-        boolean cambioMargenPorc = !Objects.equals(margenPorcAnterior, pc.getMargenPorcentaje());
-        boolean cambioMargenFijo = !Objects.equals(margenFijoAnterior, pc.getMargenFijo());
-        boolean cambioAplicaCuotas = !Objects.equals(aplicaCuotasAnterior, pc.getAplicaCuotas());
-
-        if (cambioMargenPorc || cambioMargenFijo || cambioAplicaCuotas) {
-            recalculoFacade.recalcularPorCambioProductoCanal(productoId, canalId);
+        if (cambioMargenMinorista || cambioMargenMayorista || cambioMargenFijoMinorista || cambioMargenFijoMayorista) {
+            recalculoFacade.recalcularPorCambioProductoCanal(dto.productoId());
         }
 
         return mapper.toDTO(pc);
@@ -101,8 +86,8 @@ public class ProductoCanalServiceImpl implements ProductoCanalService {
 
     @Override
     @Transactional
-    public void eliminar(Integer productoId, Integer canalId) {
-        repo.deleteByProductoIdAndCanalId(productoId, canalId);
+    public void eliminar(Integer productoId) {
+        repo.deleteByProductoId(productoId);
     }
 
 }

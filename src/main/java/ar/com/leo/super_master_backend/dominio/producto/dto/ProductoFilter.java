@@ -12,6 +12,9 @@ public record ProductoFilter(
         // 2) BOOLEANOS / NUMÉRICOS
         Boolean esCombo,
         Integer uxb,
+        Boolean esMaquina,
+        Boolean tieneMla,
+        Boolean activo,
 
         // 3) MANY-TO-ONE
         Integer marcaId,
@@ -22,29 +25,41 @@ public record ProductoFilter(
         Integer proveedorId,
         Integer materialId,
 
-        // 4) RANGOS (costo / IVA)
+        // 4) RANGOS (costo / IVA / stock)
         BigDecimal costoMin,
         BigDecimal costoMax,
         BigDecimal ivaMin,
         BigDecimal ivaMax,
+        Integer stockMin,
+        Integer stockMax,
 
-        // 5) FECHAS EXISTENTES (fechaUltCosto)
+        // 5) RANGOS PVP (requiere pvpCanalId)
+        BigDecimal pvpMin,
+        BigDecimal pvpMax,
+        Integer pvpCanalId,
+
+        // 6) FECHAS EXISTENTES (fechaUltCosto)
         LocalDate desdeFechaUltCosto,
         LocalDate hastaFechaUltCosto,
 
-        // 6) NUEVO: FECHAS DE CREACIÓN
+        // 7) FECHAS DE CREACIÓN
         LocalDate desdeFechaCreacion,
         LocalDate hastaFechaCreacion,
 
-        // 7) NUEVO: FECHAS DE MODIFICACIÓN
+        // 8) FECHAS DE MODIFICACIÓN
         LocalDate desdeFechaModificacion,
         LocalDate hastaFechaModificacion,
 
-        // 8) MANY-TO-MANY
+        // 9) MANY-TO-MANY
         List<Integer> aptoIds,
         List<Integer> canalIds,
         List<Integer> catalogoIds,
         List<Integer> clienteIds,
-        List<Integer> mlaIds
+        List<Integer> mlaIds,
+
+        // 10) ORDENAMIENTO ESPECIAL
+        String sortBy,       // "pvp", "costo", "mla", "esMaquina"
+        String sortDir,      // "asc", "desc"
+        Integer sortCanalId  // canal para ordenar por PVP
 ) {
 }

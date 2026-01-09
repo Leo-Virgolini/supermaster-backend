@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ public class RecalculoPrecioFacade {
 
     private final CalculoPrecioService calculoPrecioService;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
+    private final ProductoCanalRepository productoCanalRepository;
     private final ProductoRepository productoRepository;
     private final CanalConceptoRepository canalConceptoRepository;
 
@@ -43,14 +45,21 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula cuando cambia ProductoCanal (margen, aplicaCuotas, etc).
-     * Alcance: Ese producto en ese canal, todas las cuotas.
+     * Recalcula cuando cambia ProductoCanal (margen minorista/mayorista, margen fijo).
+     * Alcance: Ese producto en TODOS sus canales, todas las cuotas.
      */
     @Transactional
-    public void recalcularPorCambioProductoCanal(Integer idProducto, Integer idCanal) {
-        log.info("Recalculando precios por cambio en producto-canal: producto={}, canal={}", idProducto, idCanal);
+    public void recalcularPorCambioProductoCanal(Integer idProducto) {
+        log.info("Recalculando precios por cambio en producto-canal: producto={}", idProducto);
 
-        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal);
+        // Recalcular en todos los canales donde el producto tiene precios
+        productoCanalPrecioRepository.findByProductoId(idProducto)
+                .stream()
+                .map(p -> p.getCanal().getId())
+                .distinct()
+                .forEach(idCanal ->
+                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal)
+                );
     }
 
     /**
@@ -133,5 +142,38 @@ public class RecalculoPrecioFacade {
                 .forEach(idProducto ->
                         calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal)
                 );
+    }
+
+    /**
+     * Recalcula los precios de TODOS los productos en TODOS sus canales.
+     * Operación masiva que puede tomar tiempo considerable.
+     * @return Cantidad de registros recalculados
+     */
+    @Transactional
+    public int recalcularTodos() {
+        log.info("Iniciando recálculo masivo de todos los precios...");
+
+        // Obtener todos los registros de producto_canal_precios y recalcularlos
+        var todosLosPrecios = productoCanalPrecioRepository.findAll();
+        int totalRecalculados = 0;
+
+        // Agrupar por producto y canal para evitar recalcular duplicados
+        var productoCanalPairs = todosLosPrecios.stream()
+                .collect(Collectors.groupingBy(
+                        pcp -> pcp.getProducto().getId() + "-" + pcp.getCanal().getId(),
+                        Collectors.toList()
+                ));
+
+        for (var entry : productoCanalPairs.entrySet()) {
+            var pcp = entry.getValue().get(0);
+            var precios = calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(
+                    pcp.getProducto().getId(),
+                    pcp.getCanal().getId()
+            );
+            totalRecalculados += precios.size();
+        }
+
+        log.info("Recálculo masivo completado. Total de precios recalculados: {}", totalRecalculados);
+        return totalRecalculados;
     }
 }

@@ -11,6 +11,9 @@ public record ProductoDTO(
         String tituloWeb,
         Boolean esCombo,
         Integer uxb,
+        String imagenUrl,
+        Integer stock,
+        Boolean activo,
 
         // Relaciones: solo IDs
         Integer marcaId,

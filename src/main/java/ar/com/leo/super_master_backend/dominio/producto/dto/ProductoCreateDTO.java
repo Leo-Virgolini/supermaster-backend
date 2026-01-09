@@ -23,6 +23,11 @@ public record ProductoCreateDTO(
         Boolean esCombo,
         @Positive(message = "UXB debe ser mayor a 0")
         Integer uxb,
+        @Size(max = 500)
+        String imagenUrl,
+        @PositiveOrZero(message = "El stock debe ser mayor o igual a 0")
+        Integer stock,
+        Boolean activo,
 
         Integer marcaId,
         @NotNull

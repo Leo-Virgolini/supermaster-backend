@@ -6,13 +6,14 @@ import java.util.Set;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,6 +45,10 @@ public class Canal {
     @Column(name = "canal", nullable = false, length = 45)
     private String canal;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_canal", length = 20)
+    private TipoCanal tipoCanal = TipoCanal.MINORISTA;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "id_canal_base")
@@ -54,9 +59,6 @@ public class Canal {
 
     @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanalConcepto> canalConceptos = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ProductoCanal> productoCanales = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "canal", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ProductoCanalPrecio> productoCanalPrecios = new LinkedHashSet<>();

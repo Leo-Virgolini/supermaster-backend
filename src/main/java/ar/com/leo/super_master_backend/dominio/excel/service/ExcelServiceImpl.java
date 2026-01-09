@@ -1767,33 +1767,29 @@ public class ExcelServiceImpl implements ExcelService {
             // Canales (ML, KT HOGAR, KT GASTRO, LINEA GE, LIZZY)
             // Asociar TODOS los productos con TODOS los canales
             String[] nombresCanales = { "ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY" };
+            // Crear ProductoCanal solo si no existe (ahora es 1 por producto, no por producto+canal)
+            if (productoFinal.getId() != null) {
+                Optional<ProductoCanal> productoCanalOpt = productoCanalRepository
+                        .findByProductoId(productoFinal.getId());
+                if (productoCanalOpt.isEmpty()) {
+                    ProductoCanal productoCanal = new ProductoCanal();
+                    productoCanal.setProducto(productoFinal);
+                    // Valores por defecto
+                    productoCanal.setMargenMinorista(BigDecimal.ZERO);
+                    productoCanal.setMargenMayorista(BigDecimal.ZERO);
+                    productoCanalRepository.save(productoCanal);
+                }
+            }
+            // Asegurar que los canales existen (sin crear ProductoCanal por cada uno)
             for (String nombreCanal : nombresCanales) {
                 try {
                     Canal canal = buscarOCrearCanal(nombreCanal);
-                    // Asegurar que el canal tenga ID
                     if (canal.getId() == null) {
-                        canal = canalRepository.save(canal);
-                    }
-                    // Verificar si la configuración ya existe para este producto y canal
-                    if (productoFinal.getId() != null && canal.getId() != null) {
-                        Optional<ProductoCanal> productoCanalOpt = productoCanalRepository
-                                .findByProductoIdAndCanalId(productoFinal.getId(), canal.getId());
-                        if (productoCanalOpt.isEmpty()) {
-                            ProductoCanal productoCanal = new ProductoCanal();
-                            productoCanal.setProducto(productoFinal);
-                            productoCanal.setCanal(canal);
-                            // Valores por defecto (se pueden ajustar después)
-                            productoCanal.setMargenPorcentaje(BigDecimal.ZERO);
-                            productoCanal.setUsaCanalBase(false);
-                            productoCanal.setAplicaCuotas(true);
-                            productoCanal.setAplicaComision(true);
-                            productoCanalRepository.save(productoCanal);
-                        }
+                        canalRepository.save(canal);
                     }
                 } catch (Exception e) {
                     log.warn("Error procesando canal '{}' para producto SKU {}: {}", nombreCanal, skuFinal,
                             e.getMessage(), e);
-                    // Continuar con el siguiente canal sin fallar toda la fila
                 }
             }
         } catch (Exception e) {

@@ -19,6 +19,9 @@ public record ProductoConPreciosDTO(
         String tituloWeb,
         Boolean esCombo,
         Boolean esMaquina,
+        String imagenUrl,
+        Integer stock,
+        Boolean activo,
 
         // Relaciones (nombres)
         String marcaNombre,
@@ -47,6 +50,10 @@ public record ProductoConPreciosDTO(
         // Fechas
         LocalDateTime fechaCreacion,
         LocalDateTime fechaModificacion,
+
+        // Resumen de precios
+        BigDecimal pvpMin,
+        BigDecimal pvpMax,
 
         // Precios por canal
         List<CanalPrecioDTO> preciosCanales

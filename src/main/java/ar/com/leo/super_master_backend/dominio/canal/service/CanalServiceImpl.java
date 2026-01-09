@@ -12,6 +12,7 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalCreateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCanal;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
@@ -80,28 +81,36 @@ public class CanalServiceImpl implements CanalService {
     }
 
     // ===================================================
-    // 🔥 LÓGICA DE NEGOCIO: CAMBIO DE MARGEN DEL CANAL
+    // LÓGICA DE NEGOCIO: CAMBIO DE MARGEN DEL CANAL
     // ===================================================
     @Override
     @Transactional
     public void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen) {
 
-        // 0) Validar canal
+        // 0) Validar canal y obtener su tipo
         Canal canal = canalRepository.findById(idCanal)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
+
+        TipoCanal tipoCanal = canal.getTipoCanal() != null ? canal.getTipoCanal() : TipoCanal.MINORISTA;
 
         // 1) Obtener todos los productos que tienen precios calculados para este canal
         List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(idCanal);
 
-        // 2) Actualizar margen de cada producto para este canal específico
-        preciosCanal.forEach(precio -> {
-            Integer productoId = precio.getProducto().getId();
-            productoCanalRepository.findByProductoIdAndCanalId(productoId, idCanal)
-                    .ifPresent(productoCanal -> {
-                        productoCanal.setMargenPorcentaje(nuevoMargen);
-                        productoCanalRepository.save(productoCanal);
-                    });
-        });
+        // 2) Actualizar margen de cada producto según el tipo de canal
+        preciosCanal.stream()
+                .map(precio -> precio.getProducto().getId())
+                .distinct()
+                .forEach(productoId -> {
+                    productoCanalRepository.findByProductoId(productoId)
+                            .ifPresent(productoCanal -> {
+                                if (tipoCanal == TipoCanal.MAYORISTA) {
+                                    productoCanal.setMargenMayorista(nuevoMargen);
+                                } else {
+                                    productoCanal.setMargenMinorista(nuevoMargen);
+                                }
+                                productoCanalRepository.save(productoCanal);
+                            });
+                });
 
         // 3) Recalcular precios de todos los productos del canal
         recalculoFacade.recalcularTodosProductosDelCanal(idCanal);

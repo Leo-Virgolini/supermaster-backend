@@ -1,27 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
-import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
@@ -29,6 +11,16 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanal
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -65,7 +57,7 @@ public class ProductoServiceImpl implements ProductoService {
     // ============================
     @Override
     @Transactional(readOnly = true)
-    public ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO obtenerConPrecios(Integer id) {
+    public ProductoConPreciosDTO obtenerConPrecios(Integer id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
@@ -85,7 +77,7 @@ public class ProductoServiceImpl implements ProductoService {
         if (productoRepository.findBySku(dto.sku()).isPresent()) {
             throw new ConflictException("Ya existe un producto con el SKU: " + dto.sku());
         }
-        
+
         Producto entity = productoMapper.toEntity(dto);
         productoRepository.save(entity);
         return productoMapper.toDTO(entity);
@@ -160,6 +152,9 @@ public class ProductoServiceImpl implements ProductoService {
                 // =======================
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
+                ProductoSpecifications.esMaquina(filter.esMaquina()),
+                ProductoSpecifications.tieneMla(filter.tieneMla()),
+                ProductoSpecifications.activo(filter.activo()),
 
                 // =======================
                 // 3) MANY-TO-ONE
@@ -173,29 +168,32 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.materialId(filter.materialId()),
 
                 // =======================
-                // 4) RANGOS (costo / iva)
+                // 4) RANGOS (costo / iva / stock)
                 // =======================
                 ProductoSpecifications.costoMin(filter.costoMin()),
                 ProductoSpecifications.costoMax(filter.costoMax()),
                 ProductoSpecifications.ivaMin(filter.ivaMin()),
                 ProductoSpecifications.ivaMax(filter.ivaMax()),
+                ProductoSpecifications.stockMin(filter.stockMin()),
+                ProductoSpecifications.stockMax(filter.stockMax()),
 
                 // =======================
-                // 5) FECHAS
+                // 5) RANGO PVP
+                // =======================
+                ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
+
+                // =======================
+                // 6) FECHAS
                 // =======================
                 ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
                 ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
-
-                // ⭐ NUEVO: fechaCreacion
                 ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
                 ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
-
-                // ⭐ NUEVO: fechaModificacion
                 ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
                 ProductoSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
 
                 // =======================
-                // 6) MANY-TO-MANY
+                // 7) MANY-TO-MANY
                 // =======================
                 ProductoSpecifications.aptoIds(filter.aptoIds()),
                 ProductoSpecifications.canalIds(filter.canalIds()),
@@ -216,9 +214,15 @@ public class ProductoServiceImpl implements ProductoService {
     public Page<ProductoConPreciosDTO> listarConPrecios(ProductoFilter filter, Pageable pageable) {
 
         Specification<Producto> spec = Specification.allOf(
+                // Texto
                 ProductoSpecifications.textoLike(filter.texto()),
+                // Booleanos/Numéricos
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
+                ProductoSpecifications.esMaquina(filter.esMaquina()),
+                ProductoSpecifications.tieneMla(filter.tieneMla()),
+                ProductoSpecifications.activo(filter.activo()),
+                // Many-to-One
                 ProductoSpecifications.marcaId(filter.marcaId()),
                 ProductoSpecifications.origenId(filter.origenId()),
                 ProductoSpecifications.tipoId(filter.tipoId()),
@@ -226,16 +230,23 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.clasifGastroId(filter.clasifGastroId()),
                 ProductoSpecifications.proveedorId(filter.proveedorId()),
                 ProductoSpecifications.materialId(filter.materialId()),
+                // Rangos
                 ProductoSpecifications.costoMin(filter.costoMin()),
                 ProductoSpecifications.costoMax(filter.costoMax()),
                 ProductoSpecifications.ivaMin(filter.ivaMin()),
                 ProductoSpecifications.ivaMax(filter.ivaMax()),
+                ProductoSpecifications.stockMin(filter.stockMin()),
+                ProductoSpecifications.stockMax(filter.stockMax()),
+                // Rango PVP
+                ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
+                // Fechas
                 ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
                 ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
                 ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
                 ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
                 ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
                 ProductoSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
+                // Many-to-Many
                 ProductoSpecifications.aptoIds(filter.aptoIds()),
                 ProductoSpecifications.canalIds(filter.canalIds()),
                 ProductoSpecifications.catalogoIds(filter.catalogoIds()),
@@ -270,10 +281,66 @@ public class ProductoServiceImpl implements ProductoService {
                             .getOrDefault(producto.getId(), Collections.emptyList());
                     return productoMapper.toProductoConPreciosDTO(producto, precios);
                 })
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
 
-        // 6) Retornar nueva Page con el mismo metadata
+        // 6) Aplicar ordenamiento especial si se solicita
+        if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
+            boolean asc = !"desc".equalsIgnoreCase(filter.sortDir());
+            Comparator<ProductoConPreciosDTO> comparator = getComparator(filter.sortBy(), filter.sortCanalId(), preciosPorProducto);
+            if (comparator != null) {
+                dtos.sort(asc ? comparator : comparator.reversed());
+            }
+        }
+
+        // 7) Retornar nueva Page con el mismo metadata
         return new PageImpl<>(dtos, pageable, productosPage.getTotalElements());
+    }
+
+    /**
+     * Obtiene un comparador basado en el campo de ordenamiento.
+     */
+    private Comparator<ProductoConPreciosDTO> getComparator(
+            String sortBy,
+            Integer sortCanalId,
+            Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto) {
+
+        return switch (sortBy.toLowerCase()) {
+            case "costo" -> Comparator.comparing(
+                    ProductoConPreciosDTO::costo,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "mla" -> Comparator.comparing(
+                    ProductoConPreciosDTO::mla,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "esmaquina" -> Comparator.comparing(
+                    ProductoConPreciosDTO::esMaquina,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "pvp" -> {
+                if (sortCanalId == null) {
+                    // Si no se especifica canal, ordenar por pvpMin
+                    yield Comparator.comparing(
+                            ProductoConPreciosDTO::pvpMin,
+                            Comparator.nullsLast(Comparator.naturalOrder())
+                    );
+                }
+                // Ordenar por PVP del canal específico (contado)
+                yield Comparator.comparing(
+                        (ProductoConPreciosDTO dto) -> {
+                            List<ProductoCanalPrecio> precios = preciosPorProducto.get(dto.id());
+                            if (precios == null) return null;
+                            return precios.stream()
+                                    .filter(p -> p.getCanal().getId().equals(sortCanalId) && p.getCuotas() == null)
+                                    .map(ProductoCanalPrecio::getPvp)
+                                    .findFirst()
+                                    .orElse(null);
+                        },
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                );
+            }
+            default -> null;
+        };
     }
 
     // ============================

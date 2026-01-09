@@ -224,4 +224,104 @@ public class ProductoSpecifications {
                         );
     }
 
+    /* ============================================
+       7) NUEVOS FILTROS: esMaquina, tieneMla, activo, stock
+       ============================================ */
+
+    /**
+     * Filtra por esMaquina a través de la relación con ClasifGastro.
+     * Si esMaquina es null, no aplica filtro.
+     */
+    public static Specification<Producto> esMaquina(Boolean esMaquina) {
+        return (root, query, cb) -> {
+            if (esMaquina == null) return null;
+            var clasifGastroJoin = root.join("clasifGastro", jakarta.persistence.criteria.JoinType.LEFT);
+            if (esMaquina) {
+                return cb.equal(clasifGastroJoin.get("esMaquina"), true);
+            } else {
+                return cb.or(
+                        cb.isNull(clasifGastroJoin.get("id")),
+                        cb.equal(clasifGastroJoin.get("esMaquina"), false)
+                );
+            }
+        };
+    }
+
+    /**
+     * Filtra productos que tienen o no tienen MLA asignado.
+     * tieneMla=true: solo productos con MLA
+     * tieneMla=false: solo productos sin MLA
+     */
+    public static Specification<Producto> tieneMla(Boolean tieneMla) {
+        return (root, query, cb) -> {
+            if (tieneMla == null) return null;
+            if (tieneMla) {
+                return cb.isNotNull(root.get("mla"));
+            } else {
+                return cb.isNull(root.get("mla"));
+            }
+        };
+    }
+
+    /**
+     * Filtra por estado activo/inactivo.
+     */
+    public static Specification<Producto> activo(Boolean activo) {
+        return (root, query, cb) -> {
+            if (activo == null) return null;
+            return cb.equal(root.get("activo"), activo);
+        };
+    }
+
+    /**
+     * Filtra por stock mínimo.
+     */
+    public static Specification<Producto> stockMin(Integer min) {
+        return (root, query, cb) -> {
+            if (min == null) return null;
+            return cb.ge(root.get("stock"), min);
+        };
+    }
+
+    /**
+     * Filtra por stock máximo.
+     */
+    public static Specification<Producto> stockMax(Integer max) {
+        return (root, query, cb) -> {
+            if (max == null) return null;
+            return cb.le(root.get("stock"), max);
+        };
+    }
+
+    /**
+     * Filtra por rango de PVP en un canal específico.
+     * Requiere canalId para saber en qué canal buscar el precio.
+     * Solo considera precios de contado (cuotas = null).
+     */
+    public static Specification<Producto> pvpEnRango(BigDecimal pvpMin, BigDecimal pvpMax, Integer canalId) {
+        return (root, query, cb) -> {
+            if (canalId == null || (pvpMin == null && pvpMax == null)) return null;
+
+            var preciosJoin = root.join("productoCanalPrecios", jakarta.persistence.criteria.JoinType.INNER);
+
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+
+            // Filtrar por canal
+            predicates.add(cb.equal(preciosJoin.get("canal").get("id"), canalId));
+
+            // Solo contado (cuotas = null)
+            predicates.add(cb.isNull(preciosJoin.get("cuotas")));
+
+            // Rango de PVP
+            if (pvpMin != null) {
+                predicates.add(cb.ge(preciosJoin.get("pvp"), pvpMin));
+            }
+            if (pvpMax != null) {
+                predicates.add(cb.le(preciosJoin.get("pvp"), pvpMax));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+    }
+
 }

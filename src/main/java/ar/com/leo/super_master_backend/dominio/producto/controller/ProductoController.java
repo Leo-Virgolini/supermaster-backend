@@ -83,6 +83,9 @@ public class ProductoController {
             // =======================
             @RequestParam(required = false) Boolean esCombo,
             @RequestParam(required = false) Integer uxb,
+            @RequestParam(required = false) Boolean esMaquina,
+            @RequestParam(required = false) Boolean tieneMla,
+            @RequestParam(required = false) Boolean activo,
 
             // =======================
             // 3) MANY-TO-ONE
@@ -96,15 +99,24 @@ public class ProductoController {
             @RequestParam(required = false) Integer materialId,
 
             // =======================
-            // 4) RANGOS (costo / IVA)
+            // 4) RANGOS (costo / IVA / stock)
             // =======================
             @RequestParam(required = false) BigDecimal costoMin,
             @RequestParam(required = false) BigDecimal costoMax,
             @RequestParam(required = false) BigDecimal ivaMin,
             @RequestParam(required = false) BigDecimal ivaMax,
+            @RequestParam(required = false) Integer stockMin,
+            @RequestParam(required = false) Integer stockMax,
 
             // =======================
-            // 5) FECHAS
+            // 5) RANGO PVP
+            // =======================
+            @RequestParam(required = false) BigDecimal pvpMin,
+            @RequestParam(required = false) BigDecimal pvpMax,
+            @RequestParam(required = false) Integer pvpCanalId,
+
+            // =======================
+            // 6) FECHAS
             // =======================
             @RequestParam(required = false) LocalDate desdeFechaUltCosto,
             @RequestParam(required = false) LocalDate hastaFechaUltCosto,
@@ -116,13 +128,20 @@ public class ProductoController {
             @RequestParam(required = false) LocalDate hastaFechaModificacion,
 
             // =======================
-            // 6) MANY-TO-MANY
+            // 7) MANY-TO-MANY
             // =======================
             @RequestParam(required = false) List<Integer> aptoIds,
             @RequestParam(required = false) List<Integer> canalIds,
             @RequestParam(required = false) List<Integer> catalogoIds,
             @RequestParam(required = false) List<Integer> clienteIds,
             @RequestParam(required = false) List<Integer> mlaIds,
+
+            // =======================
+            // 8) ORDENAMIENTO ESPECIAL
+            // =======================
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) Integer sortCanalId,
 
             Pageable pageable
     ) {
@@ -131,6 +150,9 @@ public class ProductoController {
                 texto,
                 esCombo,
                 uxb,
+                esMaquina,
+                tieneMla,
+                activo,
                 marcaId,
                 origenId,
                 tipoId,
@@ -142,6 +164,11 @@ public class ProductoController {
                 costoMax,
                 ivaMin,
                 ivaMax,
+                stockMin,
+                stockMax,
+                pvpMin,
+                pvpMax,
+                pvpCanalId,
                 desdeFechaUltCosto,
                 hastaFechaUltCosto,
                 desdeFechaCreacion,
@@ -152,7 +179,10 @@ public class ProductoController {
                 canalIds,
                 catalogoIds,
                 clienteIds,
-                mlaIds
+                mlaIds,
+                sortBy,
+                sortDir,
+                sortCanalId
         );
 
         return ResponseEntity.ok(productoService.listarConPrecios(filter, pageable));
@@ -174,6 +204,9 @@ public class ProductoController {
             // =======================
             @RequestParam(required = false) Boolean esCombo,
             @RequestParam(required = false) Integer uxb,
+            @RequestParam(required = false) Boolean esMaquina,
+            @RequestParam(required = false) Boolean tieneMla,
+            @RequestParam(required = false) Boolean activo,
 
             // =======================
             // 3) MANY-TO-ONE
@@ -187,15 +220,24 @@ public class ProductoController {
             @RequestParam(required = false) Integer materialId,
 
             // =======================
-            // 4) RANGOS (costo / IVA)
+            // 4) RANGOS (costo / IVA / stock)
             // =======================
             @RequestParam(required = false) BigDecimal costoMin,
             @RequestParam(required = false) BigDecimal costoMax,
             @RequestParam(required = false) BigDecimal ivaMin,
             @RequestParam(required = false) BigDecimal ivaMax,
+            @RequestParam(required = false) Integer stockMin,
+            @RequestParam(required = false) Integer stockMax,
 
             // =======================
-            // 5) FECHAS
+            // 5) RANGO PVP
+            // =======================
+            @RequestParam(required = false) BigDecimal pvpMin,
+            @RequestParam(required = false) BigDecimal pvpMax,
+            @RequestParam(required = false) Integer pvpCanalId,
+
+            // =======================
+            // 6) FECHAS
             // =======================
             @RequestParam(required = false) LocalDate desdeFechaUltCosto,
             @RequestParam(required = false) LocalDate hastaFechaUltCosto,
@@ -207,7 +249,7 @@ public class ProductoController {
             @RequestParam(required = false) LocalDate hastaFechaModificacion,
 
             // =======================
-            // 6) MANY-TO-MANY
+            // 7) MANY-TO-MANY
             // =======================
             @RequestParam(required = false) List<Integer> aptoIds,
             @RequestParam(required = false) List<Integer> canalIds,
@@ -215,19 +257,23 @@ public class ProductoController {
             @RequestParam(required = false) List<Integer> clienteIds,
             @RequestParam(required = false) List<Integer> mlaIds,
 
+            // =======================
+            // 8) ORDENAMIENTO (no aplica en buscar, pero se incluye por consistencia)
+            // =======================
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) Integer sortCanalId,
+
             Pageable pageable
     ) {
 
         ProductoFilter filter = new ProductoFilter(
-
-                // TEXTO
                 texto,
-
-                // BOOLEANOS / NUMÉRICOS
                 esCombo,
                 uxb,
-
-                // MANY-TO-ONE
+                esMaquina,
+                tieneMla,
+                activo,
                 marcaId,
                 origenId,
                 tipoId,
@@ -235,29 +281,29 @@ public class ProductoController {
                 clasifGastroId,
                 proveedorId,
                 materialId,
-
-                // RANGOS
                 costoMin,
                 costoMax,
                 ivaMin,
                 ivaMax,
-
-                // FECHAS ANTIGUAS
+                stockMin,
+                stockMax,
+                pvpMin,
+                pvpMax,
+                pvpCanalId,
                 desdeFechaUltCosto,
                 hastaFechaUltCosto,
-
-                // NUEVAS FECHAS
                 desdeFechaCreacion,
                 hastaFechaCreacion,
                 desdeFechaModificacion,
                 hastaFechaModificacion,
-
-                // MANY-TO-MANY
                 aptoIds,
                 canalIds,
                 catalogoIds,
                 clienteIds,
-                mlaIds
+                mlaIds,
+                sortBy,
+                sortDir,
+                sortCanalId
         );
 
         return ResponseEntity.ok(productoService.filtrar(filter, pageable));

@@ -2,7 +2,11 @@ package ar.com.leo.super_master_backend.dominio.producto.calculo.controller;
 
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+
+import java.time.LocalDateTime;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +20,7 @@ import java.util.List;
 public class CalculoPrecioController {
 
     private final CalculoPrecioService service;
+    private final RecalculoPrecioFacade recalculoPrecioFacade;
 
     // -------------------------------------------------
     // 1) Calcular y guardar precios (todas las cuotas)
@@ -42,6 +47,15 @@ public class CalculoPrecioController {
         return ResponseEntity.ok(
                 service.obtenerFormulaCalculo(idProducto, idCanal, cuotas)
         );
+    }
+
+    // -------------------------------------------------
+    // 3) Recalcular TODOS los precios (operación masiva)
+    // -------------------------------------------------
+    @PostMapping("/calculo/recalcular-todos")
+    public ResponseEntity<RecalculoMasivoDTO> recalcularTodos() {
+        int total = recalculoPrecioFacade.recalcularTodos();
+        return ResponseEntity.ok(new RecalculoMasivoDTO(total, LocalDateTime.now()));
     }
 
 }

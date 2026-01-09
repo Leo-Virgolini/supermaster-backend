@@ -2,11 +2,9 @@ package ar.com.leo.super_master_backend.dominio.producto.entity;
 
 import java.math.BigDecimal;
 
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -27,8 +25,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "producto_canal", schema = "supermaster", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"id_producto", "id_canal"}))
+@Table(name = "producto_canal", schema = "supermaster",
+       uniqueConstraints = @UniqueConstraint(name = "uk_producto", columnNames = {"id_producto"}))
 public class ProductoCanal {
 
     @Id
@@ -46,36 +44,28 @@ public class ProductoCanal {
     private Producto producto;
 
     // ---------------------------
-    // RELACIÓN CON CANAL
+    // MÁRGENES PORCENTUALES
     // ---------------------------
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "id_canal", nullable = false)
-    private Canal canal;
+    @Column(name = "margen_minorista", nullable = false, precision = 6, scale = 3)
+    private BigDecimal margenMinorista;
 
-    // ---------------------------
-    // CAMPOS DE LA ENTIDAD
-    // ---------------------------
     @NotNull
-    @Column(name = "margen_porcentaje", nullable = false, precision = 6, scale = 3)
-    private BigDecimal margenPorcentaje;
+    @Column(name = "margen_mayorista", nullable = false, precision = 6, scale = 3)
+    private BigDecimal margenMayorista;
 
-    @Column(name = "margen_fijo", precision = 10, scale = 2)
-    private BigDecimal margenFijo;
+    // ---------------------------
+    // MÁRGENES FIJOS (en pesos)
+    // ---------------------------
+    @Column(name = "margen_fijo_minorista", precision = 10, scale = 2)
+    private BigDecimal margenFijoMinorista;
 
-    @ColumnDefault("0")
-    @Column(name = "usa_canal_base")
-    private Boolean usaCanalBase;
+    @Column(name = "margen_fijo_mayorista", precision = 10, scale = 2)
+    private BigDecimal margenFijoMayorista;
 
-    @ColumnDefault("1")
-    @Column(name = "aplica_cuotas")
-    private Boolean aplicaCuotas;
-
-    @ColumnDefault("1")
-    @Column(name = "aplica_comision")
-    private Boolean aplicaComision;
-
+    // ---------------------------
+    // NOTAS
+    // ---------------------------
     @Size(max = 300)
     @Column(name = "notas", length = 300)
     private String notas;

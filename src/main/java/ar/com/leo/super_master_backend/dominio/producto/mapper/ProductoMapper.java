@@ -90,6 +90,19 @@ public interface ProductoMapper {
                 ))
                 .toList();
 
+        // Calcular PVP mínimo y máximo (solo contado, cuotas=null)
+        BigDecimal pvpMin = precios.stream()
+                .filter(p -> p.getCuotas() == null && p.getPvp() != null)
+                .map(ProductoCanalPrecio::getPvp)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+
+        BigDecimal pvpMax = precios.stream()
+                .filter(p -> p.getCuotas() == null && p.getPvp() != null)
+                .map(ProductoCanalPrecio::getPvp)
+                .max(BigDecimal::compareTo)
+                .orElse(null);
+
         return new ProductoConPreciosDTO(
                 // Identificación
                 producto.getId(),
@@ -105,6 +118,9 @@ public interface ProductoMapper {
                 producto.getTituloWeb(),
                 producto.getEsCombo(),
                 producto.getClasifGastro() != null ? producto.getClasifGastro().getEsMaquina() : null,
+                producto.getImagenUrl(),
+                producto.getStock(),
+                producto.getActivo(),
 
                 // Relaciones (nombres)
                 producto.getMarca() != null ? producto.getMarca().getNombre() : null,
@@ -133,6 +149,10 @@ public interface ProductoMapper {
                 // Fechas
                 producto.getFechaCreacion(),
                 producto.getFechaModificacion(),
+
+                // Resumen de precios
+                pvpMin,
+                pvpMax,
 
                 // Precios por canal
                 preciosCanales

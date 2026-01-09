@@ -54,6 +54,16 @@ public class Producto {
     @Column(name = "es_combo")
     private Boolean esCombo;
 
+    @Size(max = 500)
+    @Column(name = "imagen_url", length = 500)
+    private String imagenUrl;
+
+    @Column(name = "stock")
+    private Integer stock;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
+
     // ---------------------------
     // RELACIONES MANY TO ONE
     // ---------------------------

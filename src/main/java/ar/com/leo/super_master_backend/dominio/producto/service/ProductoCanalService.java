@@ -1,17 +1,14 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
-
-import java.util.List;
+import java.util.Optional;
 
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
 
 public interface ProductoCanalService {
 
-    List<ProductoCanalDTO> listar(Integer productoId);
+    Optional<ProductoCanalDTO> obtener(Integer productoId);
 
-    ProductoCanalDTO agregar(Integer productoId, Integer canalId);
+    ProductoCanalDTO guardar(ProductoCanalDTO dto);
 
-    ProductoCanalDTO actualizar(Integer productoId, Integer canalId, ProductoCanalDTO dto);
-
-    void eliminar(Integer productoId, Integer canalId);
+    void eliminar(Integer productoId);
 }
