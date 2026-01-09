@@ -3,7 +3,6 @@ package ar.com.leo.super_master_backend.dominio.excel.service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -83,6 +82,8 @@ record SheetInfo(org.apache.poi.ss.usermodel.Sheet sheet, String nombre, int pri
 @Service
 @RequiredArgsConstructor
 public class ExcelServiceImpl implements ExcelService {
+
+    private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
 
     private final ProductoRepository productoRepository;
     private final ProveedorRepository proveedorRepository;
@@ -357,7 +358,7 @@ public class ExcelServiceImpl implements ExcelService {
      * Si la celda es de tipo NUMERIC y está formateada como fecha, la convierte directamente
      * Si es STRING, intenta parsearla
      */
-    private Instant obtenerFechaDeCelda(Row row, int columnIndex) {
+    private LocalDateTime obtenerFechaDeCelda(Row row, int columnIndex) {
         Cell cell = row.getCell(columnIndex);
         if (cell == null) {
             return null;
@@ -367,7 +368,7 @@ public class ExcelServiceImpl implements ExcelService {
         if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
             try {
                 java.util.Date fecha = cell.getDateCellValue();
-                return fecha.toInstant();
+                return fecha.toInstant().atZone(ZONA_ARG).toLocalDateTime();
             } catch (Exception e) {
                 log.warn("Error al obtener fecha de celda numérica: {}", e.getMessage());
             }
@@ -383,7 +384,7 @@ public class ExcelServiceImpl implements ExcelService {
                     // Intentar como fecha
                     try {
                         java.util.Date fecha = DateUtil.getJavaDate(cellValue.getNumberValue());
-                        return fecha.toInstant();
+                        return fecha.toInstant().atZone(ZONA_ARG).toLocalDateTime();
                     } catch (Exception e) {
                         // No es una fecha, continuar con parseo de string
                     }
@@ -410,8 +411,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             for (DateTimeFormatter formato : formatos) {
                 try {
-                    LocalDateTime fecha = LocalDateTime.parse(fechaStr, formato);
-                    return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
+                    return LocalDateTime.parse(fechaStr, formato);
                 } catch (DateTimeParseException e) {
                     // Continuar con el siguiente formato
                 }
@@ -420,8 +420,7 @@ public class ExcelServiceImpl implements ExcelService {
             // Si es una fecha de Excel (número serial)
             try {
                 double numeroSerial = Double.parseDouble(fechaStr);
-                LocalDateTime fecha = org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(numeroSerial);
-                return fecha.atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant();
+                return org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(numeroSerial);
             } catch (NumberFormatException e) {
                 // No es un número serial
             }
@@ -1429,7 +1428,7 @@ public class ExcelServiceImpl implements ExcelService {
                 nuevo.setSku(skuFinal);
                 // Establecer valores por defecto para campos requeridos
                 nuevo.setIva(BigDecimal.ZERO); // IVA por defecto
-                nuevo.setFechaCreacion(Instant.now()); // Fecha de creación
+                nuevo.setFechaCreacion(LocalDateTime.now(ZONA_ARG)); // Fecha de creación
                 // Valores por defecto para campos @NotNull (se actualizarán si vienen en el
                 // Excel)
                 nuevo.setDescripcion(""); // Valor por defecto mínimo
@@ -1598,7 +1597,7 @@ public class ExcelServiceImpl implements ExcelService {
             // ULTIMA ACT. COSTO - fecha_ult_costo
             if (columnasMap.containsKey("ULTIMA ACT. COSTO")) {
                 try {
-                    Instant fechaUltCosto = obtenerFechaDeCelda(row,
+                    LocalDateTime fechaUltCosto = obtenerFechaDeCelda(row,
                             obtenerIndiceColumna(columnasMap, "ULTIMA ACT. COSTO"));
                     if (fechaUltCosto != null) {
                         producto.setFechaUltCosto(fechaUltCosto);
@@ -1664,7 +1663,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             // Fecha de creación - Solo para productos nuevos
             if (producto.getFechaCreacion() == null) {
-                producto.setFechaCreacion(Instant.now());
+                producto.setFechaCreacion(LocalDateTime.now(ZONA_ARG));
             }
 
             // Guardar producto
@@ -2191,7 +2190,7 @@ public class ExcelServiceImpl implements ExcelService {
                     nuevo.setDescripcion(""); // Default para @NotNull
                     nuevo.setTituloWeb(""); // Default para @NotNull
                     nuevo.setIva(BigDecimal.ZERO);
-                    nuevo.setFechaCreacion(Instant.now());
+                    nuevo.setFechaCreacion(LocalDateTime.now(ZONA_ARG));
                     // Establecer valores por defecto para satisfacer @NotNull
                     nuevo.setOrigen(buscarOCrearOrigen("SIN ORIGEN"));
                     nuevo.setClasifGral(buscarOCrearClasifGral("SIN CLASIFICACION"));

@@ -16,7 +16,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -124,7 +125,7 @@ public class Producto {
     private BigDecimal costo;
 
     @Column(name = "fecha_ult_costo", columnDefinition = "datetime DEFAULT CURRENT_TIMESTAMP")
-    private Instant fechaUltCosto;
+    private LocalDateTime fechaUltCosto;
 
     @NotNull
     @Column(name = "iva", nullable = false, precision = 6, scale = 3)
@@ -161,10 +162,12 @@ public class Producto {
     private Set<ProductoCanalPromocion> productoCanalPromociones = new LinkedHashSet<>();
 
     @Column(name = "fecha_creacion", updatable = false, nullable = false)
-    private Instant fechaCreacion;
+    private LocalDateTime fechaCreacion;
 
     @Column(name = "fecha_modificacion", nullable = true)
-    private Instant fechaModificacion;
+    private LocalDateTime fechaModificacion;
+
+    private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
 
     public Producto(Integer id) {
         this.id = id;
@@ -172,12 +175,12 @@ public class Producto {
 
     @PrePersist
     public void prePersist() {
-        fechaCreacion = Instant.now();
+        fechaCreacion = LocalDateTime.now(ZONA_ARG);
     }
 
     @PreUpdate
     public void preUpdate() {
-        fechaModificacion = Instant.now();
+        fechaModificacion = LocalDateTime.now(ZONA_ARG);
     }
 
 }

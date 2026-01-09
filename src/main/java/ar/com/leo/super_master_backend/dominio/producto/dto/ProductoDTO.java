@@ -1,7 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.dto;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public record ProductoDTO(
         Integer id,
@@ -30,11 +30,11 @@ public record ProductoDTO(
         String diambase,
         String espesor,
         BigDecimal costo,
-        Instant fechaUltCosto,
+        LocalDateTime fechaUltCosto,
         BigDecimal iva,
 
         // NUEVAS FECHAS
-        Instant fechaCreacion,
-        Instant fechaModificacion
+        LocalDateTime fechaCreacion,
+        LocalDateTime fechaModificacion
 ) {
 }

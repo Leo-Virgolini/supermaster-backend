@@ -5,12 +5,9 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 public class ProductoSpecifications {
-
-    private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
 
     /* ==========================================================
        1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt, mla, mlau)
@@ -141,14 +138,14 @@ public class ProductoSpecifications {
     public static Specification<Producto> desdeFechaUltCosto(LocalDate fecha) {
         return (root, query, cb) -> {
             if (fecha == null) return null;
-            return cb.greaterThanOrEqualTo(root.get("fechaUltCosto"), fecha.atStartOfDay(ZONA_ARG));
+            return cb.greaterThanOrEqualTo(root.get("fechaUltCosto"), fecha.atStartOfDay());
         };
     }
 
     public static Specification<Producto> hastaFechaUltCosto(LocalDate fecha) {
         return (root, query, cb) -> {
             if (fecha == null) return null;
-            return cb.lessThanOrEqualTo(root.get("fechaUltCosto"), fecha.plusDays(1).atStartOfDay(ZONA_ARG));
+            return cb.lessThanOrEqualTo(root.get("fechaUltCosto"), fecha.plusDays(1).atStartOfDay());
         };
     }
 
@@ -196,7 +193,7 @@ public class ProductoSpecifications {
                 f == null ? null :
                         cb.greaterThanOrEqualTo(
                                 root.get("fechaCreacion"),
-                                f.atStartOfDay(ZONA_ARG).toInstant()
+                                f.atStartOfDay()
                         );
     }
 
@@ -205,7 +202,7 @@ public class ProductoSpecifications {
                 f == null ? null :
                         cb.lessThanOrEqualTo(
                                 root.get("fechaCreacion"),
-                                f.plusDays(1).atStartOfDay(ZONA_ARG).toInstant()
+                                f.plusDays(1).atStartOfDay()
                         );
     }
 
@@ -214,7 +211,7 @@ public class ProductoSpecifications {
                 f == null ? null :
                         cb.greaterThanOrEqualTo(
                                 root.get("fechaModificacion"),
-                                f.atStartOfDay(ZONA_ARG).toInstant()
+                                f.atStartOfDay()
                         );
     }
 
@@ -223,7 +220,7 @@ public class ProductoSpecifications {
                 f == null ? null :
                         cb.lessThanOrEqualTo(
                                 root.get("fechaModificacion"),
-                                f.plusDays(1).atStartOfDay(ZONA_ARG).toInstant()
+                                f.plusDays(1).atStartOfDay()
                         );
     }
 
