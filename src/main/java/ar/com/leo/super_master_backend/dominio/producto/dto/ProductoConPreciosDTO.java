@@ -9,10 +9,17 @@ public record ProductoConPreciosDTO(
         // Identificación
         Integer id,
         String sku,
+
+        // MLA
+        String mla,
+        String mlau,
+        BigDecimal precioEnvio,
+
         String codExt,
         String descripcion,
         String tituloWeb,
         Boolean esCombo,
+        Boolean esMaquina,
 
         // Relaciones (nombres)
         String marcaNombre,
@@ -41,11 +48,6 @@ public record ProductoConPreciosDTO(
         // Fechas
         Instant fechaCreacion,
         Instant fechaModificacion,
-
-        // MLA
-        String mla,
-        String mlau,
-        BigDecimal precioEnvio,
 
         // Precios por canal
         List<CanalPrecioDTO> preciosCanales

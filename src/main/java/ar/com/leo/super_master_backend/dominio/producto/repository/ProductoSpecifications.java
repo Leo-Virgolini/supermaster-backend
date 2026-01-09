@@ -13,7 +13,7 @@ public class ProductoSpecifications {
     private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
 
     /* ==========================================================
-       1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt, mla)
+       1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt, mla, mlau)
        ========================================================== */
     public static Specification<Producto> textoLike(String texto) {
         return (root, query, cb) -> {
@@ -21,12 +21,16 @@ public class ProductoSpecifications {
 
             String pattern = "%" + texto.toLowerCase() + "%";
 
+            // LEFT JOIN para incluir productos sin MLA
+            var mlaJoin = root.join("mla", jakarta.persistence.criteria.JoinType.LEFT);
+
             return cb.or(
                     cb.like(cb.lower(root.get("sku")), pattern),
                     cb.like(cb.lower(root.get("codExt")), pattern),
                     cb.like(cb.lower(root.get("descripcion")), pattern),
                     cb.like(cb.lower(root.get("tituloWeb")), pattern),
-                    cb.like(cb.lower(root.join("mla").get("mla")), pattern)
+                    cb.like(cb.lower(mlaJoin.get("mla")), pattern),
+                    cb.like(cb.lower(mlaJoin.get("mlau")), pattern)
             );
         };
     }
@@ -183,7 +187,7 @@ public class ProductoSpecifications {
     public static Specification<Producto> mlaIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
-            return root.join("mla").get("id").in(ids);
+            return root.join("mla", jakarta.persistence.criteria.JoinType.LEFT).get("id").in(ids);
         };
     }
 

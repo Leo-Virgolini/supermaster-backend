@@ -1,24 +1,16 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
-import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
-import ar.com.leo.super_master_backend.dominio.material.entity.Material;
-import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
-import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @Mapper(config = GlobalMapperConfig.class)
 public interface ProductoMapper {
@@ -102,10 +94,17 @@ public interface ProductoMapper {
                 // Identificación
                 producto.getId(),
                 producto.getSku(),
+
+                // MLA
+                mla,
+                mlau,
+                precioEnvio,
+
                 producto.getCodExt(),
                 producto.getDescripcion(),
                 producto.getTituloWeb(),
                 producto.getEsCombo(),
+                producto.getClasifGastro() != null ? producto.getClasifGastro().getEsMaquina() : null,
 
                 // Relaciones (nombres)
                 producto.getMarca() != null ? producto.getMarca().getNombre() : null,
@@ -134,11 +133,6 @@ public interface ProductoMapper {
                 // Fechas
                 producto.getFechaCreacion(),
                 producto.getFechaModificacion(),
-
-                // MLA
-                mla,
-                mlau,
-                precioEnvio,
 
                 // Precios por canal
                 preciosCanales
