@@ -6,7 +6,7 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoCuotaUpdat
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
 import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

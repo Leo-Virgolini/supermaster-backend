@@ -12,9 +12,11 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalCreateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCanal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
@@ -28,6 +30,7 @@ public class CanalServiceImpl implements CanalService {
 
     private final CanalRepository canalRepository;
     private final CanalMapper canalMapper;
+    private final CanalConceptoRepository canalConceptoRepository;
 
     private final ProductoCanalRepository productoCanalRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
@@ -87,23 +90,35 @@ public class CanalServiceImpl implements CanalService {
     @Transactional
     public void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen) {
 
-        // 0) Validar canal y obtener su tipo
-        Canal canal = canalRepository.findById(idCanal)
-                .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
+        // 0) Validar canal
+        if (!canalRepository.existsById(idCanal)) {
+            throw new NotFoundException("Canal no encontrado");
+        }
 
-        TipoCanal tipoCanal = canal.getTipoCanal() != null ? canal.getTipoCanal() : TipoCanal.MINORISTA;
+        // Determinar qué tipo de margen usar según el concepto del canal
+        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
+        boolean esMayorista = conceptosCanal.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA);
+        boolean esMinorista = conceptosCanal.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA);
+
+        if (!esMayorista && !esMinorista) {
+            throw new NotFoundException("El canal no tiene configurado concepto MARGEN_MINORISTA ni MARGEN_MAYORISTA");
+        }
 
         // 1) Obtener todos los productos que tienen precios calculados para este canal
         List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(idCanal);
 
-        // 2) Actualizar margen de cada producto según el tipo de canal
+        // 2) Actualizar margen de cada producto según el concepto del canal
         preciosCanal.stream()
                 .map(precio -> precio.getProducto().getId())
                 .distinct()
                 .forEach(productoId -> {
                     productoCanalRepository.findByProductoId(productoId)
                             .ifPresent(productoCanal -> {
-                                if (tipoCanal == TipoCanal.MAYORISTA) {
+                                if (esMayorista) {
                                     productoCanal.setMargenMayorista(nuevoMargen);
                                 } else {
                                     productoCanal.setMargenMinorista(nuevoMargen);

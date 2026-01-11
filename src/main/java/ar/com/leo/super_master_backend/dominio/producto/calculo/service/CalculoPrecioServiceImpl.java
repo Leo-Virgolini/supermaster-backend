@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -236,7 +237,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 3: Calcular ganancia ajustada
         // ============================================
-        BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoCanal, canalActual);
+        BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoCanal, conceptos);
 
         // Obtener AUMENTA_MARGEN
         List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
@@ -335,7 +336,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 6: Margen fijo (de producto_canal)
         // ============================================
-        BigDecimal margenFijo = obtenerMargenFijo(productoCanal, canalActual);
+        BigDecimal margenFijo = obtenerMargenFijo(productoCanal, conceptos);
         // Nota: El margen fijo se aplicará al final sobre el PVP, no aquí
 
         // ============================================
@@ -649,7 +650,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // Paso 3: Ganancia ajustada
-        BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoCanal, canalActual);
+        BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoCanal, conceptos);
 
         List<CanalConcepto> conceptosAumentaMargen = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
@@ -996,7 +997,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // Paso 12: Margen fijo
-        BigDecimal margenFijo = obtenerMargenFijo(productoCanal, canalActual);
+        BigDecimal margenFijo = obtenerMargenFijo(productoCanal, conceptos);
         if (margenFijo.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal pvpAntesMargenFijo = pvp;
             pvp = pvp.add(margenFijo);
@@ -1426,23 +1427,43 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Obtiene el margen porcentual según el tipo de canal.
+     * Obtiene el margen porcentual según los conceptos del canal.
+     * - Si tiene MARGEN_MAYORISTA → usa margenMayorista
+     * - Si tiene MARGEN_MINORISTA → usa margenMinorista
      */
-    private BigDecimal obtenerMargenPorcentaje(ProductoCanal productoCanal, Canal canal) {
-        if (canal.getTipoCanal() == ar.com.leo.super_master_backend.dominio.canal.entity.TipoCanal.MAYORISTA) {
-            return productoCanal.getMargenMayorista() != null ? productoCanal.getMargenMayorista() : BigDecimal.ZERO;
+    private BigDecimal obtenerMargenPorcentaje(ProductoCanal productoCanal, List<CanalConcepto> conceptos) {
+        for (CanalConcepto cc : conceptos) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    return productoCanal.getMargenMayorista() != null ? productoCanal.getMargenMayorista() : BigDecimal.ZERO;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    return productoCanal.getMargenMinorista() != null ? productoCanal.getMargenMinorista() : BigDecimal.ZERO;
+                }
+            }
         }
-        return productoCanal.getMargenMinorista() != null ? productoCanal.getMargenMinorista() : BigDecimal.ZERO;
+        // Si no tiene ninguno de los conceptos, retorna ZERO
+        return BigDecimal.ZERO;
     }
 
     /**
-     * Obtiene el margen fijo según el tipo de canal.
+     * Obtiene el margen fijo según los conceptos del canal.
+     * - Si tiene MARGEN_MAYORISTA → usa margenFijoMayorista
+     * - Si tiene MARGEN_MINORISTA → usa margenFijoMinorista
      */
-    private BigDecimal obtenerMargenFijo(ProductoCanal productoCanal, Canal canal) {
-        if (canal.getTipoCanal() == ar.com.leo.super_master_backend.dominio.canal.entity.TipoCanal.MAYORISTA) {
-            return productoCanal.getMargenFijoMayorista() != null ? productoCanal.getMargenFijoMayorista() : BigDecimal.ZERO;
+    private BigDecimal obtenerMargenFijo(ProductoCanal productoCanal, List<CanalConcepto> conceptos) {
+        for (CanalConcepto cc : conceptos) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    return productoCanal.getMargenFijoMayorista() != null ? productoCanal.getMargenFijoMayorista() : BigDecimal.ZERO;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    return productoCanal.getMargenFijoMinorista() != null ? productoCanal.getMargenFijoMinorista() : BigDecimal.ZERO;
+                }
+            }
         }
-        return productoCanal.getMargenFijoMinorista() != null ? productoCanal.getMargenFijoMinorista() : BigDecimal.ZERO;
+        // Si no tiene ninguno de los conceptos, retorna ZERO
+        return BigDecimal.ZERO;
     }
 
     /**
@@ -1841,7 +1862,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
 
         // Calcular y guardar para contado (null) + todas las cuotas
-        List<PrecioCalculadoDTO> precios = new java.util.ArrayList<>();
+        List<PrecioCalculadoDTO> precios = new ArrayList<>();
 
         // Primero contado
         precios.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, null));

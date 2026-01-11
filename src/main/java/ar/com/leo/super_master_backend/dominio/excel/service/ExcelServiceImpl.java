@@ -63,6 +63,7 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
@@ -495,7 +496,7 @@ public class ExcelServiceImpl implements ExcelService {
             // PVP (de producto_canal_precios)
             Cell cellPvp = row.createCell(2);
             if (canalId != null) {
-                var precioOpt = productoCanalPrecioRepository
+                Optional<ProductoCanalPrecio> precioOpt = productoCanalPrecioRepository
                         .findByProductoIdAndCanalId(producto.getId(), canalId);
                 if (precioOpt.isPresent() && precioOpt.get().getPvp() != null) {
                     cellPvp.setCellValue(precioOpt.get().getPvp().doubleValue());

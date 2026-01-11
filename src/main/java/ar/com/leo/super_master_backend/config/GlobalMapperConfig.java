@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.dominio.common.mapper;
+package ar.com.leo.super_master_backend.config;
 
 import org.mapstruct.MapperConfig;
 import org.mapstruct.NullValuePropertyMappingStrategy;

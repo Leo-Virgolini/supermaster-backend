@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
@@ -68,7 +68,7 @@ public interface ProductoMapper {
     // ================================================================
     default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, List<ProductoCanalPrecio> precios) {
         // Obtener MLA (si existe)
-        var mlaEntity = producto.getMla();
+        ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla mlaEntity = producto.getMla();
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
         String mlau = mlaEntity != null ? mlaEntity.getMlau() : null;
         BigDecimal precioEnvio = mlaEntity != null ? mlaEntity.getPrecioEnvio() : null;

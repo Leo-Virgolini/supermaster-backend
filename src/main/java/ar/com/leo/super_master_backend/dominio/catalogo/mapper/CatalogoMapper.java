@@ -4,7 +4,7 @@ import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
 

@@ -12,8 +12,6 @@ import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescu
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,10 +42,6 @@ public class Canal {
     @NotNull
     @Column(name = "canal", nullable = false, length = 45)
     private String canal;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_canal", length = 20)
-    private TipoCanal tipoCanal = TipoCanal.MINORISTA;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.SET_NULL)

@@ -19,7 +19,7 @@ public class ProductoSpecifications {
             String pattern = "%" + texto.toLowerCase() + "%";
 
             // LEFT JOIN para incluir productos sin MLA
-            var mlaJoin = root.join("mla", jakarta.persistence.criteria.JoinType.LEFT);
+            jakarta.persistence.criteria.Join<Producto, ?> mlaJoin = root.join("mla", jakarta.persistence.criteria.JoinType.LEFT);
 
             return cb.or(
                     cb.like(cb.lower(root.get("sku")), pattern),
@@ -235,7 +235,7 @@ public class ProductoSpecifications {
     public static Specification<Producto> esMaquina(Boolean esMaquina) {
         return (root, query, cb) -> {
             if (esMaquina == null) return null;
-            var clasifGastroJoin = root.join("clasifGastro", jakarta.persistence.criteria.JoinType.LEFT);
+            jakarta.persistence.criteria.Join<Producto, ?> clasifGastroJoin = root.join("clasifGastro", jakarta.persistence.criteria.JoinType.LEFT);
             if (esMaquina) {
                 return cb.equal(clasifGastroJoin.get("esMaquina"), true);
             } else {
@@ -302,9 +302,9 @@ public class ProductoSpecifications {
         return (root, query, cb) -> {
             if (canalId == null || (pvpMin == null && pvpMax == null)) return null;
 
-            var preciosJoin = root.join("productoCanalPrecios", jakarta.persistence.criteria.JoinType.INNER);
+            jakarta.persistence.criteria.Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", jakarta.persistence.criteria.JoinType.INNER);
 
-            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            java.util.ArrayList<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
 
             // Filtrar por canal
             predicates.add(cb.equal(preciosJoin.get("canal").get("id"), canalId));

@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.concepto_gasto.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;

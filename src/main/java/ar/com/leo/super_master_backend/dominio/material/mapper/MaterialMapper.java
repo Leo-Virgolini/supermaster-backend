@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.material.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialCreateDTO;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialDTO;
 import ar.com.leo.super_master_backend.dominio.material.dto.MaterialUpdateDTO;

@@ -4,7 +4,7 @@ import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralCreateD
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.dto.ClasifGralUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import org.mapstruct.*;
 
 @Mapper(config = GlobalMapperConfig.class)

@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.proveedor.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorCreateDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorUpdateDTO;

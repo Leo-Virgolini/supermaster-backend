@@ -1,6 +1,11 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
@@ -10,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -26,6 +33,7 @@ public class RecalculoPrecioFacade {
     private final ProductoCanalRepository productoCanalRepository;
     private final ProductoRepository productoRepository;
     private final CanalConceptoRepository canalConceptoRepository;
+    private final CanalRepository canalRepository;
 
     /**
      * Recalcula precios cuando cambia el costo/iva de un producto.
@@ -145,7 +153,9 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula los precios de TODOS los productos en TODOS sus canales.
+     * Recalcula los precios de TODOS los productos con márgenes configurados
+     * en TODOS los canales que tienen concepto MARGEN_MINORISTA o MARGEN_MAYORISTA,
+     * siempre que el margen correspondiente del producto sea > 0.
      * Operación masiva que puede tomar tiempo considerable.
      * @return Cantidad de registros recalculados
      */
@@ -153,27 +163,75 @@ public class RecalculoPrecioFacade {
     public int recalcularTodos() {
         log.info("Iniciando recálculo masivo de todos los precios...");
 
-        // Obtener todos los registros de producto_canal_precios y recalcularlos
-        var todosLosPrecios = productoCanalPrecioRepository.findAll();
+        // Obtener todos los productos que tienen márgenes configurados
+        List<ProductoCanal> productosConMargenes = productoCanalRepository.findAll();
+
+        // Obtener todos los canales
+        List<Canal> todosLosCanales = canalRepository.findAll();
+
         int totalRecalculados = 0;
+        int canalesIgnorados = 0;
 
-        // Agrupar por producto y canal para evitar recalcular duplicados
-        var productoCanalPairs = todosLosPrecios.stream()
-                .collect(Collectors.groupingBy(
-                        pcp -> pcp.getProducto().getId() + "-" + pcp.getCanal().getId(),
-                        Collectors.toList()
-                ));
+        log.info("Productos con márgenes: {}, Canales: {}",
+                productosConMargenes.size(), todosLosCanales.size());
 
-        for (var entry : productoCanalPairs.entrySet()) {
-            var pcp = entry.getValue().get(0);
-            var precios = calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(
-                    pcp.getProducto().getId(),
-                    pcp.getCanal().getId()
-            );
-            totalRecalculados += precios.size();
+        // Para cada producto con márgenes, calcular en los canales válidos
+        for (ProductoCanal productoCanal : productosConMargenes) {
+            // Ignorar productos sin costo
+            BigDecimal costo = productoCanal.getProducto().getCosto();
+            if (costo == null || costo.compareTo(BigDecimal.ZERO) <= 0) {
+                canalesIgnorados += todosLosCanales.size();
+                continue;
+            }
+
+            Integer idProducto = productoCanal.getProducto().getId();
+
+            for (Canal canal : todosLosCanales) {
+                // Verificar si el canal tiene margen válido para este producto
+                if (!tieneMargenValido(productoCanal, canal)) {
+                    canalesIgnorados++;
+                    continue;
+                }
+
+                try {
+                    List<ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO> precios =
+                            calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, canal.getId());
+                    totalRecalculados += precios.size();
+                } catch (Exception e) {
+                    log.warn("Error calculando precio para producto {} en canal {}: {}",
+                            idProducto, canal.getId(), e.getMessage());
+                }
+            }
         }
 
-        log.info("Recálculo masivo completado. Total de precios recalculados: {}", totalRecalculados);
+        log.info("Recálculo masivo completado. Total: {} precios, {} combinaciones ignoradas",
+                totalRecalculados, canalesIgnorados);
         return totalRecalculados;
+    }
+
+    /**
+     * Verifica si un canal tiene margen válido (> 0) para un producto.
+     * - Si el canal tiene MARGEN_MAYORISTA → verifica margenMayorista del producto
+     * - Si el canal tiene MARGEN_MINORISTA → verifica margenMinorista del producto
+     * - Si no tiene ninguno → retorna false
+     */
+    private boolean tieneMargenValido(ProductoCanal productoCanal, Canal canal) {
+        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(canal.getId());
+
+        for (CanalConcepto cc : conceptosCanal) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    BigDecimal margen = productoCanal.getMargenMayorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    BigDecimal margen = productoCanal.getMargenMinorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+            }
+        }
+
+        // El canal no tiene concepto MARGEN_MINORISTA ni MARGEN_MAYORISTA
+        return false;
     }
 }

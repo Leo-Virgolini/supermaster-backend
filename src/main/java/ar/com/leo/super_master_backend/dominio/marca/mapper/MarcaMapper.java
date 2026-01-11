@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.marca.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaDTO;
 import ar.com.leo.super_master_backend.dominio.marca.dto.MarcaUpdateDTO;

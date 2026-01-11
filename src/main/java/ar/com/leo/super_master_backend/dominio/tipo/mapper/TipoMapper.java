@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.tipo.mapper;
 
-import ar.com.leo.super_master_backend.dominio.common.mapper.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoDTO;
 import ar.com.leo.super_master_backend.dominio.tipo.dto.TipoUpdateDTO;

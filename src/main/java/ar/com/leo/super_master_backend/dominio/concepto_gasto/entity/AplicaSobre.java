@@ -47,6 +47,13 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  *        PVP = PVP_CANAL_BASE * (1 + porcentaje/100)
  *        Ejemplo: porcentaje = 8 → PVP = PVP_BASE * 1.08 (+8% sobre el canal base)
  *        Requiere que el canal tenga un canalBase configurado y que ese canal tenga PVP calculado.
+ * - MARGEN_MINORISTA: Indicador que marca al canal como minorista.
+ *        Cuando existe este concepto en canal_concepto, se usa margenMinorista de producto_canal.
+ *        Solo actúa como marcador, el porcentaje del concepto se ignora.
+ * - MARGEN_MAYORISTA: Indicador que marca al canal como mayorista.
+ *        Cuando existe este concepto en canal_concepto, se usa margenMayorista de producto_canal.
+ *        Solo actúa como marcador, el porcentaje del concepto se ignora.
+ *        Si un canal no tiene ninguno de estos conceptos, se usa margenMinorista por defecto.
  */
 public enum AplicaSobre {
     COSTO,
@@ -64,6 +71,8 @@ public enum AplicaSobre {
     PROVEEDOR_FIN,
     COSTO_GANANCIA,
     IVA,
-    SOBRE_PVP_BASE
+    SOBRE_PVP_BASE,
+    MARGEN_MINORISTA,
+    MARGEN_MAYORISTA
 }
 
