@@ -132,6 +132,40 @@ public class RecalculoPrecioFacade {
     }
 
     /**
+     * Recalcula cuando cambia el precioEnvio de un MLA.
+     * Alcance: Todos los productos que tienen ese MLA, en todos sus canales.
+     */
+    @Transactional
+    public void recalcularPorCambioMla(Integer idMla) {
+        log.info("Recalculando precios por cambio en MLA: {}", idMla);
+
+        productoRepository.findByMlaId(idMla)
+                .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+    }
+
+    /**
+     * Recalcula cuando cambia una ReglaDescuento.
+     * Alcance: Todos los productos del canal de esa regla.
+     */
+    @Transactional
+    public void recalcularPorCambioReglaDescuentoEnCanal(Integer idCanal) {
+        log.info("Recalculando precios por cambio en regla de descuento del canal: {}", idCanal);
+
+        recalcularTodosProductosDelCanal(idCanal);
+    }
+
+    /**
+     * Recalcula cuando cambia la clasificación gastronómica de un producto (esMaquina).
+     * Alcance: Ese producto en todos sus canales.
+     */
+    @Transactional
+    public void recalcularPorCambioClasifGastro(Integer idProducto) {
+        log.info("Recalculando precios por cambio en clasificación gastronómica: producto={}", idProducto);
+
+        recalcularPorCambioProducto(idProducto);
+    }
+
+    /**
      * Recalcula todos los productos de un canal.
      * Usado internamente y cuando cambian configuraciones del canal.
      */

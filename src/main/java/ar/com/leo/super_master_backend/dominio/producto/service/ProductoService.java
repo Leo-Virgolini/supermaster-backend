@@ -16,8 +16,6 @@ public interface ProductoService {
 
     ProductoDTO obtener(Integer id);
 
-    ProductoConPreciosDTO obtenerConPrecios(Integer id);
-
     ProductoDTO crear(ProductoCreateDTO dto);
 
     ProductoDTO actualizar(Integer id, ProductoUpdateDTO dto);

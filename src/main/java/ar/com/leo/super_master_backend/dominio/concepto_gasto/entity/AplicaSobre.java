@@ -54,6 +54,11 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  *        Cuando existe este concepto en canal_concepto, se usa margenMayorista de producto_canal.
  *        Solo actúa como marcador, el porcentaje del concepto se ignora.
  *        Si un canal no tiene ninguno de estos conceptos, se usa margenMinorista por defecto.
+ * - PROMOCION: Indicador que habilita la aplicación de promociones para el canal.
+ *        Si existe un concepto con este tipo en canal_concepto, se aplican las promociones
+ *        de producto_canal_promocion para ese canal.
+ *        Si NO existe el concepto PROMOCION para el canal, NO se aplican promociones.
+ *        Solo actúa como habilitador, el porcentaje del concepto se ignora.
  */
 public enum AplicaSobre {
     COSTO,
@@ -73,6 +78,7 @@ public enum AplicaSobre {
     IVA,
     SOBRE_PVP_BASE,
     MARGEN_MINORISTA,
-    MARGEN_MAYORISTA
+    MARGEN_MAYORISTA,
+    PROMOCION
 }
 

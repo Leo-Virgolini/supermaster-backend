@@ -16,6 +16,10 @@ public interface CanalConceptoMapper {
     // =============================
     @Mapping(source = "canal.id", target = "canalId")
     @Mapping(source = "concepto.id", target = "conceptoId")
+    @Mapping(source = "concepto.concepto", target = "concepto")
+    @Mapping(source = "concepto.porcentaje", target = "porcentaje")
+    @Mapping(source = "concepto.aplicaSobre", target = "aplicaSobre")
+    @Mapping(source = "concepto.descripcion", target = "descripcion")
     CanalConceptoDTO toDTO(CanalConcepto entity);
 
     // =============================

@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.mla.service;
 
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.mapper.MlaMapper;
@@ -12,12 +13,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 public class MlaServiceImpl implements MlaService {
 
     private final MlaRepository repo;
     private final MlaMapper mapper;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,11 +62,20 @@ public class MlaServiceImpl implements MlaService {
             throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
         }
 
+        // Guardar valor anterior para detectar cambio
+        BigDecimal precioEnvioAnterior = entity.getPrecioEnvio();
+
         entity.setMla(dto.mla());
         entity.setMlau(dto.mlau());
         entity.setPrecioEnvio(dto.precioEnvio());
 
         repo.save(entity);
+
+        // Recalcular si cambió el precioEnvio
+        if (!Objects.equals(precioEnvioAnterior, dto.precioEnvio())) {
+            recalculoFacade.recalcularPorCambioMla(id);
+        }
+
         return mapper.toDTO(entity);
     }
 

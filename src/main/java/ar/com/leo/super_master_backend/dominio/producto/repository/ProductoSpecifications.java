@@ -14,6 +14,16 @@ import java.util.List;
 public class ProductoSpecifications {
 
     /* ==========================================================
+       0) FILTRO POR ID
+       ========================================================== */
+    public static Specification<Producto> productoId(Integer productoId) {
+        return (root, query, cb) -> {
+            if (productoId == null) return null;
+            return cb.equal(root.get("id"), productoId);
+        };
+    }
+
+    /* ==========================================================
        1) BÚSQUEDA POR TEXTO (sku, descripcion, tituloWeb, codExt, mla, mlau)
        ========================================================== */
     public static Specification<Producto> textoLike(String texto) {

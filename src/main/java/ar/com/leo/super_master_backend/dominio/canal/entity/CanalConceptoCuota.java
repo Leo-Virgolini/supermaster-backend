@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -16,7 +15,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Entity
 @Table(name = "canal_concepto_cuota", schema = "supermaster",
-       uniqueConstraints = @UniqueConstraint(name = "uk_canal_cuotas_tipo", columnNames = {"id_canal", "cuotas", "tipo"}))
+       uniqueConstraints = @UniqueConstraint(name = "uk_canal_cuotas", columnNames = {"id_canal", "cuotas"}))
 public class CanalConceptoCuota {
 
     @Id
@@ -33,11 +32,6 @@ public class CanalConceptoCuota {
     @NotNull
     @Column(name = "cuotas", nullable = false)
     private Integer cuotas;
-
-    @ColumnDefault("'NORMAL'")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo", columnDefinition = "ENUM('NORMAL','PROMO') NOT NULL DEFAULT 'NORMAL'", nullable = false, length = 10)
-    private TipoCuota tipo;
 
     @NotNull
     @Column(name = "porcentaje", nullable = false, precision = 6, scale = 2)

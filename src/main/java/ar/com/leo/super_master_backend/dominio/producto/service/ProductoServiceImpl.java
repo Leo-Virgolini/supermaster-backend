@@ -56,24 +56,6 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     // ============================
-    // OBTENER CON PRECIOS POR CANAL
-    // ============================
-    @Override
-    @Transactional(readOnly = true)
-    public ProductoConPreciosDTO obtenerConPrecios(Integer id) {
-        Producto producto = productoRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
-
-        // Obtener márgenes del producto (puede no existir)
-        ProductoMargen productoMargen = productoMargenRepository.findByProductoId(id).orElse(null);
-
-        // Ordenado por canal y cuotas (null primero = contado, luego 3, 6, 12...)
-        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoIdOrderByCanalIdAscCuotasAsc(id);
-
-        return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
-    }
-
-    // ============================
     // CREAR
     // ============================
     @Override
@@ -101,6 +83,7 @@ public class ProductoServiceImpl implements ProductoService {
         // Guardar valores anteriores para detectar cambios
         BigDecimal costoAnterior = entity.getCosto();
         BigDecimal ivaAnterior = entity.getIva();
+        Integer clasifGastroIdAnterior = entity.getClasifGastro() != null ? entity.getClasifGastro().getId() : null;
 
         productoMapper.updateEntityFromDTO(dto, entity);
         productoRepository.save(entity);
@@ -108,8 +91,9 @@ public class ProductoServiceImpl implements ProductoService {
         // Recalcular precios si cambió costo o IVA
         boolean cambioCosto = dto.costo() != null && !Objects.equals(costoAnterior, dto.costo());
         boolean cambioIva = dto.iva() != null && !Objects.equals(ivaAnterior, dto.iva());
+        boolean cambioClasifGastro = dto.clasifGastroId() != null && !Objects.equals(clasifGastroIdAnterior, dto.clasifGastroId());
 
-        if (cambioCosto || cambioIva) {
+        if (cambioCosto || cambioIva || cambioClasifGastro) {
             recalculoFacade.recalcularPorCambioProducto(id);
         }
 
@@ -220,6 +204,8 @@ public class ProductoServiceImpl implements ProductoService {
     public Page<ProductoConPreciosDTO> listarConPrecios(ProductoFilter filter, Pageable pageable) {
 
         Specification<Producto> spec = Specification.allOf(
+                // ID
+                ProductoSpecifications.productoId(filter.productoId()),
                 // Texto
                 ProductoSpecifications.textoLike(filter.texto()),
                 // Booleanos/Numéricos
@@ -291,6 +277,20 @@ public class ProductoServiceImpl implements ProductoService {
                     ProductoMargen productoMargen = margenesPorProducto.get(producto.getId());
                     List<ProductoCanalPrecio> precios = preciosPorProducto
                             .getOrDefault(producto.getId(), Collections.emptyList());
+
+                    // Filtrar por canalId (singular) si se especifica
+                    if (filter.canalId() != null) {
+                        precios = precios.stream()
+                                .filter(p -> p.getCanal().getId().equals(filter.canalId()))
+                                .toList();
+                    }
+                    // Filtrar por canalIds (lista) si se especifica
+                    else if (filter.canalIds() != null && !filter.canalIds().isEmpty()) {
+                        precios = precios.stream()
+                                .filter(p -> filter.canalIds().contains(p.getCanal().getId()))
+                                .toList();
+                    }
+
                     return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));

@@ -6,7 +6,6 @@ public record CanalConceptoCuotaDTO(
         Long id,
         Integer canalId,
         Integer cuotas,
-        String tipo,
         BigDecimal porcentaje
 ) {
 }

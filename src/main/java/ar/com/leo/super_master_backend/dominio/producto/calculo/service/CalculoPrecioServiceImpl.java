@@ -168,7 +168,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptos,
             Integer numeroCuotas,
             Integer idCanal) {
-        if (producto.getCosto() == null) {
+        if (producto.getCosto() == null || producto.getCosto().compareTo(BigDecimal.ZERO) == 0) {
             throw new BadRequestException("El producto no tiene costo cargado");
         }
 
@@ -344,6 +344,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.IVA);
         BigDecimal ivaAplicar = aplicaIva ? iva : BigDecimal.ZERO;
 
+        // Las promociones solo se aplican si existe un concepto con aplicaSobre=PROMOCION para el canal
+        boolean usaPromociones = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.PROMOCION);
+
         List<CanalConcepto> gastosSobreImp = conceptos.stream()
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
                 .collect(Collectors.toList());
@@ -496,10 +501,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal pvpSinPromocion = pvp.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         // ============================================
-        // PASO 15: Promociones (solo producto_canal_promocion, sin porcentaje_inflacion)
+        // PASO 15: Promociones (solo si el canal tiene concepto PROMOCION habilitado)
         // ============================================
         BigDecimal pvpInflado = aplicarPromocionSinInflacion(producto.getId(), idCanal,
-                pvpSinPromocion);
+                pvpSinPromocion, usaPromociones);
         pvpInflado = pvpInflado.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         // ============================================
@@ -785,6 +790,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.IVA);
         BigDecimal ivaAplicar = aplicaIva ? ivaProducto : BigDecimal.ZERO;
 
+        // Las promociones solo se aplican si existe un concepto con aplicaSobre=PROMOCION para el canal
+        boolean usaPromociones = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.PROMOCION);
+
         List<CanalConcepto> gastosSobreImp = conceptos.stream()
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
                 .collect(Collectors.toList());
@@ -1032,9 +1042,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     String.format("PVP sin promociones: $%s", pvpSinPromocion)));
         }
 
-        // Paso 14: Promociones (solo producto_canal_promocion)
+        // Paso 14: Promociones (solo si el canal tiene concepto PROMOCION habilitado)
         BigDecimal pvpInflado = aplicarPromocionSinInflacion(producto.getId(), idCanal,
-                pvpSinPromocion);
+                pvpSinPromocion, usaPromociones);
         pvpInflado = pvpInflado.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         if (pvpInflado.compareTo(pvpSinPromocion) != 0) {
@@ -1297,7 +1307,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Obtiene el porcentaje de cuota aplicable según la prioridad: NORMAL primero, luego PROMO.
+     * Obtiene el porcentaje de cuota aplicable.
      *
      * @param idCanal      ID del canal
      * @param numeroCuotas Número de cuotas
@@ -1306,20 +1316,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private BigDecimal obtenerPorcentajeCuota(Integer idCanal, Integer numeroCuotas) {
         List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas);
 
-        // Prioridad: NORMAL primero, luego PROMO
-        Optional<CanalConceptoCuota> cuotaNormal = cuotasCanal.stream()
-                .filter(c -> c.getTipo() == TipoCuota.NORMAL)
-                .findFirst();
-
-        if (cuotaNormal.isPresent()) {
-            return cuotaNormal.get().getPorcentaje();
-        }
-
-        Optional<CanalConceptoCuota> cuotaPromo = cuotasCanal.stream()
-                .filter(c -> c.getTipo() == TipoCuota.PROMO)
-                .findFirst();
-
-        return cuotaPromo.map(CanalConceptoCuota::getPorcentaje).orElse(null);
+        return cuotasCanal.stream()
+                .findFirst()
+                .map(CanalConceptoCuota::getPorcentaje)
+                .orElse(null);
     }
 
     /**
@@ -1726,15 +1726,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Aplica promociones sin incluir porcentaje_inflacion (que ahora es un concepto).
-     * Solo aplica promociones de producto_canal_promocion.
+     * Solo aplica promociones de producto_canal_promocion si el canal tiene habilitadas las promociones.
      *
-     * @param productoId ID del producto
-     * @param canalId    ID del canal
-     * @param pvp        Precio calculado antes de aplicar promociones
-     * @return Precio con promociones aplicadas
+     * @param productoId     ID del producto
+     * @param canalId        ID del canal
+     * @param pvp            Precio calculado antes de aplicar promociones
+     * @param usaPromociones true si el canal tiene un concepto con aplicaSobre=PROMOCION
+     * @return Precio con promociones aplicadas (o el mismo pvp si no usa promociones)
      */
-    private BigDecimal aplicarPromocionSinInflacion(Integer productoId, Integer canalId, BigDecimal pvp) {
+    private BigDecimal aplicarPromocionSinInflacion(Integer productoId, Integer canalId, BigDecimal pvp, boolean usaPromociones) {
         BigDecimal resultado = pvp;
+
+        // Si el canal no tiene habilitadas las promociones, retornar el pvp sin cambios
+        if (!usaPromociones) {
+            return resultado;
+        }
 
         // Aplicar promoción de producto_canal_promocion (si existe y está activa)
         Optional<ProductoCanalPromocion> promocionOpt = Optional.empty();

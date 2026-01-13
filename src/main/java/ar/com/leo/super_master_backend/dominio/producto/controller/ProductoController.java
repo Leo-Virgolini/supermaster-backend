@@ -48,12 +48,6 @@ public class ProductoController {
         return ResponseEntity.ok(productoService.obtener(id));
     }
 
-    @GetMapping("/{id}/precios")
-    public ResponseEntity<ProductoConPreciosDTO> obtenerConPrecios(
-            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
-        return ResponseEntity.ok(productoService.obtenerConPrecios(id));
-    }
-
     @PutMapping("/{id}")
     public ResponseEntity<ProductoDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id, 
@@ -72,6 +66,11 @@ public class ProductoController {
     // =====================================================
     @GetMapping("/precios")
     public ResponseEntity<Page<ProductoConPreciosDTO>> listarConPrecios(
+
+            // =======================
+            // 0) FILTRO POR ID
+            // =======================
+            @RequestParam(required = false) Integer productoId,
 
             // =======================
             // 1) TEXTO
@@ -143,10 +142,16 @@ public class ProductoController {
             @RequestParam(required = false) String sortDir,
             @RequestParam(required = false) Integer sortCanalId,
 
+            // =======================
+            // 9) FILTRAR PRECIOS POR CANAL
+            // =======================
+            @RequestParam(required = false) Integer canalId,
+
             Pageable pageable
     ) {
 
         ProductoFilter filter = new ProductoFilter(
+                productoId,
                 texto,
                 esCombo,
                 uxb,
@@ -182,7 +187,8 @@ public class ProductoController {
                 mlaIds,
                 sortBy,
                 sortDir,
-                sortCanalId
+                sortCanalId,
+                canalId
         );
 
         return ResponseEntity.ok(productoService.listarConPrecios(filter, pageable));
@@ -268,6 +274,7 @@ public class ProductoController {
     ) {
 
         ProductoFilter filter = new ProductoFilter(
+                null,  // productoId no aplica en buscar
                 texto,
                 esCombo,
                 uxb,
@@ -303,7 +310,8 @@ public class ProductoController {
                 mlaIds,
                 sortBy,
                 sortDir,
-                sortCanalId
+                sortCanalId,
+                null  // canalId no aplica en buscar (no devuelve precios)
         );
 
         return ResponseEntity.ok(productoService.filtrar(filter, pageable));

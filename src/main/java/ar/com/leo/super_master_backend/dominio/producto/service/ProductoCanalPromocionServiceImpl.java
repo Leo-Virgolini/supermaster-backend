@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPromocionUpdateDTO;
@@ -25,6 +26,7 @@ public class ProductoCanalPromocionServiceImpl implements ProductoCanalPromocion
     private final ProductoRepository productoRepository;
     private final CanalRepository canalRepository;
     private final PromocionRepository promocionRepository;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -96,6 +98,10 @@ public class ProductoCanalPromocionServiceImpl implements ProductoCanalPromocion
         }
 
         promocion = repository.save(promocion);
+
+        // Recalcular precios del producto en ese canal
+        recalculoFacade.recalcularPorCambioPromocion(dto.productoId(), dto.canalId());
+
         return mapper.toDTO(promocion);
     }
 
@@ -115,6 +121,10 @@ public class ProductoCanalPromocionServiceImpl implements ProductoCanalPromocion
 
         mapper.updateEntityFromDTO(dto, promocion);
         promocion = repository.save(promocion);
+
+        // Recalcular precios del producto en ese canal
+        recalculoFacade.recalcularPorCambioPromocion(productoId, canalId);
+
         return mapper.toDTO(promocion);
     }
 
@@ -125,5 +135,8 @@ public class ProductoCanalPromocionServiceImpl implements ProductoCanalPromocion
                 .orElseThrow(() -> new NotFoundException(
                         "Promoción no encontrada para producto ID: " + productoId + " y canal ID: " + canalId));
         repository.delete(promocion);
+
+        // Recalcular precios del producto en ese canal
+        recalculoFacade.recalcularPorCambioPromocion(productoId, canalId);
     }
 }

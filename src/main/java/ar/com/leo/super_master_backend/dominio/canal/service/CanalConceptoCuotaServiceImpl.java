@@ -4,10 +4,10 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoCuotaCreat
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoCuotaDTO;
 import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoCuotaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
-import ar.com.leo.super_master_backend.dominio.canal.entity.TipoCuota;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalConceptoCuotaMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
@@ -51,11 +51,9 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
             throw new NotFoundException("Canal no encontrado");
         }
 
-        // Verificar si ya existe una cuota con la misma combinación (canal, cuotas,
-        // tipo)
-        TipoCuota tipoCuota = parseTipoCuota(dto.tipo());
-        if (repository.findByCanalIdAndCuotasAndTipo(dto.canalId(), dto.cuotas(), tipoCuota).isPresent()) {
-            throw new NotFoundException("Ya existe una cuota con estos parámetros");
+        // Verificar si ya existe una cuota con la misma combinación (canal, cuotas)
+        if (!repository.findByCanalIdAndCuotas(dto.canalId(), dto.cuotas()).isEmpty()) {
+            throw new ConflictException("Ya existe una cuota con estos parámetros");
         }
 
         CanalConceptoCuota entity = mapper.toEntity(dto);
@@ -73,21 +71,18 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
         CanalConceptoCuota entity = repository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Cuota no encontrada"));
 
-        // Si se actualiza el tipo o las cuotas, verificar que no exista otra con la
-        // misma combinación
-        if (dto.tipo() != null || dto.cuotas() != null) {
-            Integer nuevasCuotas = dto.cuotas() != null ? dto.cuotas() : entity.getCuotas();
-            TipoCuota nuevoTipo = dto.tipo() != null ? parseTipoCuota(dto.tipo()) : entity.getTipo();
+        // Si se actualizan las cuotas, verificar que no exista otra con la misma combinación
+        if (dto.cuotas() != null) {
+            Integer nuevasCuotas = dto.cuotas();
             Integer canalId = entity.getCanal().getId();
 
-            // Verificar si existe otra cuota con la misma combinación (excluyendo la
-            // actual)
-            repository.findByCanalIdAndCuotasAndTipo(canalId, nuevasCuotas, nuevoTipo)
-                    .ifPresent(existente -> {
-                        if (!existente.getId().equals(id)) {
-                            throw new NotFoundException("Ya existe otra cuota con estos parámetros");
-                        }
-                    });
+            // Verificar si existe otra cuota con la misma combinación (excluyendo la actual)
+            List<CanalConceptoCuota> existentes = repository.findByCanalIdAndCuotas(canalId, nuevasCuotas);
+            for (CanalConceptoCuota existente : existentes) {
+                if (!existente.getId().equals(id)) {
+                    throw new ConflictException("Ya existe otra cuota con estos parámetros");
+                }
+            }
         }
 
         BigDecimal porcentajeAnterior = entity.getPorcentaje();
@@ -134,16 +129,5 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
                 .stream()
                 .map(mapper::toDTO)
                 .toList();
-    }
-
-    private TipoCuota parseTipoCuota(String tipo) {
-        if (tipo == null || tipo.isBlank()) {
-            return TipoCuota.NORMAL;
-        }
-        try {
-            return TipoCuota.valueOf(tipo.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return TipoCuota.NORMAL;
-        }
     }
 }

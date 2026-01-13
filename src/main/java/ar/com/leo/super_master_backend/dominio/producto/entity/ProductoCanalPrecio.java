@@ -71,7 +71,7 @@ public class ProductoCanalPrecio {
     /**
      * Markup porcentaje: (gananciaAbs / costoTotal) * 100
      */
-    @Column(name = "markup_porcentaje", precision = 9, scale = 2)
+    @Column(name = "markup_porcentaje", precision = 6, scale = 2)
     private BigDecimal markupPorcentaje;
 
     @Column(name = "fecha_ultimo_calculo")

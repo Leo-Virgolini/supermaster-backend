@@ -888,7 +888,7 @@ public class ExcelServiceImpl implements ExcelService {
      * Procesa una hoja en su propia transacción para aislar errores
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    private ImportResultDTO procesarHojaEnTransaccionSeparada(Sheet sheet, String tipo, String nombreHoja) {
+    public ImportResultDTO procesarHojaEnTransaccionSeparada(Sheet sheet, String tipo, String nombreHoja) {
         log.debug("Iniciando transacción separada para hoja '{}' (tipo: '{}')", nombreHoja, tipo);
         try {
             log.debug("Ejecutando procesarHoja para hoja '{}' dentro de la transacción", nombreHoja);

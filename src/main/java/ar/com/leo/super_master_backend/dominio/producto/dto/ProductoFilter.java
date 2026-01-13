@@ -6,6 +6,9 @@ import java.util.List;
 
 public record ProductoFilter(
 
+        // 0) FILTRO POR ID
+        Integer productoId,
+
         // 1) BÚSQUEDA POR TEXTO
         String texto,
 
@@ -60,6 +63,9 @@ public record ProductoFilter(
         // 10) ORDENAMIENTO ESPECIAL
         String sortBy,       // "pvp", "costo", "mla", "esMaquina"
         String sortDir,      // "asc", "desc"
-        Integer sortCanalId  // canal para ordenar por PVP
+        Integer sortCanalId, // canal para ordenar por PVP
+
+        // 11) FILTRAR PRECIOS POR CANAL
+        Integer canalId      // si se especifica, solo devuelve precios de ese canal
 ) {
 }
