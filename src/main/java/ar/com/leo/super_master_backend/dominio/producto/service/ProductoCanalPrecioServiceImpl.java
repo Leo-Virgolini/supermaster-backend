@@ -49,11 +49,11 @@ public class ProductoCanalPrecioServiceImpl implements ProductoCanalPrecioServic
 
         // 3) Setear valores calculados
         entity.setPvp(calculado.pvp());
+        entity.setPvpInflado(calculado.pvpInflado());
         entity.setCostoTotal(calculado.costoTotal());
         entity.setGananciaAbs(calculado.gananciaAbs());
         entity.setGananciaPorcentaje(calculado.gananciaPorcentaje());
-        entity.setGananciaRealPorcentaje(calculado.gananciaRealPorcentaje());
-        entity.setGastosTotalPorcentaje(calculado.gastosTotalPorcentaje());
+        entity.setMarkupPorcentaje(calculado.markupPorcentaje());
 
         // fecha_ultimo_calculo se actualiza por DB (default CURRENT_TIMESTAMP)
 

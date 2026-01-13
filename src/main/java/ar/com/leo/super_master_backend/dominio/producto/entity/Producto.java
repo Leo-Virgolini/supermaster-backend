@@ -157,7 +157,7 @@ public class Producto {
     private Set<ProductoApto> productosApto = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
-    private Set<ProductoCanal> productoCanales = new LinkedHashSet<>();
+    private Set<ProductoMargen> productoMargenes = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
     private Set<ProductoCanalPrecio> productoCanalPrecios = new LinkedHashSet<>();

@@ -25,9 +25,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "producto_canal", schema = "supermaster",
+@Table(name = "producto_margen", schema = "supermaster",
        uniqueConstraints = @UniqueConstraint(name = "uk_producto", columnNames = {"id_producto"}))
-public class ProductoCanal {
+public class ProductoMargen {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.dto;
 
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,6 +49,10 @@ public record ProductoConPreciosDTO(
         LocalDateTime fechaUltCosto,
         BigDecimal iva,
 
+        // Márgenes (de producto_margen)
+        BigDecimal margenMinorista,
+        BigDecimal margenMayorista,
+
         // Fechas
         LocalDateTime fechaCreacion,
         LocalDateTime fechaModificacion,
@@ -56,20 +62,20 @@ public record ProductoConPreciosDTO(
         BigDecimal pvpMax,
 
         // Precios por canal
-        List<CanalPrecioDTO> preciosCanales
+        List<PrecioCalculadoDTO> preciosCanales
 ) {
-    public record CanalPrecioDTO(
-            Integer canalId,
-            String canalNombre,
-            Integer cuotas,
-            BigDecimal pvp,
-            BigDecimal pvpInflado,
-            BigDecimal costoTotal,
-            BigDecimal gananciaAbs,
-            BigDecimal gananciaPorcentaje,
-            BigDecimal gananciaRealPorcentaje,
-            BigDecimal gastosTotalPorcentaje,
-            LocalDateTime fechaUltimoCalculo
-    ) {
-    }
+//    public record CanalPrecioDTO(
+//            Integer canalId,
+//            String canalNombre,
+//            Integer cuotas,
+//            BigDecimal pvp,
+//            BigDecimal pvpInflado,
+//            BigDecimal costoTotal,
+//            BigDecimal gananciaAbs,
+//            BigDecimal gananciaPorcentaje,
+//            BigDecimal gananciaRealPorcentaje,
+//            BigDecimal gastosTotalPorcentaje,
+//            LocalDateTime fechaUltimoCalculo
+//    ) {
+//    }
 }

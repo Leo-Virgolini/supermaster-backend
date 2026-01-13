@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalDTO;
-import ar.com.leo.super_master_backend.dominio.producto.service.ProductoCanalService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoMargenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.service.ProductoMargenService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +18,12 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/productos/{productoId}/margen")
-public class ProductoCanalController {
+public class ProductoMargenController {
 
-    private final ProductoCanalService service;
+    private final ProductoMargenService service;
 
     @GetMapping
-    public ResponseEntity<ProductoCanalDTO> obtener(
+    public ResponseEntity<ProductoMargenDTO> obtener(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId) {
         return service.obtener(productoId)
                 .map(ResponseEntity::ok)
@@ -31,11 +31,11 @@ public class ProductoCanalController {
     }
 
     @PutMapping
-    public ResponseEntity<ProductoCanalDTO> guardar(
+    public ResponseEntity<ProductoMargenDTO> guardar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
-            @Valid @RequestBody ProductoCanalDTO dto) {
+            @Valid @RequestBody ProductoMargenDTO dto) {
         // Asegurar que el productoId del path coincida con el del DTO
-        ProductoCanalDTO dtoConProductoId = new ProductoCanalDTO(
+        ProductoMargenDTO dtoConProductoId = new ProductoMargenDTO(
                 dto.id(),
                 productoId,
                 dto.margenMinorista(),

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-public record ProductoCanalDTO(
+public record ProductoMargenDTO(
         Integer id,
         @NotNull(message = "El productoId es requerido")
         Integer productoId,

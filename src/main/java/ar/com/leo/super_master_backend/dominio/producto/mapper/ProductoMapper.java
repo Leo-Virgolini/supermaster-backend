@@ -1,9 +1,11 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -66,16 +68,20 @@ public interface ProductoMapper {
     // ================================================================
     // PRODUCTO CON PRECIOS POR CANAL
     // ================================================================
-    default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, List<ProductoCanalPrecio> precios) {
+    default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, ProductoMargen productoMargen, List<ProductoCanalPrecio> precios) {
         // Obtener MLA (si existe)
         ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla mlaEntity = producto.getMla();
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
         String mlau = mlaEntity != null ? mlaEntity.getMlau() : null;
         BigDecimal precioEnvio = mlaEntity != null ? mlaEntity.getPrecioEnvio() : null;
 
+        // Obtener márgenes (si existen)
+        BigDecimal margenMinorista = productoMargen != null ? productoMargen.getMargenMinorista() : null;
+        BigDecimal margenMayorista = productoMargen != null ? productoMargen.getMargenMayorista() : null;
+
         // Mapear precios por canal
-        List<ProductoConPreciosDTO.CanalPrecioDTO> preciosCanales = precios.stream()
-                .map(pcp -> new ProductoConPreciosDTO.CanalPrecioDTO(
+        List<PrecioCalculadoDTO> preciosCanales = precios.stream()
+                .map(pcp -> new PrecioCalculadoDTO(
                         pcp.getCanal().getId(),
                         pcp.getCanal().getCanal(),
                         pcp.getCuotas(),
@@ -84,8 +90,7 @@ public interface ProductoMapper {
                         pcp.getCostoTotal(),
                         pcp.getGananciaAbs(),
                         pcp.getGananciaPorcentaje(),
-                        pcp.getGananciaRealPorcentaje(),
-                        pcp.getGastosTotalPorcentaje(),
+                        pcp.getMarkupPorcentaje(),
                         pcp.getFechaUltimoCalculo()
                 ))
                 .toList();
@@ -145,6 +150,10 @@ public interface ProductoMapper {
                 producto.getCosto(),
                 producto.getFechaUltCosto(),
                 producto.getIva(),
+
+                // Márgenes
+                margenMinorista,
+                margenMayorista,
 
                 // Fechas
                 producto.getFechaCreacion(),

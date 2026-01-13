@@ -21,7 +21,7 @@ import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundExceptio
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,7 +32,7 @@ public class CanalServiceImpl implements CanalService {
     private final CanalMapper canalMapper;
     private final CanalConceptoRepository canalConceptoRepository;
 
-    private final ProductoCanalRepository productoCanalRepository;
+    private final ProductoMargenRepository productoMargenRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final RecalculoPrecioFacade recalculoFacade;
 
@@ -116,14 +116,14 @@ public class CanalServiceImpl implements CanalService {
                 .map(precio -> precio.getProducto().getId())
                 .distinct()
                 .forEach(productoId -> {
-                    productoCanalRepository.findByProductoId(productoId)
-                            .ifPresent(productoCanal -> {
+                    productoMargenRepository.findByProductoId(productoId)
+                            .ifPresent(productoMargen -> {
                                 if (esMayorista) {
-                                    productoCanal.setMargenMayorista(nuevoMargen);
+                                    productoMargen.setMargenMayorista(nuevoMargen);
                                 } else {
-                                    productoCanal.setMargenMinorista(nuevoMargen);
+                                    productoMargen.setMargenMinorista(nuevoMargen);
                                 }
-                                productoCanalRepository.save(productoCanal);
+                                productoMargenRepository.save(productoMargen);
                             });
                 });
 

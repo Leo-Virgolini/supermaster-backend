@@ -6,8 +6,10 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.service.Recalcul
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class ProductoServiceImpl implements ProductoService {
     private final ProductoRepository productoRepository;
     private final ProductoMapper productoMapper;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
+    private final ProductoMargenRepository productoMargenRepository;
     private final RecalculoPrecioFacade recalculoFacade;
 
     // ============================
@@ -61,10 +64,13 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
+        // Obtener márgenes del producto (puede no existir)
+        ProductoMargen productoMargen = productoMargenRepository.findByProductoId(id).orElse(null);
+
         // Ordenado por canal y cuotas (null primero = contado, luego 3, 6, 12...)
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByProductoIdOrderByCanalIdAscCuotasAsc(id);
 
-        return productoMapper.toProductoConPreciosDTO(producto, precios);
+        return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
     }
 
     // ============================
@@ -274,12 +280,18 @@ public class ProductoServiceImpl implements ProductoService {
         Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto = todosPrecios.stream()
                 .collect(Collectors.groupingBy(pcp -> pcp.getProducto().getId()));
 
-        // 5) Mapear cada producto + sus precios a DTO
+        // 4.1) Obtener todos los márgenes en UNA query (evita N+1)
+        List<ProductoMargen> todosMargenes = productoMargenRepository.findByProductoIdIn(productoIds);
+        Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
+                .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
+
+        // 5) Mapear cada producto + sus márgenes + sus precios a DTO
         List<ProductoConPreciosDTO> dtos = productosPage.getContent().stream()
                 .map(producto -> {
+                    ProductoMargen productoMargen = margenesPorProducto.get(producto.getId());
                     List<ProductoCanalPrecio> precios = preciosPorProducto
                             .getOrDefault(producto.getId(), Collections.emptyList());
-                    return productoMapper.toProductoConPreciosDTO(producto, precios);
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
 

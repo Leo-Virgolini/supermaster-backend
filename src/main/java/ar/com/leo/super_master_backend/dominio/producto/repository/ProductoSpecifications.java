@@ -1,10 +1,14 @@
 package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ProductoSpecifications {
@@ -19,7 +23,7 @@ public class ProductoSpecifications {
             String pattern = "%" + texto.toLowerCase() + "%";
 
             // LEFT JOIN para incluir productos sin MLA
-            jakarta.persistence.criteria.Join<Producto, ?> mlaJoin = root.join("mla", jakarta.persistence.criteria.JoinType.LEFT);
+            jakarta.persistence.criteria.Join<Producto, ?> mlaJoin = root.join("mla", JoinType.LEFT);
 
             return cb.or(
                     cb.like(cb.lower(root.get("sku")), pattern),
@@ -160,13 +164,6 @@ public class ProductoSpecifications {
         };
     }
 
-    public static Specification<Producto> canalIds(List<Integer> ids) {
-        return (root, query, cb) -> {
-            if (ids == null || ids.isEmpty()) return null;
-            return root.join("productoCanales").get("canal").get("id").in(ids);
-        };
-    }
-
     public static Specification<Producto> catalogoIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
@@ -184,7 +181,19 @@ public class ProductoSpecifications {
     public static Specification<Producto> mlaIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
-            return root.join("mla", jakarta.persistence.criteria.JoinType.LEFT).get("id").in(ids);
+            return root.join("mla", JoinType.LEFT).get("id").in(ids);
+        };
+    }
+
+    /**
+     * Filtra productos que tienen precios calculados en los canales especificados.
+     * Usa la relación con ProductoCanalPrecio que tiene id_canal.
+     */
+    public static Specification<Producto> canalIds(List<Integer> ids) {
+        return (root, query, cb) -> {
+            if (ids == null || ids.isEmpty()) return null;
+            Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", JoinType.INNER);
+            return preciosJoin.get("canal").get("id").in(ids);
         };
     }
 
@@ -235,7 +244,7 @@ public class ProductoSpecifications {
     public static Specification<Producto> esMaquina(Boolean esMaquina) {
         return (root, query, cb) -> {
             if (esMaquina == null) return null;
-            jakarta.persistence.criteria.Join<Producto, ?> clasifGastroJoin = root.join("clasifGastro", jakarta.persistence.criteria.JoinType.LEFT);
+            Join<Producto, ?> clasifGastroJoin = root.join("clasifGastro", JoinType.LEFT);
             if (esMaquina) {
                 return cb.equal(clasifGastroJoin.get("esMaquina"), true);
             } else {
@@ -302,9 +311,9 @@ public class ProductoSpecifications {
         return (root, query, cb) -> {
             if (canalId == null || (pvpMin == null && pvpMax == null)) return null;
 
-            jakarta.persistence.criteria.Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", jakarta.persistence.criteria.JoinType.INNER);
+            jakarta.persistence.criteria.Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", JoinType.INNER);
 
-            java.util.ArrayList<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            java.util.ArrayList<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
             // Filtrar por canal
             predicates.add(cb.equal(preciosJoin.get("canal").get("id"), canalId));
@@ -320,7 +329,7 @@ public class ProductoSpecifications {
                 predicates.add(cb.le(preciosJoin.get("pvp"), pvpMax));
             }
 
-            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 

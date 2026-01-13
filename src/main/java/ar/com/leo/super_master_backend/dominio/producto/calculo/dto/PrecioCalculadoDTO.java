@@ -1,15 +1,18 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public record PrecioCalculadoDTO(
+        Integer canalId,
+        String canalNombre,
         Integer cuotas,
         BigDecimal pvp,
         BigDecimal pvpInflado,
         BigDecimal costoTotal,
         BigDecimal gananciaAbs,
         BigDecimal gananciaPorcentaje,
-        BigDecimal gananciaRealPorcentaje,
-        BigDecimal gastosTotalPorcentaje
+        BigDecimal markupPorcentaje,
+        LocalDateTime fechaUltimoCalculo
 ) {
 }

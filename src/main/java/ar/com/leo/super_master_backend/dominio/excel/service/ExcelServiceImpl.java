@@ -59,13 +59,13 @@ import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepos
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanal;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
@@ -99,7 +99,7 @@ public class ExcelServiceImpl implements ExcelService {
     private final CanalRepository canalRepository;
     private final MaterialRepository materialRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
-    private final ProductoCanalRepository productoCanalRepository;
+    private final ProductoMargenRepository productoMargenRepository;
     
     // Caches en memoria para evitar consultas repetidas durante la importación
     private final Map<String, Marca> cacheMarcas = new ConcurrentHashMap<>();
@@ -1768,20 +1768,20 @@ public class ExcelServiceImpl implements ExcelService {
             // Canales (ML, KT HOGAR, KT GASTRO, LINEA GE, LIZZY)
             // Asociar TODOS los productos con TODOS los canales
             String[] nombresCanales = { "ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY" };
-            // Crear ProductoCanal solo si no existe (ahora es 1 por producto, no por producto+canal)
+            // Crear ProductoMargen solo si no existe (ahora es 1 por producto, no por producto+canal)
             if (productoFinal.getId() != null) {
-                Optional<ProductoCanal> productoCanalOpt = productoCanalRepository
+                Optional<ProductoMargen> productoMargenOpt = productoMargenRepository
                         .findByProductoId(productoFinal.getId());
-                if (productoCanalOpt.isEmpty()) {
-                    ProductoCanal productoCanal = new ProductoCanal();
-                    productoCanal.setProducto(productoFinal);
+                if (productoMargenOpt.isEmpty()) {
+                    ProductoMargen productoMargen = new ProductoMargen();
+                    productoMargen.setProducto(productoFinal);
                     // Valores por defecto
-                    productoCanal.setMargenMinorista(BigDecimal.ZERO);
-                    productoCanal.setMargenMayorista(BigDecimal.ZERO);
-                    productoCanalRepository.save(productoCanal);
+                    productoMargen.setMargenMinorista(BigDecimal.ZERO);
+                    productoMargen.setMargenMayorista(BigDecimal.ZERO);
+                    productoMargenRepository.save(productoMargen);
                 }
             }
-            // Asegurar que los canales existen (sin crear ProductoCanal por cada uno)
+            // Asegurar que los canales existen (sin crear ProductoMargen por cada uno)
             for (String nombreCanal : nombresCanales) {
                 try {
                     Canal canal = buscarOCrearCanal(nombreCanal);
