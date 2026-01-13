@@ -5,7 +5,7 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
@@ -230,8 +230,8 @@ public class RecalculoPrecioFacade {
                 }
 
                 try {
-                    List<PrecioCalculadoDTO> precios = calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, canal.getId());
-                    totalRecalculados += precios.size();
+                    CanalPreciosDTO resultado = calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, canal.getId());
+                    totalRecalculados += resultado.precios().size();
                 } catch (Exception e) {
                     log.warn("Error calculando precio para producto {} en canal {}: {}",
                             idProducto, canal.getId(), e.getMessage());

@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 
 import java.util.List;
 
@@ -69,7 +70,7 @@ public interface CalculoPrecioService {
      *
      * @param idProducto ID del producto
      * @param idCanal ID del canal
-     * @return Lista de precios calculados y guardados
+     * @return DTO con el canal y sus precios calculados y guardados
      */
-    List<PrecioCalculadoDTO> recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal);
+    CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal);
 }

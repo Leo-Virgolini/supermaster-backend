@@ -11,6 +11,8 @@ import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
@@ -587,7 +589,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Paso 1: COSTO BASE
         BigDecimal costo = producto.getCosto();
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Costo base del producto",
-                "COSTO", costo, String.format("Costo: $%s", costo)));
+                "COSTO", rd(costo), String.format("Costo: $%s", fmt(costo))));
 
         // Paso 2: Gastos sobre COSTO
         List<CanalConcepto> gastosSobreCosto = conceptos.stream()
@@ -604,10 +606,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "Gastos sobre COSTO",
                     String.format("COSTO_CON_GASTOS = COSTO * (1 + (%s)/100)", nombresCostoFormateados),
-                    costoConGastos,
-                    String.format("%s * (1 + (%s)/100) = %s", costo,
-                            detalleConceptosCosto.isEmpty() ? gastosSobreCostoTotal : detalleConceptosCosto,
-                            costoConGastos)));
+                    rd(costoConGastos),
+                    String.format("%s * (1 + (%s)/100) = %s", fmt(costo),
+                            detalleConceptosCosto.isEmpty() ? fmt(gastosSobreCostoTotal) : detalleConceptosCosto,
+                            fmt(costoConGastos))));
         }
 
         // Paso 2.5: PROVEEDOR_FIN (financiación del proveedor)
@@ -632,12 +634,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         "Financiación del proveedor",
                         String.format("COSTO_CON_FINANCIACION = COSTO_CON_GASTOS * (1 + %%FIN/100)",
                                 nombresProveedorFinFormateados),
-                        costoConGastos,
+                        rd(costoConGastos),
                         String.format("%s * (1 + %s/100) = %s (%%FIN obtenido de proveedor: %s%%)",
-                                costoAntesFin,
-                                porcentajeFin,
-                                costoConGastos,
-                                porcentajeFin)));
+                                fmt(costoAntesFin),
+                                fmt(porcentajeFin),
+                                fmt(costoConGastos),
+                                fmt(porcentajeFin))));
             }
         }
 
@@ -721,18 +723,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             formulaGanancia += String.format(" * (1 - %s/100)", nombresReduceMargenPropFormateados);
             detalleGanancia += String.format(" * (1 - %s/100)", detalleReduceMargenProp);
         }
-        detalleGanancia += String.format(" → GANANCIA = %s%%", gananciaUsar);
+        detalleGanancia += String.format(" → GANANCIA = %s%%", fmt(gananciaUsar));
 
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Ganancia ajustada",
-                formulaGanancia, gananciaUsar, detalleGanancia));
+                formulaGanancia, rd(gananciaUsar), detalleGanancia));
 
         // Paso 4: Costo con ganancia
         BigDecimal gananciaFrac = gananciaUsar.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
         BigDecimal costoConGanancia = costoConGastos.multiply(BigDecimal.ONE.add(gananciaFrac));
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Costo con ganancia",
                 "COSTO_CON_GANANCIA = COSTO_CON_GASTOS * (1 + GANANCIA/100)",
-                costoConGanancia,
-                String.format("%s * (1 + %s/100) = %s", costoConGastos, gananciaUsar, costoConGanancia)));
+                rd(costoConGanancia),
+                String.format("%s * (1 + %s/100) = %s", fmt(costoConGastos), fmt(gananciaUsar), fmt(costoConGanancia))));
 
         // Paso 4.5: Gastos sobre COSTO_GANANCIA (después de ganancia, antes de IMP)
         List<CanalConcepto> gastosSobreCostoGanancia = conceptos.stream()
@@ -751,11 +753,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     "Gastos sobre COSTO_GANANCIA",
                     String.format("COSTO_CON_GANANCIA = COSTO_CON_GANANCIA * (1 + (%s)/100)",
                             nombresCostoGananciaFormateados),
-                    costoConGanancia,
+                    rd(costoConGanancia),
                     String.format("%s * (1 + (%s)/100) = %s",
-                            costoAntesCostoGanancia,
-                            detalleCostoGanancia.isEmpty() ? gastosSobreCostoGananciaTotal : detalleCostoGanancia,
-                            costoConGanancia)));
+                            fmt(costoAntesCostoGanancia),
+                            detalleCostoGanancia.isEmpty() ? fmt(gastosSobreCostoGananciaTotal) : detalleCostoGanancia,
+                            fmt(costoConGanancia))));
         }
 
         // Paso 5: Envío (si existe concepto ENVIO)
@@ -776,9 +778,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costoConGananciaYEnvio = costoConGanancia.add(precioEnvio);
                 pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Sumar envío",
                         "COSTO_CON_GANANCIA_Y_ENVIO = COSTO_CON_GANANCIA + ENVIO",
-                        costoConGananciaYEnvio,
-                        String.format("Envío: $%s → %s + %s = %s", precioEnvio, costoConGanancia, precioEnvio,
-                                costoConGananciaYEnvio)));
+                        rd(costoConGananciaYEnvio),
+                        String.format("Envío: $%s → %s + %s = %s", fmt(precioEnvio), fmt(costoConGanancia), fmt(precioEnvio),
+                                fmt(costoConGananciaYEnvio))));
             }
         }
 
@@ -811,27 +813,27 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 : String.format("IMP = 1 + IVA/100 + %s/100", nombresImpFormateados);
 
         String fuenteIva = aplicaIva
-                ? String.format("IVA (producto): %s%%", ivaAplicar)
+                ? String.format("IVA (producto): %s%%", fmt(ivaAplicar))
                 : "IVA: 0% (canal sin concepto IVA)";
         String detalleImp = fuenteIva;
         if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0 && !detalleConceptosImp.isEmpty()) {
             detalleImp += String.format(" + %s", detalleConceptosImp);
         }
-        detalleImp += String.format(" → IMP = 1 + %s/100", ivaAplicar);
+        detalleImp += String.format(" → IMP = 1 + %s/100", fmt(ivaAplicar));
         if (gastosSobreImpTotal.compareTo(BigDecimal.ZERO) > 0) {
-            detalleImp += String.format(" + %s/100 = %s", gastosSobreImpTotal, imp);
+            detalleImp += String.format(" + %s/100 = %s", fmt(gastosSobreImpTotal), fmt(imp));
         } else {
-            detalleImp += String.format(" = %s", imp);
+            detalleImp += String.format(" = %s", fmt(imp));
         }
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Factor de impuestos (IMP)",
-                formulaImp, imp, detalleImp));
+                formulaImp, rd(imp), detalleImp));
 
         // Paso 7: Aplicar impuestos
         BigDecimal costoConImpuestos = costoConGananciaYEnvio.multiply(imp);
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++, "Costo con impuestos",
                 "COSTO_CON_IMPUESTOS = COSTO_CON_GANANCIA_Y_ENVIO * IMP",
-                costoConImpuestos,
-                String.format("%s * %s = %s", costoConGananciaYEnvio, imp, costoConImpuestos)));
+                rd(costoConImpuestos),
+                String.format("%s * %s = %s", fmt(costoConGananciaYEnvio), fmt(imp), fmt(costoConImpuestos))));
 
         // Paso 8: Gastos sobre COSTO_IVA
         List<CanalConcepto> gastosSobreCostoIva = conceptos.stream()
@@ -849,10 +851,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     "Gastos sobre COSTO_IVA",
                     String.format("COSTO_CON_IMPUESTOS = COSTO_CON_IMPUESTOS * (1 + (%s)/100)",
                             nombresCostoIvaFormateados),
-                    costoConImpuestos,
-                    String.format("%s * (1 + (%s)/100) = %s", costoConImpuestosAntes,
-                            detalleConceptosCostoIva.isEmpty() ? gastosSobreCostoIvaTotal : detalleConceptosCostoIva,
-                            costoConImpuestos)));
+                    rd(costoConImpuestos),
+                    String.format("%s * (1 + (%s)/100) = %s", fmt(costoConImpuestosAntes),
+                            detalleConceptosCostoIva.isEmpty() ? fmt(gastosSobreCostoIvaTotal) : detalleConceptosCostoIva,
+                            fmt(costoConImpuestos))));
         }
 
         // Paso 9: Gastos sobre PVP y cuotas
@@ -893,12 +895,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                             "Aplicar cuotas (GTML[%])",
                             String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s + %s cuotas)/100)",
                                     nombresPVPCuotasFormateados, numeroCuotas),
-                            costoConImpuestos,
+                            rd(costoConImpuestos),
                             String.format("GTML[%%] = (%s) + %s%% = %s%% → %s / (1 - %s/100) = %s",
-                                    detalleConceptosPVPCuotas.isEmpty() ? porcentajeConceptosCanal + "%"
+                                    detalleConceptosPVPCuotas.isEmpty() ? fmt(porcentajeConceptosCanal) + "%"
                                             : detalleConceptosPVPCuotas,
-                                    porcentajeCuota, porcentajeCuotasTotal,
-                                    costoConImpuestosAntesCuotas, porcentajeCuotasTotal, costoConImpuestos)));
+                                    fmt(porcentajeCuota), fmt(porcentajeCuotasTotal),
+                                    fmt(costoConImpuestosAntesCuotas), fmt(porcentajeCuotasTotal), fmt(costoConImpuestos))));
                 }
             }
             gastosSobrePVPTotal = BigDecimal.ZERO;
@@ -917,11 +919,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                         "Gastos sobre PVP",
                         String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s)/100)", nombresPVPFormateados),
-                        costoConImpuestos,
+                        rd(costoConImpuestos),
                         String.format("%s / (1 - (%s)/100) = %s",
-                                costoConImpuestosAntesPVP,
-                                detalleConceptosPVP.isEmpty() ? gastosSobrePVPTotal : detalleConceptosPVP,
-                                costoConImpuestos)));
+                                fmt(costoConImpuestosAntesPVP),
+                                detalleConceptosPVP.isEmpty() ? fmt(gastosSobrePVPTotal) : detalleConceptosPVP,
+                                fmt(costoConImpuestos))));
             }
         }
 
@@ -949,11 +951,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "Aplicar RECARGO_CUPON",
                     String.format("PVP = PVP / (1 - (%s)/100)", nombresRecargoCuponFormateados),
-                    pvp,
-                    String.format("%s / (1 - (%s)/100) = %s", pvpBase,
-                            detalleConceptosRecargoCupon.isEmpty() ? porcentajeRecargoCupon
+                    rd(pvp),
+                    String.format("%s / (1 - (%s)/100) = %s", fmt(pvpBase),
+                            detalleConceptosRecargoCupon.isEmpty() ? fmt(porcentajeRecargoCupon)
                                     : detalleConceptosRecargoCupon,
-                            pvp)));
+                            fmt(pvp))));
         }
 
         if (descuentoConceptos.compareTo(BigDecimal.ZERO) > 0) {
@@ -970,10 +972,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "Aplicar DESCUENTO",
                     String.format("PVP = PVP * (1 - (%s)/100)", nombresDescuentoFormateados),
-                    pvp,
-                    String.format("%s * (1 - (%s)/100) = %s", pvpAntesDescuento,
-                            detalleConceptosDescuento.isEmpty() ? descuentoConceptos : detalleConceptosDescuento,
-                            pvp)));
+                    rd(pvp),
+                    String.format("%s * (1 - (%s)/100) = %s", fmt(pvpAntesDescuento),
+                            detalleConceptosDescuento.isEmpty() ? fmt(descuentoConceptos) : detalleConceptosDescuento,
+                            fmt(pvp))));
         }
 
         // Paso 11: Reglas de descuento
@@ -989,8 +991,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "Aplicar reglas de descuento",
                     String.format("PVP = PVP / (1 - DESCUENTO_REGLA/100)"),
-                    pvp,
-                    String.format("%s / (1 - %s/100) = %s", pvpAntesDescuentoRegla, descuentoTotal, pvp)));
+                    rd(pvp),
+                    String.format("%s / (1 - %s/100) = %s", fmt(pvpAntesDescuentoRegla), fmt(descuentoTotal), fmt(pvp))));
         }
 
         // Paso 12: Margen fijo
@@ -1001,8 +1003,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "Aplicar margen fijo",
                     "PVP = PVP + MARGEN_FIJO",
-                    pvp,
-                    String.format("%s + %s = %s", pvpAntesMargenFijo, margenFijo, pvp)));
+                    rd(pvp),
+                    String.format("%s + %s = %s", fmt(pvpAntesMargenFijo), fmt(margenFijo), fmt(pvp))));
         }
 
         // Paso 13: INFLACION (concepto)
@@ -1027,19 +1029,19 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar INFLACION",
                             String.format("PVP = PVP / (1 - (%s)/100)", nombresInflacionFormateados),
-                            pvpSinPromocion,
-                            String.format("%s / (1 - (%s)/100) = %s", pvpAntesInflacion,
-                                    detalleConceptosInflacion.isEmpty() ? porcentajeInflacion
+                            rd(pvpSinPromocion),
+                            String.format("%s / (1 - (%s)/100) = %s", fmt(pvpAntesInflacion),
+                                    detalleConceptosInflacion.isEmpty() ? fmt(porcentajeInflacion)
                                             : detalleConceptosInflacion,
-                                    pvpSinPromocion)));
+                                    fmt(pvpSinPromocion))));
                 }
             }
         } else {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                     "PVP sin promociones",
                     "PVP_SIN_PROMOCION",
-                    pvpSinPromocion,
-                    String.format("PVP sin promociones: $%s", pvpSinPromocion)));
+                    rd(pvpSinPromocion),
+                    String.format("PVP sin promociones: $%s", fmt(pvpSinPromocion))));
         }
 
         // Paso 14: Promociones (solo si el canal tiene concepto PROMOCION habilitado)
@@ -1060,9 +1062,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar promoción",
                             String.format("PVP_INFLADO = aplicarPromocion(PVP_SIN_PROMOCION, tipo=%s, valor=%s)",
-                                    tipoPromocion, valor),
-                            pvpInflado,
-                            String.format("Promoción %s: %s → %s", tipoPromocion, pvpSinPromocion, pvpInflado)));
+                                    tipoPromocion, fmt(valor)),
+                            rd(pvpInflado),
+                            String.format("Promoción %s: %s → %s", tipoPromocion, fmt(pvpSinPromocion), fmt(pvpInflado))));
                 }
             }
         }
@@ -1255,8 +1257,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                 "PVP del canal base",
                 String.format("PVP_%s", nombreCanalBase),
-                pvpCanalBase,
-                String.format("Calculado del canal base: $%s", pvpCanalBase)));
+                rd(pvpCanalBase),
+                String.format("Calculado del canal base: $%s", fmt(pvpCanalBase))));
 
         // Paso 2: Aplicar factores (si los hay)
         BigDecimal pvp = pvpCanalBase;
@@ -1270,10 +1272,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
                 String signo = porcentaje.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
                 pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                        String.format("Aplicar %s (%s%s%%)", nombreConcepto, signo, porcentaje),
-                        String.format("PVP = PVP * (1 + %s/100)", porcentaje),
-                        pvp,
-                        String.format("%s * %s = %s", pvpAnterior, factor.setScale(4, RoundingMode.HALF_UP), pvp)));
+                        String.format("Aplicar %s (%s%s%%)", nombreConcepto, signo, fmt(porcentaje)),
+                        String.format("PVP = PVP * (1 + %s/100)", fmt(porcentaje)),
+                        rd(pvp),
+                        String.format("%s * %s = %s", fmt(pvpAnterior), fmt(factor), fmt(pvp))));
             }
         }
 
@@ -1283,8 +1285,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                 "PVP Final",
                 "PVP",
-                pvp,
-                String.format("$%s", pvp)));
+                rd(pvp),
+                String.format("$%s", fmt(pvp))));
 
         // Fórmula general depende de si hay factores o no
         String formulaGeneral = conceptosSobrePvpBase.isEmpty()
@@ -1710,7 +1712,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Formatea el detalle de conceptos mostrando cada concepto con su porcentaje individual.
      *
      * @param conceptos Lista de conceptos con sus porcentajes
-     * @return String con el detalle formateado (ej: "NUBE: 5.000% + MARKETING: 2.500%")
+     * @return String con el detalle formateado (ej: "NUBE: 5.00% + MARKETING: 2.50%")
      */
     private String formatearDetalleConceptos(List<CanalConcepto> conceptos) {
         if (conceptos == null || conceptos.isEmpty()) {
@@ -1720,8 +1722,24 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .filter(cc -> cc.getConcepto() != null && cc.getConcepto().getConcepto() != null)
                 .map(cc -> String.format("%s: %s%%",
                         cc.getConcepto().getConcepto(),
-                        cc.getConcepto().getPorcentaje()))
+                        fmt(cc.getConcepto().getPorcentaje())))
                 .collect(Collectors.joining(" + "));
+    }
+
+    /**
+     * Redondea un BigDecimal a 2 decimales para mostrar en la fórmula.
+     */
+    private BigDecimal rd(BigDecimal value) {
+        if (value == null) return null;
+        return value.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Formatea un BigDecimal a string con 2 decimales.
+     */
+    private String fmt(BigDecimal value) {
+        if (value == null) return "null";
+        return value.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP).toString();
     }
 
     /**
@@ -1863,22 +1881,39 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     @Transactional
-    public List<PrecioCalculadoDTO> recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
+    public CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
         // Obtener todas las cuotas configuradas para el canal
         List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
 
         // Calcular y guardar para contado (null) + todas las cuotas
-        List<PrecioCalculadoDTO> precios = new ArrayList<>();
+        List<PrecioCalculadoDTO> preciosCalculados = new ArrayList<>();
 
         // Primero contado
-        precios.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, null));
+        preciosCalculados.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, null));
 
         // Luego cada opción de cuotas
         for (Integer cuotas : cuotasCanal) {
-            precios.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas));
+            preciosCalculados.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas));
         }
 
-        return precios;
+        // Obtener info del canal del primer precio
+        String canalNombre = preciosCalculados.isEmpty() ? null : preciosCalculados.get(0).canalNombre();
+
+        // Convertir a PrecioDTO (sin canalId y canalNombre repetidos)
+        List<PrecioDTO> precios = preciosCalculados.stream()
+                .map(p -> new PrecioDTO(
+                        p.cuotas(),
+                        p.pvp(),
+                        p.pvpInflado(),
+                        p.costoTotal(),
+                        p.gananciaAbs(),
+                        p.gananciaPorcentaje(),
+                        p.markupPorcentaje(),
+                        p.fechaUltimoCalculo()
+                ))
+                .toList();
+
+        return new CanalPreciosDTO(idCanal, canalNombre, precios);
     }
 
 }

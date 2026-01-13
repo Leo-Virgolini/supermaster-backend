@@ -1,7 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
@@ -13,6 +12,8 @@ import org.mapstruct.Named;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Mapper(config = GlobalMapperConfig.class)
 public interface ProductoMapper {
@@ -79,20 +80,35 @@ public interface ProductoMapper {
         BigDecimal margenMinorista = productoMargen != null ? productoMargen.getMargenMinorista() : null;
         BigDecimal margenMayorista = productoMargen != null ? productoMargen.getMargenMayorista() : null;
 
-        // Mapear precios por canal
-        List<PrecioCalculadoDTO> preciosCanales = precios.stream()
-                .map(pcp -> new PrecioCalculadoDTO(
-                        pcp.getCanal().getId(),
-                        pcp.getCanal().getCanal(),
-                        pcp.getCuotas(),
-                        pcp.getPvp(),
-                        pcp.getPvpInflado(),
-                        pcp.getCostoTotal(),
-                        pcp.getGananciaAbs(),
-                        pcp.getGananciaPorcentaje(),
-                        pcp.getMarkupPorcentaje(),
-                        pcp.getFechaUltimoCalculo()
-                ))
+        // Agrupar precios por canal
+        Map<Integer, List<ProductoCanalPrecio>> preciosPorCanal = precios.stream()
+                .collect(Collectors.groupingBy(pcp -> pcp.getCanal().getId()));
+
+        List<CanalPreciosDTO> preciosCanales = preciosPorCanal.entrySet().stream()
+                .map(entry -> {
+                    List<ProductoCanalPrecio> preciosDelCanal = entry.getValue();
+                    ProductoCanalPrecio primerPrecio = preciosDelCanal.get(0);
+
+                    List<PrecioDTO> preciosList = preciosDelCanal.stream()
+                            .map(pcp -> new PrecioDTO(
+                                    pcp.getCuotas(),
+                                    pcp.getPvp(),
+                                    pcp.getPvpInflado(),
+                                    pcp.getCostoTotal(),
+                                    pcp.getGananciaAbs(),
+                                    pcp.getGananciaPorcentaje(),
+                                    pcp.getMarkupPorcentaje(),
+                                    pcp.getFechaUltimoCalculo()
+                            ))
+                            .toList();
+
+                    return new CanalPreciosDTO(
+                            primerPrecio.getCanal().getId(),
+                            primerPrecio.getCanal().getCanal(),
+                            preciosList
+                    );
+                })
+                .sorted((a, b) -> a.canalId().compareTo(b.canalId()))
                 .toList();
 
         // Calcular PVP mínimo y máximo (solo contado, cuotas=null)
