@@ -58,5 +58,17 @@ public interface ExcelService {
      * @throws IOException Si hay error generando el archivo
      */
     byte[] exportarPrecios(ProductoFilter filter) throws IOException;
+
+    /**
+     * Exporta productos de un catálogo a un archivo Excel (.xlsx).
+     * Columnas: SKU, PRODUCTO, PVP nombre_canal, UxB
+     *
+     * @param catalogoId ID del catálogo
+     * @param canalId ID del canal para obtener el PVP
+     * @param cuotas Cantidad de cuotas (0 = contado)
+     * @return Bytes del archivo Excel generado
+     * @throws IOException Si hay error generando el archivo
+     */
+    byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas) throws IOException;
 }
 

@@ -3124,5 +3124,120 @@ public class ExcelServiceImpl implements ExcelService {
             cell.setCellValue(value.format(dtf));
         }
     }
+
+    @Override
+    public byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas) throws IOException {
+        log.info("Iniciando exportación de catálogo {} con canal {} y cuotas {}", catalogoId, canalId, cuotas);
+
+        // Validar parámetros
+        if (catalogoId == null || canalId == null) {
+            throw new IllegalArgumentException("catalogoId y canalId son requeridos");
+        }
+
+        // Si cuotas es null, usar 0 (contado)
+        int cuotasValue = cuotas != null ? cuotas : 0;
+
+        // Obtener el catálogo
+        Catalogo catalogo = catalogoRepository.findById(catalogoId)
+                .orElseThrow(() -> new IllegalArgumentException("Catálogo no encontrado: " + catalogoId));
+
+        // Obtener el canal
+        Canal canal = canalRepository.findById(canalId)
+                .orElseThrow(() -> new IllegalArgumentException("Canal no encontrado: " + canalId));
+
+        // Obtener productos del catálogo y ordenar por clasifGastro.nombre, luego por descripcion
+        List<ProductoCatalogo> productosCatalogo = productoCatalogoRepository
+                .findByCatalogoId(catalogoId);
+
+        // Ordenar por clasifGastro.nombre (nulls last), luego por descripcion
+        productosCatalogo.sort((pc1, pc2) -> {
+            Producto p1 = pc1.getProducto();
+            Producto p2 = pc2.getProducto();
+
+            // Comparar por clasifGastro.nombre (nulls last)
+            String gastro1 = p1.getClasifGastro() != null ? p1.getClasifGastro().getNombre() : null;
+            String gastro2 = p2.getClasifGastro() != null ? p2.getClasifGastro().getNombre() : null;
+
+            int cmp;
+            if (gastro1 == null && gastro2 == null) {
+                cmp = 0;
+            } else if (gastro1 == null) {
+                cmp = 1; // nulls last
+            } else if (gastro2 == null) {
+                cmp = -1;
+            } else {
+                cmp = gastro1.compareToIgnoreCase(gastro2);
+            }
+
+            // Si son iguales, comparar por descripcion
+            if (cmp == 0) {
+                String desc1 = p1.getDescripcion() != null ? p1.getDescripcion() : "";
+                String desc2 = p2.getDescripcion() != null ? p2.getDescripcion() : "";
+                cmp = desc1.compareToIgnoreCase(desc2);
+            }
+
+            return cmp;
+        });
+
+        log.info("Total de productos en catálogo: {}", productosCatalogo.size());
+
+        // Obtener precios para el canal y cuotas especificadas
+        Map<Integer, BigDecimal> preciosPorProducto = new HashMap<>();
+        for (ProductoCatalogo pc : productosCatalogo) {
+            Integer productoId = pc.getProducto().getId();
+            productoCanalPrecioRepository
+                    .findByProductoIdAndCanalIdAndCuotas(productoId, canalId, cuotasValue)
+                    .ifPresent(precio -> preciosPorProducto.put(productoId, precio.getPvp()));
+        }
+
+        // Validar que existan precios
+        if (preciosPorProducto.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format("No existen precios para el catálogo '%s' en el canal '%s' con %d cuotas",
+                            catalogo.getCatalogo(), canal.getCanal(), cuotasValue));
+        }
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            XSSFSheet sheet = workbook.createSheet(catalogo.getCatalogo());
+
+            // Crear estilos
+            CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+
+            // Crear headers
+            Row headerRow = sheet.createRow(0);
+            String pvpHeader = "PVP " + canal.getCanal().toUpperCase() + " (" + cuotasValue + " cuotas)";
+            String[] headers = {"SKU", "PRODUCTO", pvpHeader, "UxB"};
+
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Escribir datos
+            int rowIndex = 1;
+            for (ProductoCatalogo pc : productosCatalogo) {
+                Producto producto = pc.getProducto();
+                Row row = sheet.createRow(rowIndex++);
+
+                setCellValue(row.createCell(0), producto.getSku(), dataStyle);
+                setCellValue(row.createCell(1), producto.getDescripcion(), dataStyle);
+                setCellValue(row.createCell(2), preciosPorProducto.get(producto.getId()), dataStyle);
+                setCellValue(row.createCell(3), producto.getUxb(), dataStyle);
+            }
+
+            // Auto-ajustar ancho de columnas
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(outputStream);
+            log.info("Exportación de catálogo completada exitosamente");
+            return outputStream.toByteArray();
+        }
+    }
 }
 

@@ -277,5 +277,45 @@ public class ExcelController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Exporta productos de un catálogo a un archivo Excel (.xlsx).
+     * Columnas: SKU, PRODUCTO, PVP (nombre del canal), UxB
+     *
+     * @param catalogoId ID del catálogo (requerido)
+     * @param canalId    ID del canal para obtener el PVP (requerido)
+     * @param cuotas     Cantidad de cuotas (0 = contado, por defecto)
+     * @return Archivo Excel descargable
+     */
+    @GetMapping("/exportar-catalogo")
+    public ResponseEntity<byte[]> exportarCatalogo(
+            @RequestParam("catalogoId") Integer catalogoId,
+            @RequestParam("canalId") Integer canalId,
+            @RequestParam(value = "cuotas", required = false, defaultValue = "0") Integer cuotas
+    ) {
+        try {
+            byte[] excelBytes = excelService.exportarCatalogo(catalogoId, canalId, cuotas);
+
+            String filename = String.format("catalogo_%d_%s.xlsx",
+                    catalogoId,
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(excelBytes.length);
+
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            log.error("Error de validación al exportar catálogo: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            log.error("Error de I/O al exportar catálogo: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            log.error("Error inesperado al exportar catálogo: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
 
