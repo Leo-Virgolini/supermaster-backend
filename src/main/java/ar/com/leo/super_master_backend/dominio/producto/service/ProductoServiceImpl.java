@@ -356,6 +356,104 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     // ============================
+    // LISTAR SIN PAGINACIÓN (PARA EXPORTACIÓN)
+    // ============================
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter) {
+
+        Specification<Producto> spec = Specification.allOf(
+                ProductoSpecifications.productoId(filter.productoId()),
+                ProductoSpecifications.textoLike(filter.texto()),
+                ProductoSpecifications.esCombo(filter.esCombo()),
+                ProductoSpecifications.uxb(filter.uxb()),
+                ProductoSpecifications.esMaquina(filter.esMaquina()),
+                ProductoSpecifications.tieneMla(filter.tieneMla()),
+                ProductoSpecifications.activo(filter.activo()),
+                ProductoSpecifications.marcaId(filter.marcaId()),
+                ProductoSpecifications.origenId(filter.origenId()),
+                ProductoSpecifications.tipoId(filter.tipoId()),
+                ProductoSpecifications.clasifGralId(filter.clasifGralId()),
+                ProductoSpecifications.clasifGastroId(filter.clasifGastroId()),
+                ProductoSpecifications.proveedorId(filter.proveedorId()),
+                ProductoSpecifications.materialId(filter.materialId()),
+                ProductoSpecifications.costoMin(filter.costoMin()),
+                ProductoSpecifications.costoMax(filter.costoMax()),
+                ProductoSpecifications.ivaMin(filter.ivaMin()),
+                ProductoSpecifications.ivaMax(filter.ivaMax()),
+                ProductoSpecifications.stockMin(filter.stockMin()),
+                ProductoSpecifications.stockMax(filter.stockMax()),
+                ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
+                ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
+                ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
+                ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
+                ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
+                ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
+                ProductoSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
+                ProductoSpecifications.aptoIds(filter.aptoIds()),
+                ProductoSpecifications.canalIds(filter.canalIds()),
+                ProductoSpecifications.catalogoIds(filter.catalogoIds()),
+                ProductoSpecifications.clienteIds(filter.clienteIds()),
+                ProductoSpecifications.mlaIds(filter.mlaIds())
+        );
+
+        // Obtener todos los productos (sin paginación)
+        List<Producto> productos = productoRepository.findAll(spec);
+
+        if (productos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Integer> productoIds = productos.stream()
+                .map(Producto::getId)
+                .toList();
+
+        // Obtener todos los precios
+        List<ProductoCanalPrecio> todosPrecios = productoCanalPrecioRepository
+                .findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(productoIds);
+
+        Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto = todosPrecios.stream()
+                .collect(Collectors.groupingBy(pcp -> pcp.getProducto().getId()));
+
+        // Obtener todos los márgenes
+        List<ProductoMargen> todosMargenes = productoMargenRepository.findByProductoIdIn(productoIds);
+        Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
+                .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
+
+        // Mapear a DTOs
+        List<ProductoConPreciosDTO> dtos = productos.stream()
+                .map(producto -> {
+                    ProductoMargen productoMargen = margenesPorProducto.get(producto.getId());
+                    List<ProductoCanalPrecio> precios = preciosPorProducto
+                            .getOrDefault(producto.getId(), Collections.emptyList());
+
+                    if (filter.canalId() != null) {
+                        precios = precios.stream()
+                                .filter(p -> p.getCanal().getId().equals(filter.canalId()))
+                                .toList();
+                    } else if (filter.canalIds() != null && !filter.canalIds().isEmpty()) {
+                        precios = precios.stream()
+                                .filter(p -> filter.canalIds().contains(p.getCanal().getId()))
+                                .toList();
+                    }
+
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
+                })
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        // Aplicar ordenamiento si se solicita
+        if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
+            boolean asc = !"desc".equalsIgnoreCase(filter.sortDir());
+            Comparator<ProductoConPreciosDTO> comparator = getComparator(filter.sortBy(), filter.sortCanalId(), preciosPorProducto);
+            if (comparator != null) {
+                dtos.sort(asc ? comparator : comparator.reversed());
+            }
+        }
+
+        return dtos;
+    }
+
+    // ============================
     // ACTUALIZAR COSTO + RECALCULAR PRECIOS
     // ============================
     @Override

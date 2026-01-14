@@ -24,12 +24,15 @@ import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.ss.util.AreaReference;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFTable;
@@ -51,6 +54,7 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGa
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
+import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportResultDTO;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
@@ -69,6 +73,12 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMarge
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
+import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
+import org.apache.poi.ss.usermodel.BorderStyle;
 import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
@@ -77,7 +87,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 // Record para almacenar información de hojas a procesar
-record SheetInfo(org.apache.poi.ss.usermodel.Sheet sheet, String nombre, int prioridad) {}
+record SheetInfo(Sheet sheet, String nombre, int prioridad) {}
 
 @Slf4j
 @Service
@@ -100,7 +110,8 @@ public class ExcelServiceImpl implements ExcelService {
     private final MaterialRepository materialRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoMargenRepository productoMargenRepository;
-    
+    private final ProductoService productoService;
+
     // Caches en memoria para evitar consultas repetidas durante la importación
     private final Map<String, Marca> cacheMarcas = new ConcurrentHashMap<>();
     private final Map<String, Origen> cacheOrigenes = new ConcurrentHashMap<>();
@@ -2471,6 +2482,647 @@ public class ExcelServiceImpl implements ExcelService {
                         return proveedorRepository.save(nuevo);
                     });
         });
+    }
+
+    // ============================================================
+    // IMPORTACIÓN DE COSTOS DESDE EXCEL
+    // ============================================================
+
+    @Override
+    @Transactional
+    public ImportCostosResultDTO importarCostos(MultipartFile file) throws IOException {
+        log.info("Iniciando importación de costos desde archivo: {}", file.getOriginalFilename());
+
+        List<String> skusNoEncontrados = new ArrayList<>();
+        List<String> errores = new ArrayList<>();
+        int productosActualizados = 0;
+        int proveedoresCreados = 0;
+
+        // Limpiar cache de proveedores para contar los nuevos
+        cacheProveedores.clear();
+        int proveedoresAntes = (int) proveedorRepository.count();
+
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // Obtener encabezados de la primera fila
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                return ImportCostosResultDTO.withErrors(List.of("El archivo no tiene encabezados"));
+            }
+
+            Map<String, Integer> columnasMap = mapearColumnasPorNombre(headerRow);
+
+            // Validar columnas requeridas
+            if (!columnasMap.containsKey("CODIGO")) {
+                return ImportCostosResultDTO.withErrors(List.of("Falta la columna CODIGO"));
+            }
+
+            // Procesar cada fila de datos
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || esFilaVacia(row)) {
+                    continue;
+                }
+
+                try {
+                    String sku = obtenerValorCelda(row, columnasMap.get("CODIGO"));
+                    if (sku == null || sku.isBlank()) {
+                        continue;
+                    }
+
+                    // Buscar producto por SKU
+                    Optional<Producto> productoOpt = productoRepository.findBySku(sku.trim());
+                    if (productoOpt.isEmpty()) {
+                        skusNoEncontrados.add(sku);
+                        continue;
+                    }
+
+                    Producto producto = productoOpt.get();
+                    boolean actualizado = false;
+
+                    // PRODUCTO → descripcion
+                    if (columnasMap.containsKey("PRODUCTO")) {
+                        String descripcion = obtenerValorCelda(row, columnasMap.get("PRODUCTO"));
+                        if (descripcion != null && !descripcion.isBlank()) {
+                            producto.setDescripcion(descripcion.trim().length() > 100
+                                    ? descripcion.trim().substring(0, 100)
+                                    : descripcion.trim());
+                            actualizado = true;
+                        }
+                    }
+
+                    // COSTO → costo
+                    if (columnasMap.containsKey("COSTO")) {
+                        String costoStr = obtenerValorCelda(row, columnasMap.get("COSTO"));
+                        if (costoStr != null && !costoStr.isBlank()) {
+                            try {
+                                String costoNormalizado = normalizarNumero(costoStr);
+                                BigDecimal costo = new BigDecimal(costoNormalizado)
+                                        .setScale(2, java.math.RoundingMode.HALF_UP); // Redondear a 2 decimales
+                                // Validar que no exceda el límite de la columna DECIMAL(10,2)
+                                if (costo.compareTo(COSTO_MAXIMO) > 0) {
+                                    errores.add("Fila " + (i + 1) + ": COSTO excede límite (" + costoStr + " > 99,999,999.99)");
+                                } else if (costo.compareTo(BigDecimal.ZERO) >= 0) {
+                                    producto.setCosto(costo);
+                                    actualizado = true;
+                                }
+                            } catch (NumberFormatException e) {
+                                errores.add("Fila " + (i + 1) + ": COSTO inválido '" + costoStr + "'");
+                            }
+                        }
+                    }
+
+                    // CODIGO EXTERNO → cod_ext
+                    if (columnasMap.containsKey("CODIGO EXTERNO")) {
+                        String codExt = obtenerValorCelda(row, columnasMap.get("CODIGO EXTERNO"));
+                        if (codExt != null && !codExt.isBlank()) {
+                            producto.setCodExt(codExt.trim().length() > 45
+                                    ? codExt.trim().substring(0, 45)
+                                    : codExt.trim());
+                            actualizado = true;
+                        }
+                    }
+
+                    // PROVEEDOR → buscar o crear proveedor
+                    if (columnasMap.containsKey("PROVEEDOR")) {
+                        String proveedorNombre = obtenerValorCelda(row, columnasMap.get("PROVEEDOR"));
+                        if (proveedorNombre != null && !proveedorNombre.isBlank()) {
+                            Proveedor proveedor = buscarOCrearProveedor(proveedorNombre.trim());
+                            producto.setProveedor(proveedor);
+                            actualizado = true;
+                        }
+                    }
+
+                    // TIPO DE PRODUCTO → es_combo
+                    if (columnasMap.containsKey("TIPO DE PRODUCTO")) {
+                        String tipoProducto = obtenerValorCelda(row, columnasMap.get("TIPO DE PRODUCTO"));
+                        if (tipoProducto != null && !tipoProducto.isBlank()) {
+                            producto.setEsCombo("COMBO".equalsIgnoreCase(tipoProducto.trim()));
+                            actualizado = true;
+                        }
+                    }
+
+                    // ULTIMA ACT. COSTO → fecha_ult_costo (formato: dd/MM/yyyy)
+                    if (columnasMap.containsKey("ULTIMA ACT. COSTO")) {
+                        String fechaStr = obtenerValorCelda(row, columnasMap.get("ULTIMA ACT. COSTO"));
+                        if (fechaStr != null && !fechaStr.isBlank()) {
+                            try {
+                                LocalDateTime fecha = parsearFecha(fechaStr.trim());
+                                if (fecha != null) {
+                                    producto.setFechaUltCosto(fecha);
+                                    actualizado = true;
+                                }
+                            } catch (Exception e) {
+                                errores.add("Fila " + (i + 1) + ": Fecha inválida '" + fechaStr + "'");
+                            }
+                        }
+                    }
+
+                    // UNIDADES POR BULTO → uxb
+                    if (columnasMap.containsKey("UNIDADES POR BULTO")) {
+                        String uxbStr = obtenerValorCelda(row, columnasMap.get("UNIDADES POR BULTO"));
+                        if (uxbStr != null && !uxbStr.isBlank()) {
+                            try {
+                                String uxbNormalizado = normalizarNumero(uxbStr);
+                                double uxbDouble = Double.parseDouble(uxbNormalizado);
+                                int uxb = (int) Math.round(uxbDouble);
+                                if (uxb > 0) {
+                                    producto.setUxb(uxb);
+                                    actualizado = true;
+                                }
+                            } catch (NumberFormatException e) {
+                                errores.add("Fila " + (i + 1) + ": UXB inválido '" + uxbStr + "'");
+                            }
+                        }
+                    }
+
+                    // PORCENTAJE IVA → iva
+                    if (columnasMap.containsKey("PORCENTAJE IVA")) {
+                        String ivaStr = obtenerValorCelda(row, columnasMap.get("PORCENTAJE IVA"));
+                        if (ivaStr != null && !ivaStr.isBlank()) {
+                            try {
+                                String ivaNormalizado = normalizarNumero(ivaStr);
+                                BigDecimal iva = new BigDecimal(ivaNormalizado);
+                                if (iva.compareTo(BigDecimal.ZERO) >= 0 && iva.compareTo(new BigDecimal("100")) <= 0) {
+                                    producto.setIva(iva);
+                                    actualizado = true;
+                                }
+                            } catch (NumberFormatException e) {
+                                errores.add("Fila " + (i + 1) + ": IVA inválido '" + ivaStr + "'");
+                            }
+                        }
+                    }
+
+                    if (actualizado) {
+                        productoRepository.save(producto);
+                        productosActualizados++;
+                    }
+
+                } catch (Exception e) {
+                    errores.add("Fila " + (i + 1) + ": Error inesperado - " + e.getMessage());
+                    log.warn("Error procesando fila {}: {}", i + 1, e.getMessage());
+                }
+            }
+        }
+
+        // Contar proveedores creados
+        int proveedoresDespues = (int) proveedorRepository.count();
+        proveedoresCreados = proveedoresDespues - proveedoresAntes;
+
+        log.info("Importación de costos completada: {} actualizados, {} no encontrados, {} proveedores creados, {} errores",
+                productosActualizados, skusNoEncontrados.size(), proveedoresCreados, errores.size());
+
+        return new ImportCostosResultDTO(
+                productosActualizados,
+                skusNoEncontrados.size(),
+                proveedoresCreados,
+                skusNoEncontrados,
+                errores
+        );
+    }
+
+    /**
+     * Parsea una fecha en formato dd/MM/yyyy o d/M/yyyy HH:mm:ss
+     */
+    private LocalDateTime parsearFecha(String fechaStr) {
+        if (fechaStr == null || fechaStr.isBlank()) {
+            return null;
+        }
+
+        // Normalizar: reemplazar múltiples espacios por uno solo
+        String fechaNormalizada = fechaStr.trim().replaceAll("\\s+", " ");
+
+        // Intentar varios formatos
+        String[] formatos = {
+                "dd/MM/yyyy",
+                "d/M/yyyy",
+                "dd/MM/yyyy HH:mm:ss",
+                "d/M/yyyy HH:mm:ss",
+                "dd/MM/yyyy H:mm:ss",
+                "d/M/yyyy H:mm:ss"
+        };
+
+        for (String formato : formatos) {
+            try {
+                if (formato.contains("HH") || formato.contains("H:")) {
+                    return LocalDateTime.parse(fechaNormalizada, DateTimeFormatter.ofPattern(formato));
+                } else {
+                    return java.time.LocalDate.parse(fechaNormalizada, DateTimeFormatter.ofPattern(formato))
+                            .atStartOfDay();
+                }
+            } catch (DateTimeParseException ignored) {
+                // Intentar siguiente formato
+            }
+        }
+
+        log.warn("No se pudo parsear la fecha: {}", fechaStr);
+        return null;
+    }
+
+    /**
+     * Límite máximo para costo: DECIMAL(10,2) = 99,999,999.99
+     */
+    private static final BigDecimal COSTO_MAXIMO = new BigDecimal("99999999.99");
+
+    /**
+     * Normaliza un número detectando automáticamente el formato.
+     * Soporta:
+     * - Formato americano: 47639.87775 (punto decimal)
+     * - Formato europeo: 47.639,88 (punto miles, coma decimal)
+     * - Solo coma: 11051,3484 (coma decimal)
+     */
+    private String normalizarNumero(String numero) {
+        if (numero == null || numero.isBlank()) {
+            return "0";
+        }
+
+        String num = numero.trim();
+
+        boolean tienePunto = num.contains(".");
+        boolean tieneComa = num.contains(",");
+
+        if (tienePunto && tieneComa) {
+            // Formato europeo: 47.639,88 → punto es miles, coma es decimal
+            // Encontrar cuál está más a la derecha para determinar el decimal
+            int ultimoPunto = num.lastIndexOf('.');
+            int ultimaComa = num.lastIndexOf(',');
+
+            if (ultimaComa > ultimoPunto) {
+                // Coma es el decimal: 47.639,88
+                return num.replace(".", "").replace(",", ".");
+            } else {
+                // Punto es el decimal: 47,639.88 (formato americano con coma de miles)
+                return num.replace(",", "");
+            }
+        } else if (tieneComa && !tienePunto) {
+            // Solo coma: 11051,3484 → coma es decimal
+            return num.replace(",", ".");
+        } else {
+            // Solo punto o sin separadores: 47639.87775 o 47639
+            return num;
+        }
+    }
+
+    // Campos de precio por cada canal/cuota
+    private static final String[] CAMPOS_PRECIO = {
+            "PVP", "PVP_INFLADO", "COSTO_TOTAL", "GANANCIA_ABS", "GANANCIA_PCT", "MARKUP_PCT", "FECHA_CALCULO"
+    };
+
+    // Colores para distinguir canales
+    private static final short[] COLORES_CANALES = {
+            IndexedColors.LIGHT_BLUE.getIndex(),
+            IndexedColors.LIGHT_GREEN.getIndex(),
+            IndexedColors.LIGHT_YELLOW.getIndex(),
+            IndexedColors.LIGHT_ORANGE.getIndex(),
+            IndexedColors.LAVENDER.getIndex(),
+            IndexedColors.LIGHT_TURQUOISE.getIndex(),
+            IndexedColors.ROSE.getIndex(),
+            IndexedColors.TAN.getIndex(),
+            IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(),
+            IndexedColors.LEMON_CHIFFON.getIndex()
+    };
+
+    @Override
+    public byte[] exportarPrecios(ProductoFilter filter) throws IOException {
+        log.info("Iniciando exportación de precios a Excel");
+
+        List<ProductoConPreciosDTO> productos = productoService.listarConPreciosSinPaginar(filter);
+        log.info("Total de productos a exportar: {}", productos.size());
+
+        // Recolectar todos los canales únicos y sus cuotas
+        Map<String, List<Integer>> canalesCuotas = new LinkedHashMap<>();
+        for (ProductoConPreciosDTO producto : productos) {
+            if (producto.canales() != null) {
+                for (CanalPreciosDTO canalPrecios : producto.canales()) {
+                    String canalNombre = normalizarNombreCanal(canalPrecios.canalNombre());
+                    canalesCuotas.computeIfAbsent(canalNombre, k -> new ArrayList<>());
+                    if (canalPrecios.precios() != null) {
+                        for (PrecioDTO precio : canalPrecios.precios()) {
+                            Integer cuotas = precio.cuotas() != null ? precio.cuotas() : 0;
+                            if (!canalesCuotas.get(canalNombre).contains(cuotas)) {
+                                canalesCuotas.get(canalNombre).add(cuotas);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        canalesCuotas.values().forEach(cuotas -> cuotas.sort(Integer::compareTo));
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            XSSFSheet sheet = workbook.createSheet("Productos con Precios");
+
+            // Headers fijos del producto
+            String[] headersFijos = {
+                    "ID", "SKU", "MLA", "MLAU", "PRECIO_ENVIO", "COD_EXT", "DESCRIPCION", "TITULO_WEB",
+                    "ES_COMBO", "ES_MAQUINA", "IMAGEN_URL", "STOCK", "ACTIVO", "MARCA", "ORIGEN",
+                    "CLASIF_GRAL", "CLASIF_GASTRO", "TIPO", "PROVEEDOR", "MATERIAL", "UXB", "CAPACIDAD",
+                    "LARGO", "ANCHO", "ALTO", "DIAMBOCA", "DIAMBASE", "ESPESOR", "COSTO",
+                    "FECHA_ULT_COSTO", "IVA", "MARGEN_MINORISTA", "MARGEN_MAYORISTA",
+                    "FECHA_CREACION", "FECHA_MODIFICACION", "PVP_MIN", "PVP_MAX"
+            };
+
+            // Índice donde termina PVP_MAX (0-based): posición 36 (último header fijo)
+            int colPvpMax = headersFijos.length - 1; // 36
+
+            // Calcular total de columnas
+            int totalColumnasDinamicas = canalesCuotas.values().stream()
+                    .mapToInt(list -> list.size() * CAMPOS_PRECIO.length).sum();
+            int totalColumnas = headersFijos.length + totalColumnasDinamicas;
+
+            // Crear estilos base
+            CellStyle superHeaderDatosStyle = crearEstiloSuperHeader(workbook, IndexedColors.GREY_40_PERCENT.getIndex());
+            CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+
+            // Crear estilos por canal (con colores diferentes)
+            List<String> nombresCanales = new ArrayList<>(canalesCuotas.keySet());
+            Map<String, CellStyle> estilosSuperHeaderPorCanal = new HashMap<>();
+            Map<String, CellStyle> estilosHeaderPorCanal = new HashMap<>();
+            Map<String, CellStyle> estilosHeaderBordePorCanal = new HashMap<>();
+            Map<String, CellStyle> estilosDataPorCanal = new HashMap<>();
+            Map<String, CellStyle> estilosDataBordePorCanal = new HashMap<>();
+
+            for (int i = 0; i < nombresCanales.size(); i++) {
+                String canal = nombresCanales.get(i);
+                short color = COLORES_CANALES[i % COLORES_CANALES.length];
+                estilosSuperHeaderPorCanal.put(canal, crearEstiloSuperHeader(workbook, color));
+                estilosHeaderPorCanal.put(canal, crearEstiloHeaderCentrado(workbook, color, false));
+                estilosHeaderBordePorCanal.put(canal, crearEstiloHeaderCentrado(workbook, color, true));
+                estilosDataPorCanal.put(canal, crearEstiloDataCentrado(workbook));
+                estilosDataBordePorCanal.put(canal, crearEstiloDataConBordeGruesoCentrado(workbook));
+            }
+
+            // ========== FILA 0: Super headers (DATOS + un header por canal) ==========
+            Row superHeaderRow = sheet.createRow(0);
+
+            // Celda "DATOS" (desde columna 0 hasta PVP_MAX)
+            Cell cellDatos = superHeaderRow.createCell(0);
+            cellDatos.setCellValue("DATOS");
+            cellDatos.setCellStyle(superHeaderDatosStyle);
+            for (int i = 1; i <= colPvpMax; i++) {
+                Cell c = superHeaderRow.createCell(i);
+                c.setCellStyle(superHeaderDatosStyle);
+            }
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, colPvpMax));
+
+            // Super headers por cada canal
+            int superHeaderColIndex = headersFijos.length;
+            for (String canalNombre : nombresCanales) {
+                int numColumnasCanal = canalesCuotas.get(canalNombre).size() * CAMPOS_PRECIO.length;
+                int colInicio = superHeaderColIndex;
+                int colFin = superHeaderColIndex + numColumnasCanal - 1;
+
+                CellStyle estiloSuperCanal = estilosSuperHeaderPorCanal.get(canalNombre);
+
+                Cell cellCanal = superHeaderRow.createCell(colInicio);
+                cellCanal.setCellValue(canalNombre);
+                cellCanal.setCellStyle(estiloSuperCanal);
+
+                for (int i = colInicio + 1; i <= colFin; i++) {
+                    Cell c = superHeaderRow.createCell(i);
+                    c.setCellStyle(estiloSuperCanal);
+                }
+
+                if (colInicio < colFin) {
+                    sheet.addMergedRegion(new CellRangeAddress(0, 0, colInicio, colFin));
+                }
+
+                superHeaderColIndex += numColumnasCanal;
+            }
+
+            // ========== FILA 1: Headers de columnas ==========
+            Row headerRow = sheet.createRow(1);
+            int colIndex = 0;
+
+            // Headers fijos (DATOS: hasta PVP_MAX)
+            for (int i = 0; i < headersFijos.length; i++) {
+                Cell cell = headerRow.createCell(colIndex++);
+                cell.setCellValue(headersFijos[i]);
+                cell.setCellStyle(headerDatosStyle);
+            }
+
+            // Headers dinámicos por canal y cuotas
+            for (String canalNombre : nombresCanales) {
+                List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+                boolean primerColumnDelCanal = true;
+
+                CellStyle estiloHeader = estilosHeaderPorCanal.get(canalNombre);
+                CellStyle estiloHeaderBorde = estilosHeaderBordePorCanal.get(canalNombre);
+
+                for (Integer cuotas : cuotasList) {
+                    String sufijoCuotas = cuotas == 0 ? "" : "_" + cuotas + "C";
+
+                    for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
+                        String headerName = CAMPOS_PRECIO[i] + "_" + canalNombre + sufijoCuotas;
+                        Cell cell = headerRow.createCell(colIndex++);
+                        cell.setCellValue(headerName);
+
+                        if (primerColumnDelCanal) {
+                            cell.setCellStyle(estiloHeaderBorde);
+                            primerColumnDelCanal = false;
+                        } else {
+                            cell.setCellStyle(estiloHeader);
+                        }
+                    }
+                }
+            }
+
+            // ========== FILAS DE DATOS ==========
+            int rowIndex = 2; // Empezamos en fila 2 (después de super header y header)
+            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+
+            for (ProductoConPreciosDTO producto : productos) {
+                Row row = sheet.createRow(rowIndex++);
+                int cellIndex = 0;
+
+                // Columnas fijas
+                setCellValue(row.createCell(cellIndex++), producto.id(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.sku(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.mla(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.mlau(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.codExt(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.descripcion(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.esCombo(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.esMaquina(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.imagenUrl(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.stock(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.activo(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.marcaNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.origenNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.clasifGralNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.clasifGastroNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.tipoNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.proveedorNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.materialNombre(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.uxb(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.capacidad(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.largo(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.ancho(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.alto(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.diamboca(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.diambase(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.espesor(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.costo(), dataStyle);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), dataStyle, dtf);
+                setCellValue(row.createCell(cellIndex++), producto.iva(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), dataStyle);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaCreacion(), dataStyle, dtf);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaModificacion(), dataStyle, dtf);
+                setCellValue(row.createCell(cellIndex++), producto.pvpMin(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.pvpMax(), dataStyle);
+
+                // Columnas dinámicas por canal/cuotas
+                Map<String, Map<Integer, PrecioDTO>> preciosPorCanal = new HashMap<>();
+                if (producto.canales() != null) {
+                    for (CanalPreciosDTO canalPrecios : producto.canales()) {
+                        String canalNombre = normalizarNombreCanal(canalPrecios.canalNombre());
+                        preciosPorCanal.computeIfAbsent(canalNombre, k -> new HashMap<>());
+                        if (canalPrecios.precios() != null) {
+                            for (PrecioDTO precio : canalPrecios.precios()) {
+                                Integer cuotas = precio.cuotas() != null ? precio.cuotas() : 0;
+                                preciosPorCanal.get(canalNombre).put(cuotas, precio);
+                            }
+                        }
+                    }
+                }
+
+                for (String canalNombre : nombresCanales) {
+                    List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+                    boolean primerColumnDelCanal = true;
+
+                    CellStyle estiloData = estilosDataPorCanal.get(canalNombre);
+                    CellStyle estiloDataBorde = estilosDataBordePorCanal.get(canalNombre);
+
+                    for (Integer cuotas : cuotasList) {
+                        PrecioDTO precio = preciosPorCanal.getOrDefault(canalNombre, new HashMap<>())
+                                .get(cuotas);
+
+                        for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
+                            Cell cell = row.createCell(cellIndex++);
+                            CellStyle styleToUse = primerColumnDelCanal ? estiloDataBorde : estiloData;
+
+                            if (precio != null) {
+                                switch (i) {
+                                    case 0 -> setCellValue(cell, precio.pvp(), styleToUse);
+                                    case 1 -> setCellValue(cell, precio.pvpInflado(), styleToUse);
+                                    case 2 -> setCellValue(cell, precio.costoTotal(), styleToUse);
+                                    case 3 -> setCellValue(cell, precio.gananciaAbs(), styleToUse);
+                                    case 4 -> setCellValue(cell, precio.gananciaPorcentaje(), styleToUse);
+                                    case 5 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
+                                    case 6 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
+                                }
+                            } else {
+                                cell.setBlank();
+                                cell.setCellStyle(styleToUse);
+                            }
+
+                            primerColumnDelCanal = false;
+                        }
+                    }
+                }
+            }
+
+            // Auto-ajustar ancho de columnas (limitado para performance)
+            for (int i = 0; i < Math.min(totalColumnas, 50); i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(outputStream);
+            log.info("Exportación de precios completada exitosamente");
+            return outputStream.toByteArray();
+        }
+    }
+
+    private CellStyle crearEstiloSuperHeader(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 12);
+        style.setFont(font);
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloHeaderCentrado(XSSFWorkbook workbook, short colorIndex, boolean bordeGruesoIzq) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(bordeGruesoIzq ? BorderStyle.THICK : BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloDataCentrado(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloDataConBordeGruesoCentrado(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private String normalizarNombreCanal(String nombre) {
+        if (nombre == null) return "SIN_CANAL";
+        return nombre.toUpperCase()
+                .replace(" ", "_")
+                .replace("-", "_");
+    }
+
+    private void setCellValue(Cell cell, Object value, CellStyle style) {
+        cell.setCellStyle(style);
+        if (value == null) {
+            cell.setBlank();
+        } else if (value instanceof Number) {
+            cell.setCellValue(((Number) value).doubleValue());
+        } else if (value instanceof Boolean) {
+            cell.setCellValue((Boolean) value ? "SI" : "NO");
+        } else {
+            cell.setCellValue(value.toString());
+        }
+    }
+
+    private void setCellValueDate(Cell cell, LocalDateTime value, CellStyle style, DateTimeFormatter dtf) {
+        cell.setCellStyle(style);
+        if (value == null) {
+            cell.setBlank();
+        } else {
+            cell.setCellValue(value.format(dtf));
+        }
     }
 }
 

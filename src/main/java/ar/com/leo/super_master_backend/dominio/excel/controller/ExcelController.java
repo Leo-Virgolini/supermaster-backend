@@ -1,7 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.excel.controller;
 
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
+import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.service.ExcelService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -12,8 +14,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -25,10 +30,10 @@ public class ExcelController {
 
     /**
      * Exporta datos a un archivo Excel
-     * 
-     * @param tipo Tipo de exportación: "catalogo", "productos", "precios", etc.
-     * @param canalId ID del canal (requerido para catálogo)
-     * @param catalogoId ID del catálogo (requerido para catálogo)
+     *
+     * @param tipo         Tipo de exportación: "catalogo", "productos", "precios", etc.
+     * @param canalId      ID del canal (requerido para catálogo)
+     * @param catalogoId   ID del catálogo (requerido para catálogo)
      * @param clasifGralId ID de clasificación general primer nivel (opcional)
      * @return Archivo Excel descargable
      */
@@ -41,9 +46,9 @@ public class ExcelController {
     ) {
         try {
             byte[] excelBytes = excelService.exportar(tipo, canalId, catalogoId, clasifGralId);
-            
-            String filename = String.format("%s_%s.xlsx", 
-                    tipo, 
+
+            String filename = String.format("%s_%s.xlsx",
+                    tipo,
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
@@ -63,7 +68,7 @@ public class ExcelController {
      * Importación única de migración: Importa TODO el Excel completo a la base de datos
      * Este endpoint está diseñado para ser usado UNA SOLA VEZ para migrar todos los datos
      * del archivo SUPER MASTER.xlsm a la base de datos MySQL
-     * 
+     *
      * @param file Archivo Excel completo (SUPER MASTER.xlsm)
      * @return Resultado de la importación completa con estadísticas por hoja
      */
@@ -77,26 +82,200 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(
-                    ImportCompletoResultDTO.withErrors(0, 0, 1, 
-                            new java.util.HashMap<>(), 
+                    ImportCompletoResultDTO.withErrors(0, 0, 1,
+                            new java.util.HashMap<>(),
                             java.util.List.of(e.getMessage()))
             );
         } catch (IOException e) {
             log.error("Error de I/O al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCompletoResultDTO.withErrors(0, 0, 1, 
-                            new java.util.HashMap<>(), 
+                    ImportCompletoResultDTO.withErrors(0, 0, 1,
+                            new java.util.HashMap<>(),
                             java.util.List.of("Error de lectura/escritura: " + e.getMessage()))
             );
         } catch (Exception e) {
             log.error("Error inesperado al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCompletoResultDTO.withErrors(0, 0, 1, 
-                            new java.util.HashMap<>(), 
+                    ImportCompletoResultDTO.withErrors(0, 0, 1,
+                            new java.util.HashMap<>(),
                             java.util.List.of("Error inesperado: " + e.getMessage()))
             );
         }
     }
-    
+
+    /**
+     * Importa costos desde un archivo Excel (.xls/.xlsx) actualizando productos existentes.
+     * <p>
+     * Columnas esperadas:
+     * - CODIGO: sku del producto (requerido)
+     * - PRODUCTO: descripcion
+     * - COSTO: costo del producto
+     * - CODIGO EXTERNO: cod_ext
+     * - PROVEEDOR: nombre del proveedor (se crea si no existe)
+     * - TIPO DE PRODUCTO: "COMBO" o "SIMPLE"
+     * - ULTIMA ACT. COSTO: fecha (formato dd/MM/yyyy)
+     * - UNIDADES POR BULTO: uxb
+     * - PORCENTAJE IVA: iva
+     *
+     * @param file Archivo Excel con los costos
+     * @return Resultado de la importación con estadísticas
+     */
+    @PostMapping("/importar-costos")
+    public ResponseEntity<ImportCostosResultDTO> importarCostos(
+            @RequestParam("archivo") MultipartFile file
+    ) {
+        try {
+            ImportCostosResultDTO resultado = excelService.importarCostos(file);
+            return ResponseEntity.ok(resultado);
+        } catch (IllegalArgumentException e) {
+            log.error("Error de validación al importar costos: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(
+                    ImportCostosResultDTO.withErrors(List.of(e.getMessage()))
+            );
+        } catch (IOException e) {
+            log.error("Error de I/O al importar costos: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    ImportCostosResultDTO.withErrors(List.of("Error de lectura: " + e.getMessage()))
+            );
+        } catch (Exception e) {
+            log.error("Error inesperado al importar costos: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    ImportCostosResultDTO.withErrors(List.of("Error inesperado: " + e.getMessage()))
+            );
+        }
+    }
+
+    /**
+     * Exporta productos con precios a un archivo Excel (.xlsx).
+     * Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
+     * Headers en mayúsculas, negrita y fondo gris claro. Bordes finos en toda la tabla.
+     * Acepta los mismos filtros que GET /api/productos/precios.
+     *
+     * @return Archivo Excel descargable
+     */
+    @GetMapping("/exportar-precios")
+    public ResponseEntity<byte[]> exportarPrecios(
+            // 0) ID
+            @RequestParam(required = false) Integer productoId,
+
+            // 1) TEXTO
+            @RequestParam(required = false) String texto,
+
+            // 2) BOOLEANOS / NUMÉRICOS
+            @RequestParam(required = false) Boolean esCombo,
+            @RequestParam(required = false) Integer uxb,
+            @RequestParam(required = false) Boolean esMaquina,
+            @RequestParam(required = false) Boolean tieneMla,
+            @RequestParam(required = false) Boolean activo,
+
+            // 3) MANY-TO-ONE
+            @RequestParam(required = false) Integer marcaId,
+            @RequestParam(required = false) Integer origenId,
+            @RequestParam(required = false) Integer tipoId,
+            @RequestParam(required = false) Integer clasifGralId,
+            @RequestParam(required = false) Integer clasifGastroId,
+            @RequestParam(required = false) Integer proveedorId,
+            @RequestParam(required = false) Integer materialId,
+
+            // 4) RANGOS (costo / IVA / stock)
+            @RequestParam(required = false) BigDecimal costoMin,
+            @RequestParam(required = false) BigDecimal costoMax,
+            @RequestParam(required = false) BigDecimal ivaMin,
+            @RequestParam(required = false) BigDecimal ivaMax,
+            @RequestParam(required = false) Integer stockMin,
+            @RequestParam(required = false) Integer stockMax,
+
+            // 5) RANGO PVP
+            @RequestParam(required = false) BigDecimal pvpMin,
+            @RequestParam(required = false) BigDecimal pvpMax,
+            @RequestParam(required = false) Integer pvpCanalId,
+
+            // 6) FECHAS
+            @RequestParam(required = false) LocalDate desdeFechaUltCosto,
+            @RequestParam(required = false) LocalDate hastaFechaUltCosto,
+            @RequestParam(required = false) LocalDate desdeFechaCreacion,
+            @RequestParam(required = false) LocalDate hastaFechaCreacion,
+            @RequestParam(required = false) LocalDate desdeFechaModificacion,
+            @RequestParam(required = false) LocalDate hastaFechaModificacion,
+
+            // 7) MANY-TO-MANY
+            @RequestParam(required = false) List<Integer> aptoIds,
+            @RequestParam(required = false) List<Integer> canalIds,
+            @RequestParam(required = false) List<Integer> catalogoIds,
+            @RequestParam(required = false) List<Integer> clienteIds,
+            @RequestParam(required = false) List<Integer> mlaIds,
+
+            // 8) ORDENAMIENTO ESPECIAL
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) Integer sortCanalId,
+
+            // 9) FILTRAR PRECIOS POR CANAL
+            @RequestParam(required = false) Integer canalId
+    ) {
+        try {
+            ProductoFilter filter = new ProductoFilter(
+                    productoId,
+                    texto,
+                    esCombo,
+                    uxb,
+                    esMaquina,
+                    tieneMla,
+                    activo,
+                    marcaId,
+                    origenId,
+                    tipoId,
+                    clasifGralId,
+                    clasifGastroId,
+                    proveedorId,
+                    materialId,
+                    costoMin,
+                    costoMax,
+                    ivaMin,
+                    ivaMax,
+                    stockMin,
+                    stockMax,
+                    pvpMin,
+                    pvpMax,
+                    pvpCanalId,
+                    desdeFechaUltCosto,
+                    hastaFechaUltCosto,
+                    desdeFechaCreacion,
+                    hastaFechaCreacion,
+                    desdeFechaModificacion,
+                    hastaFechaModificacion,
+                    aptoIds,
+                    canalIds,
+                    catalogoIds,
+                    clienteIds,
+                    mlaIds,
+                    sortBy,
+                    sortDir,
+                    sortCanalId,
+                    canalId
+            );
+
+            byte[] excelBytes = excelService.exportarPrecios(filter);
+
+            String filename = String.format("precios_%s.xlsx",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(excelBytes.length);
+
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            log.error("Error de validación al exportar precios: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            log.error("Error de I/O al exportar precios: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            log.error("Error inesperado al exportar precios: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
 

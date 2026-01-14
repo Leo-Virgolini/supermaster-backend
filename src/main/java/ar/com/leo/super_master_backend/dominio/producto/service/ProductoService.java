@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface ProductoService {
 
@@ -27,6 +28,13 @@ public interface ProductoService {
     Page<ProductoDTO> filtrar(ProductoFilter filter, Pageable pageable);
 
     Page<ProductoConPreciosDTO> listarConPrecios(ProductoFilter filter, Pageable pageable);
+
+    /**
+     * Lista todos los productos con precios sin paginación (para exportación).
+     * @param filter Filtros a aplicar
+     * @return Lista completa de productos con precios
+     */
+    List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter);
 
     void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto);
 }

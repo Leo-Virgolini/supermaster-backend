@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
+import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -26,5 +28,35 @@ public interface ExcelService {
      * @throws IOException Si hay error leyendo el archivo
      */
     ImportCompletoResultDTO importarMigracionCompleta(MultipartFile file) throws IOException;
+
+    /**
+     * Importa costos desde un archivo Excel (.xls/.xlsx) actualizando productos existentes.
+     *
+     * Columnas esperadas:
+     * - CODIGO: sku del producto
+     * - PRODUCTO: descripcion
+     * - COSTO: costo del producto
+     * - CODIGO EXTERNO: cod_ext
+     * - PROVEEDOR: nombre del proveedor (se crea si no existe)
+     * - TIPO DE PRODUCTO: "COMBO" → esCombo=true, otro → esCombo=false
+     * - ULTIMA ACT. COSTO: fecha_ult_costo (formato dd/MM/yyyy)
+     * - UNIDADES POR BULTO: uxb
+     * - PORCENTAJE IVA: iva
+     *
+     * @param file Archivo Excel con los costos
+     * @return Resultado de la importación con estadísticas
+     * @throws IOException Si hay error leyendo el archivo
+     */
+    ImportCostosResultDTO importarCostos(MultipartFile file) throws IOException;
+
+    /**
+     * Exporta productos con precios a un archivo Excel (.xlsx).
+     * Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
+     *
+     * @param filter Filtros a aplicar (texto, marcaId, canalId, etc.)
+     * @return Bytes del archivo Excel generado
+     * @throws IOException Si hay error generando el archivo
+     */
+    byte[] exportarPrecios(ProductoFilter filter) throws IOException;
 }
 
