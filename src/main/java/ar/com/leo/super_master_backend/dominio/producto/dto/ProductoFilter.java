@@ -66,6 +66,9 @@ public record ProductoFilter(
         Integer sortCanalId, // canal para ordenar por PVP
 
         // 11) FILTRAR PRECIOS POR CANAL
-        Integer canalId      // si se especifica, solo devuelve precios de ese canal
+        Integer canalId,      // si se especifica, solo devuelve precios de ese canal
+
+        // 12) FILTRAR PRECIOS POR CUOTAS
+        Integer cuotas        // si se especifica, solo devuelve precios con esa cantidad de cuotas
 ) {
 }

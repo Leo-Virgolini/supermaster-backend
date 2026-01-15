@@ -2,6 +2,8 @@ package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,6 +18,9 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
 
     List<ProductoCanalPrecio> findByCanalId(Integer idCanal);
 
+    @Query("SELECT p FROM ProductoCanalPrecio p WHERE p.canal.id = :canalId AND ((:cuotas IS NULL AND p.cuotas IS NULL) OR p.cuotas = :cuotas)")
+    List<ProductoCanalPrecio> findByCanalIdAndCuotas(@Param("canalId") Integer canalId, @Param("cuotas") Integer cuotas);
+
     Optional<ProductoCanalPrecio> findByProductoIdAndCanalId(Integer productoId, Integer canalId);
 
     Optional<ProductoCanalPrecio> findByProductoIdAndCanalIdAndCuotas(Integer productoId, Integer canalId, Integer cuotas);
@@ -23,5 +28,7 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
     List<ProductoCanalPrecio> findByProductoIdAndCanalIdOrderByCuotasAsc(Integer productoId, Integer canalId);
 
     List<ProductoCanalPrecio> findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(List<Integer> productoIds);
+
+    boolean existsByCanalIdAndCuotas(Integer canalId, Integer cuotas);
 
 }

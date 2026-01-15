@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
@@ -33,6 +34,7 @@ public class ProductoServiceImpl implements ProductoService {
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final ProductoMargenRepository productoMargenRepository;
     private final RecalculoPrecioFacade recalculoFacade;
+    private final CanalRepository canalRepository;
 
     // ============================
     // LISTAR
@@ -203,6 +205,9 @@ public class ProductoServiceImpl implements ProductoService {
     @Transactional(readOnly = true)
     public Page<ProductoConPreciosDTO> listarConPrecios(ProductoFilter filter, Pageable pageable) {
 
+        // Validar que el canal tenga las cuotas especificadas
+        validarCanalConCuotas(filter.canalId(), filter.cuotas());
+
         Specification<Producto> spec = Specification.allOf(
                 // ID
                 ProductoSpecifications.productoId(filter.productoId()),
@@ -291,9 +296,22 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
+                    // Filtrar por cuotas si se especifica
+                    if (filter.cuotas() != null) {
+                        precios = precios.stream()
+                                .filter(p -> filter.cuotas().equals(p.getCuotas()))
+                                .toList();
+                    }
+
                     return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
+
+        // 5.1) Si se filtra por canal o cuotas, excluir productos sin precios
+        if (filter.canalId() != null || filter.cuotas() != null) {
+            dtos.removeIf(dto -> dto.canales() == null || dto.canales().isEmpty() ||
+                    dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
+        }
 
         // 6) Aplicar ordenamiento especial si se solicita
         if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
@@ -361,6 +379,9 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter) {
+
+        // Validar que el canal tenga las cuotas especificadas
+        validarCanalConCuotas(filter.canalId(), filter.cuotas());
 
         Specification<Producto> spec = Specification.allOf(
                 ProductoSpecifications.productoId(filter.productoId()),
@@ -437,9 +458,22 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
+                    // Filtrar por cuotas si se especifica
+                    if (filter.cuotas() != null) {
+                        precios = precios.stream()
+                                .filter(p -> filter.cuotas().equals(p.getCuotas()))
+                                .toList();
+                    }
+
                     return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
+
+        // Si se filtra por canal o cuotas, excluir productos sin precios
+        if (filter.canalId() != null || filter.cuotas() != null) {
+            dtos.removeIf(dto -> dto.canales() == null || dto.canales().isEmpty() ||
+                    dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
+        }
 
         // Aplicar ordenamiento si se solicita
         if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
@@ -469,6 +503,22 @@ public class ProductoServiceImpl implements ProductoService {
 
         // 2) Recalcular precios en todos los canales
         recalculoFacade.recalcularPorCambioProducto(idProducto);
+    }
+
+    // ============================
+    // VALIDACIÓN DE CANAL CON CUOTAS
+    // ============================
+    private void validarCanalConCuotas(Integer canalId, Integer cuotas) {
+        if (canalId != null && cuotas != null) {
+            boolean existenPrecios = productoCanalPrecioRepository.existsByCanalIdAndCuotas(canalId, cuotas);
+            if (!existenPrecios) {
+                String nombreCanal = canalRepository.findById(canalId)
+                        .map(c -> c.getCanal())
+                        .orElse("ID " + canalId);
+                throw new IllegalArgumentException(
+                        String.format("El canal '%s' no tiene precios configurados para %d cuotas", nombreCanal, cuotas));
+            }
+        }
     }
 
 }

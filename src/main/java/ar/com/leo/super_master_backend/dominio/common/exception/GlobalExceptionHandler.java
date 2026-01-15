@@ -76,6 +76,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("Endpoint no encontrado: " + ex.getResourcePath(), request.getDescription(false)));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(ex.getMessage(), request.getDescription(false)));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex, WebRequest request) {
         ex.printStackTrace();

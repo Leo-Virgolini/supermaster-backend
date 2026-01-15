@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.dominio.excel.service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -53,6 +54,7 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
+import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportResultDTO;
@@ -2879,8 +2881,14 @@ public class ExcelServiceImpl implements ExcelService {
 
                 CellStyle estiloSuperCanal = estilosSuperHeaderPorCanal.get(canalNombre);
 
+                // Si se filtra por cuotas, agregar al nombre del canal
+                String nombreCanalHeader = canalNombre;
+                if (filter.cuotas() != null) {
+                    nombreCanalHeader = canalNombre + " (" + filter.cuotas() + " cuotas)";
+                }
+
                 Cell cellCanal = superHeaderRow.createCell(colInicio);
-                cellCanal.setCellValue(canalNombre);
+                cellCanal.setCellValue(nombreCanalHeader);
                 cellCanal.setCellStyle(estiloSuperCanal);
 
                 for (int i = colInicio + 1; i <= colFin; i++) {
@@ -3126,8 +3134,11 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     @Override
-    public byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas) throws IOException {
-        log.info("Iniciando exportación de catálogo {} con canal {} y cuotas {}", catalogoId, canalId, cuotas);
+    public byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
+                                   Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
+                                   Boolean esMaquina, String ordenarPor) throws IOException {
+        log.info("Iniciando exportación de catálogo {} con canal {}, cuotas {}, clasifGralId {}, clasifGastroId {}, tipoId {}, marcaId {}, esMaquina {}, ordenarPor {}",
+                catalogoId, canalId, cuotas, clasifGralId, clasifGastroId, tipoId, marcaId, esMaquina, ordenarPor);
 
         // Validar parámetros
         if (catalogoId == null || canalId == null) {
@@ -3145,49 +3156,74 @@ public class ExcelServiceImpl implements ExcelService {
         Canal canal = canalRepository.findById(canalId)
                 .orElseThrow(() -> new IllegalArgumentException("Canal no encontrado: " + canalId));
 
-        // Obtener productos del catálogo y ordenar por clasifGastro.nombre, luego por descripcion
+        // Obtener productos del catálogo
         List<ProductoCatalogo> productosCatalogo = productoCatalogoRepository
                 .findByCatalogoId(catalogoId);
 
-        // Ordenar por clasifGastro.nombre (nulls last), luego por descripcion
+        // Aplicar filtros opcionales
+        productosCatalogo = productosCatalogo.stream()
+                .filter(pc -> {
+                    Producto p = pc.getProducto();
+                    // Filtrar por clasifGralId
+                    if (clasifGralId != null && (p.getClasifGral() == null || !clasifGralId.equals(p.getClasifGral().getId()))) {
+                        return false;
+                    }
+                    // Filtrar por clasifGastroId
+                    if (clasifGastroId != null && (p.getClasifGastro() == null || !clasifGastroId.equals(p.getClasifGastro().getId()))) {
+                        return false;
+                    }
+                    // Filtrar por tipoId
+                    if (tipoId != null && (p.getTipo() == null || !tipoId.equals(p.getTipo().getId()))) {
+                        return false;
+                    }
+                    // Filtrar por marcaId
+                    if (marcaId != null && (p.getMarca() == null || !marcaId.equals(p.getMarca().getId()))) {
+                        return false;
+                    }
+                    // Filtrar por esMaquina (basado en clasifGastro.esMaquina)
+                    if (esMaquina != null) {
+                        boolean productoEsMaquina = p.getClasifGastro() != null && Boolean.TRUE.equals(p.getClasifGastro().getEsMaquina());
+                        if (!esMaquina.equals(productoEsMaquina)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        // Parsear campos de ordenamiento
+        List<String> camposOrden = new java.util.ArrayList<>();
+        if (ordenarPor != null && !ordenarPor.isBlank()) {
+            for (String campo : ordenarPor.split(",")) {
+                camposOrden.add(campo.trim().toLowerCase());
+            }
+        }
+
+        // Ordenar dinámicamente según los campos especificados, siempre terminando con tituloWeb/descripcion
         productosCatalogo.sort((pc1, pc2) -> {
             Producto p1 = pc1.getProducto();
             Producto p2 = pc2.getProducto();
 
-            // Comparar por clasifGastro.nombre (nulls last)
-            String gastro1 = p1.getClasifGastro() != null ? p1.getClasifGastro().getNombre() : null;
-            String gastro2 = p2.getClasifGastro() != null ? p2.getClasifGastro().getNombre() : null;
-
-            int cmp;
-            if (gastro1 == null && gastro2 == null) {
-                cmp = 0;
-            } else if (gastro1 == null) {
-                cmp = 1; // nulls last
-            } else if (gastro2 == null) {
-                cmp = -1;
-            } else {
-                cmp = gastro1.compareToIgnoreCase(gastro2);
+            for (String campo : camposOrden) {
+                int cmp = compararPorCampo(p1, p2, campo);
+                if (cmp != 0) return cmp;
             }
 
-            // Si son iguales, comparar por descripcion
-            if (cmp == 0) {
-                String desc1 = p1.getDescripcion() != null ? p1.getDescripcion() : "";
-                String desc2 = p2.getDescripcion() != null ? p2.getDescripcion() : "";
-                cmp = desc1.compareToIgnoreCase(desc2);
-            }
-
-            return cmp;
+            // Siempre al final: comparar por tituloWeb, si es null usar descripcion
+            String nombre1 = p1.getTituloWeb() != null ? p1.getTituloWeb() : p1.getDescripcion();
+            String nombre2 = p2.getTituloWeb() != null ? p2.getTituloWeb() : p2.getDescripcion();
+            return compareNullsLast(nombre1, nombre2);
         });
 
         log.info("Total de productos en catálogo: {}", productosCatalogo.size());
 
         // Obtener precios para el canal y cuotas especificadas
-        Map<Integer, BigDecimal> preciosPorProducto = new HashMap<>();
+        Map<Integer, ProductoCanalPrecio> preciosPorProducto = new HashMap<>();
         for (ProductoCatalogo pc : productosCatalogo) {
             Integer productoId = pc.getProducto().getId();
             productoCanalPrecioRepository
                     .findByProductoIdAndCanalIdAndCuotas(productoId, canalId, cuotasValue)
-                    .ifPresent(precio -> preciosPorProducto.put(productoId, precio.getPvp()));
+                    .ifPresent(precio -> preciosPorProducto.put(productoId, precio));
         }
 
         // Validar que existan precios
@@ -3208,7 +3244,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             // Crear headers
             Row headerRow = sheet.createRow(0);
-            String pvpHeader = "PVP " + canal.getCanal().toUpperCase() + " (" + cuotasValue + " cuotas)";
+            String pvpHeader = "PVP " + canal.getCanal().toUpperCase() + (cuotasValue > 0 ? " (" + cuotasValue + " cuotas)" : "");
             String[] headers = {"SKU", "PRODUCTO", pvpHeader, "UxB"};
 
             for (int i = 0; i < headers.length; i++) {
@@ -3221,11 +3257,13 @@ public class ExcelServiceImpl implements ExcelService {
             int rowIndex = 1;
             for (ProductoCatalogo pc : productosCatalogo) {
                 Producto producto = pc.getProducto();
-                Row row = sheet.createRow(rowIndex++);
+                ProductoCanalPrecio precioObj = preciosPorProducto.get(producto.getId());
+                if (precioObj == null) continue;
 
+                Row row = sheet.createRow(rowIndex++);
                 setCellValue(row.createCell(0), producto.getSku(), dataStyle);
                 setCellValue(row.createCell(1), producto.getDescripcion(), dataStyle);
-                setCellValue(row.createCell(2), preciosPorProducto.get(producto.getId()), dataStyle);
+                setCellValue(row.createCell(2), precioObj.getPvp(), dataStyle);
                 setCellValue(row.createCell(3), producto.getUxb(), dataStyle);
             }
 
@@ -3238,6 +3276,236 @@ public class ExcelServiceImpl implements ExcelService {
             log.info("Exportación de catálogo completada exitosamente");
             return outputStream.toByteArray();
         }
+    }
+
+    @Override
+    public ExportResultDTO exportarMercadoLibre(Integer cuotas) throws IOException {
+        log.info("Iniciando exportación para Mercado Libre con cuotas {}", cuotas);
+
+        // Buscar canal ML
+        Canal canal = canalRepository.findByCanalIgnoreCase("ML")
+                .orElseThrow(() -> new IllegalArgumentException("Canal 'ML' no encontrado en la base de datos"));
+
+        // Obtener todos los precios para el canal y cuotas
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
+
+        if (precios.isEmpty()) {
+            String cuotasDesc = cuotas != null ? cuotas + " cuotas" : "sin cuotas";
+            throw new IllegalArgumentException(
+                    String.format("No existen precios para el canal '%s' con %s", canal.getCanal(), cuotasDesc));
+        }
+
+        // Filtrar productos válidos y recolectar advertencias
+        List<String> advertencias = new ArrayList<>();
+        List<String> productosSinMla = new ArrayList<>();
+        List<String> productosConPrecioInvalido = new ArrayList<>();
+        List<ProductoCanalPrecio> preciosValidos = new ArrayList<>();
+
+        for (ProductoCanalPrecio precio : precios) {
+            Producto producto = precio.getProducto();
+            if (producto == null) continue;
+
+            // Verificar que tenga MLA
+            String mla = producto.getMla() != null ? producto.getMla().getMla() : null;
+            if (mla == null || mla.isBlank()) {
+                productosSinMla.add(producto.getSku());
+                continue;
+            }
+
+            // Verificar precio válido
+            BigDecimal pvpInflado = precio.getPvpInflado();
+            if (pvpInflado == null || pvpInflado.compareTo(BigDecimal.ZERO) <= 0) {
+                productosConPrecioInvalido.add(producto.getSku());
+                continue;
+            }
+
+            preciosValidos.add(precio);
+        }
+
+        // Recolectar advertencias
+        if (!productosSinMla.isEmpty()) {
+            advertencias.add("Productos sin MLA: " + String.join(", ", productosSinMla));
+        }
+        if (!productosConPrecioInvalido.isEmpty()) {
+            advertencias.add("Productos con precio inválido (<=0): " + String.join(", ", productosConPrecioInvalido));
+        }
+
+        if (preciosValidos.isEmpty()) {
+            throw new IllegalArgumentException("No hay productos válidos para exportar (todos sin MLA o con precio inválido)");
+        }
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            XSSFSheet sheet = workbook.createSheet("MercadoLibre");
+
+            CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+
+            // Headers: SKU, PRECIO, MLA
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"SKU", "PRECIO", "MLA"};
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Escribir datos válidos
+            int rowIndex = 1;
+            for (ProductoCanalPrecio precio : preciosValidos) {
+                Producto producto = precio.getProducto();
+                String mla = producto.getMla().getMla();
+
+                Row row = sheet.createRow(rowIndex++);
+                setCellValue(row.createCell(0), producto.getSku(), dataStyle);
+                setCellValue(row.createCell(1), precio.getPvpInflado(), dataStyle);
+                setCellValue(row.createCell(2), mla, dataStyle);
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(outputStream);
+            log.info("Exportación para Mercado Libre completada: {} filas exportadas, {} advertencias",
+                    rowIndex - 1, advertencias.size());
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+        }
+    }
+
+    @Override
+    public ExportResultDTO exportarNube(Integer cuotas) throws IOException {
+        log.info("Iniciando exportación para Tienda Nube con cuotas {}", cuotas);
+
+        // Buscar canal KT HOGAR
+        Canal canal = canalRepository.findByCanalIgnoreCase("KT HOGAR")
+                .orElseThrow(() -> new IllegalArgumentException("Canal 'KT HOGAR' no encontrado en la base de datos"));
+
+        // Obtener todos los precios para el canal y cuotas
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
+
+        if (precios.isEmpty()) {
+            String cuotasDesc = cuotas != null ? cuotas + " cuotas" : "sin cuotas";
+            throw new IllegalArgumentException(
+                    String.format("No existen precios para el canal '%s' con %s", canal.getCanal(), cuotasDesc));
+        }
+
+        // Filtrar productos válidos y recolectar advertencias
+        List<String> advertencias = new ArrayList<>();
+        List<String> productosConPvpInvalido = new ArrayList<>();
+        List<String> productosConPvpInfladoInvalido = new ArrayList<>();
+        List<ProductoCanalPrecio> preciosValidos = new ArrayList<>();
+
+        for (ProductoCanalPrecio precio : precios) {
+            Producto producto = precio.getProducto();
+            if (producto == null) continue;
+
+            BigDecimal pvp = precio.getPvp();
+            BigDecimal pvpInflado = precio.getPvpInflado();
+
+            // Verificar PVP válido
+            if (pvp == null || pvp.compareTo(BigDecimal.ZERO) <= 0) {
+                productosConPvpInvalido.add(producto.getSku());
+                continue;
+            }
+
+            // Verificar PVP Inflado válido
+            if (pvpInflado == null || pvpInflado.compareTo(BigDecimal.ZERO) <= 0) {
+                productosConPvpInfladoInvalido.add(producto.getSku());
+                continue;
+            }
+
+            preciosValidos.add(precio);
+        }
+
+        // Recolectar advertencias
+        if (!productosConPvpInvalido.isEmpty()) {
+            advertencias.add("Productos con PVP inválido (<=0): " + String.join(", ", productosConPvpInvalido));
+        }
+        if (!productosConPvpInfladoInvalido.isEmpty()) {
+            advertencias.add("Productos con PVP Inflado inválido (<=0): " + String.join(", ", productosConPvpInfladoInvalido));
+        }
+
+        if (preciosValidos.isEmpty()) {
+            throw new IllegalArgumentException("No hay productos válidos para exportar (todos con precios inválidos)");
+        }
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            XSSFSheet sheet = workbook.createSheet("Nube");
+
+            CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+
+            // Headers: SKU, PVP_NUBE (pvp), PVP_INFLADO
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"SKU", "PVP_NUBE", "PVP_INFLADO"};
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Escribir datos válidos
+            int rowIndex = 1;
+            for (ProductoCanalPrecio precio : preciosValidos) {
+                Producto producto = precio.getProducto();
+
+                Row row = sheet.createRow(rowIndex++);
+                setCellValue(row.createCell(0), producto.getSku(), dataStyle);
+                setCellValue(row.createCell(1), precio.getPvp(), dataStyle);
+                setCellValue(row.createCell(2), precio.getPvpInflado(), dataStyle);
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(outputStream);
+            log.info("Exportación para Tienda Nube completada: {} filas exportadas, {} advertencias",
+                    rowIndex - 1, advertencias.size());
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+        }
+    }
+
+    private int compareNullsLast(String s1, String s2) {
+        if (s1 == null && s2 == null) return 0;
+        if (s1 == null) return 1;
+        if (s2 == null) return -1;
+        return s1.compareToIgnoreCase(s2);
+    }
+
+    private int compararPorCampo(Producto p1, Producto p2, String campo) {
+        return switch (campo) {
+            case "clasifgral" -> {
+                String v1 = p1.getClasifGral() != null ? p1.getClasifGral().getNombre() : null;
+                String v2 = p2.getClasifGral() != null ? p2.getClasifGral().getNombre() : null;
+                yield compareNullsLast(v1, v2);
+            }
+            case "clasifgastro" -> {
+                String v1 = p1.getClasifGastro() != null ? p1.getClasifGastro().getNombre() : null;
+                String v2 = p2.getClasifGastro() != null ? p2.getClasifGastro().getNombre() : null;
+                yield compareNullsLast(v1, v2);
+            }
+            case "tipo" -> {
+                String v1 = p1.getTipo() != null ? p1.getTipo().getNombre() : null;
+                String v2 = p2.getTipo() != null ? p2.getTipo().getNombre() : null;
+                yield compareNullsLast(v1, v2);
+            }
+            case "marca" -> {
+                String v1 = p1.getMarca() != null ? p1.getMarca().getNombre() : null;
+                String v2 = p2.getMarca() != null ? p2.getMarca().getNombre() : null;
+                yield compareNullsLast(v1, v2);
+            }
+            case "esmaquina" -> {
+                boolean m1 = p1.getClasifGastro() != null && Boolean.TRUE.equals(p1.getClasifGastro().getEsMaquina());
+                boolean m2 = p2.getClasifGastro() != null && Boolean.TRUE.equals(p2.getClasifGastro().getEsMaquina());
+                yield Boolean.compare(m1, m2);
+            }
+            default -> 0;
+        };
     }
 }
 

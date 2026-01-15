@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
+import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
@@ -66,9 +67,39 @@ public interface ExcelService {
      * @param catalogoId ID del catálogo
      * @param canalId ID del canal para obtener el PVP
      * @param cuotas Cantidad de cuotas (0 = contado)
+     * @param clasifGralId ID de clasificación general (opcional)
+     * @param clasifGastroId ID de clasificación gastro (opcional)
+     * @param tipoId ID del tipo (opcional)
+     * @param marcaId ID de la marca (opcional)
+     * @param esMaquina Filtro por máquina (opcional)
+     * @param ordenarPor Campos de ordenamiento separados por coma. Valores: clasifGral, clasifGastro, tipo, marca, esMaquina
      * @return Bytes del archivo Excel generado
      * @throws IOException Si hay error generando el archivo
      */
-    byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas) throws IOException;
+    byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
+                            Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
+                            Boolean esMaquina, String ordenarPor) throws IOException;
+
+    /**
+     * Exporta datos para subir a Mercado Libre.
+     * Usa el canal "ML" internamente.
+     * Columnas: SKU, PRECIO (pvp_inflado), MLA
+     *
+     * @param cuotas Cantidad de cuotas (null = sin cuotas)
+     * @return ExportResultDTO con el archivo y advertencias
+     * @throws IOException Si hay error generando el archivo
+     */
+    ExportResultDTO exportarMercadoLibre(Integer cuotas) throws IOException;
+
+    /**
+     * Exporta datos para subir a Tienda Nube.
+     * Usa el canal "KT HOGAR" internamente.
+     * Columnas: SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado)
+     *
+     * @param cuotas Cantidad de cuotas (null = sin cuotas)
+     * @return ExportResultDTO con el archivo y advertencias
+     * @throws IOException Si hay error generando el archivo
+     */
+    ExportResultDTO exportarNube(Integer cuotas) throws IOException;
 }
 

@@ -147,6 +147,11 @@ public class ProductoController {
             // =======================
             @RequestParam(required = false) Integer canalId,
 
+            // =======================
+            // 10) FILTRAR PRECIOS POR CUOTAS
+            // =======================
+            @RequestParam(required = false) Integer cuotas,
+
             Pageable pageable
     ) {
 
@@ -188,7 +193,8 @@ public class ProductoController {
                 sortBy,
                 sortDir,
                 sortCanalId,
-                canalId
+                canalId,
+                cuotas
         );
 
         return ResponseEntity.ok(productoService.listarConPrecios(filter, pageable));
@@ -311,7 +317,8 @@ public class ProductoController {
                 sortBy,
                 sortDir,
                 sortCanalId,
-                null  // canalId no aplica en buscar (no devuelve precios)
+                null,  // canalId no aplica en buscar (no devuelve precios)
+                null   // cuotas no aplica en buscar (no devuelve precios)
         );
 
         return ResponseEntity.ok(productoService.filtrar(filter, pageable));
