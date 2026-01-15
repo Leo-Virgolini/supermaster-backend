@@ -397,13 +397,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (aplicarCuotas) {
             porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
 
-            // Obtener gastos PVP del canal
-            List<CanalConcepto> todosConceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
-            BigDecimal porcentajeConceptosCanal = todosConceptosCanal.stream()
-                    .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
-                    .map(cc -> cc.getConcepto().getPorcentaje())
-                    .filter(p -> p != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Usar gastos PVP de los conceptos ya filtrados (con reglas aplicadas)
+            BigDecimal porcentajeConceptosCanal = gastosSobrePVPTotal;
 
             if (porcentajeCuota.compareTo(BigDecimal.ZERO) >= 0) {
                 // CUOTA >= 0 (interés o sin cambio): sumar a gastos PVP y aplicar juntos como divisor
@@ -890,13 +885,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (aplicarCuotas) {
             porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
 
-            // Obtener todos los conceptos PVP del canal para GTML[%]
-            List<CanalConcepto> todosConceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
-            BigDecimal porcentajeConceptosCanal = todosConceptosCanal.stream()
-                    .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
-                    .map(cc -> cc.getConcepto().getPorcentaje())
-                    .filter(p -> p != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Usar los conceptos ya filtrados (con reglas aplicadas) en lugar de buscar todos
+            BigDecimal porcentajeConceptosCanal = gastosSobrePVPTotal;
 
             BigDecimal porcentajeCuotasTotal = porcentajeConceptosCanal.add(porcentajeCuota);
 
@@ -906,12 +896,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
                     BigDecimal costoConImpuestosAntesCuotas = costoConImpuestos;
                     costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                    List<String> nombresConceptosPVPCuotas = obtenerNombresConceptos(todosConceptosCanal,
-                            AplicaSobre.PVP);
+                    List<String> nombresConceptosPVPCuotas = obtenerNombresConceptos(conceptos, AplicaSobre.PVP);
                     String nombresPVPCuotasFormateados = formatearNombresConceptos(nombresConceptosPVPCuotas);
-                    String detalleConceptosPVPCuotas = formatearDetalleConceptos(todosConceptosCanal.stream()
-                            .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
-                            .collect(Collectors.toList()));
+                    String detalleConceptosPVPCuotas = formatearDetalleConceptos(gastosSobrePVP);
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar cuotas (GTML[%])",
                             String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s + %s cuotas)/100)",
@@ -1439,7 +1426,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // HELPERS
     // ====================================================
     private Producto obtenerProducto(Integer idProducto) {
-        return productoRepository.findById(idProducto)
+        // Usa JOIN FETCH para cargar relaciones necesarias para evaluar reglas de canal_concepto_regla
+        return productoRepository.findByIdConRelacionesParaReglas(idProducto)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 

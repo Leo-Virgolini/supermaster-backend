@@ -2825,11 +2825,11 @@ public class ExcelServiceImpl implements ExcelService {
                     "CLASIF_GRAL", "CLASIF_GASTRO", "TIPO", "PROVEEDOR", "MATERIAL", "UXB", "CAPACIDAD",
                     "LARGO", "ANCHO", "ALTO", "DIAMBOCA", "DIAMBASE", "ESPESOR", "COSTO",
                     "FECHA_ULT_COSTO", "IVA", "MARGEN_MINORISTA", "MARGEN_MAYORISTA",
-                    "FECHA_CREACION", "FECHA_MODIFICACION", "PVP_MIN", "PVP_MAX"
+                    "FECHA_CREACION", "FECHA_MODIFICACION"
             };
 
-            // Índice donde termina PVP_MAX (0-based): posición 36 (último header fijo)
-            int colPvpMax = headersFijos.length - 1; // 36
+            // Índice donde termina FECHA_MODIFICACION (0-based): último header fijo
+            int colPvpMax = headersFijos.length - 1;
 
             // Calcular total de columnas
             int totalColumnasDinamicas = canalesCuotas.values().stream()
@@ -2984,8 +2984,6 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), dataStyle);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaCreacion(), dataStyle, dtf);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaModificacion(), dataStyle, dtf);
-                setCellValue(row.createCell(cellIndex++), producto.pvpMin(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.pvpMax(), dataStyle);
 
                 // Columnas dinámicas por canal/cuotas
                 Map<String, Map<Integer, PrecioDTO>> preciosPorCanal = new HashMap<>();

@@ -1,74 +1,45 @@
-package ar.com.leo.super_master_backend.dominio.producto.controller;
+package ar.com.leo.super_master_backend.dominio.precio.controller;
 
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.math.BigDecimal;
-import java.net.URI;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/productos")
-public class ProductoController {
+@RequestMapping("/api/precios")
+public class PrecioController {
 
     private final ProductoService productoService;
+    private final CalculoPrecioService calculoPrecioService;
+    private final RecalculoPrecioFacade recalculoPrecioFacade;
 
     // =====================================================
-    // CRUD
+    // LISTAR PRODUCTOS CON PRECIOS (PAGINADO)
     // =====================================================
-
     @GetMapping
-    public ResponseEntity<Page<ProductoDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(productoService.listar(pageable));
-    }
+    public ResponseEntity<Page<ProductoConPreciosDTO>> listar(
 
-    @PostMapping
-    public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoCreateDTO dto) {
-        ProductoDTO creado = productoService.crear(dto);
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(creado.id())
-                .toUri();
-        return ResponseEntity.created(location).body(creado);
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
-        return ResponseEntity.ok(productoService.obtener(id));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductoDTO> actualizar(
-            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
-            @Valid @RequestBody ProductoUpdateDTO dto) {
-        return ResponseEntity.ok(productoService.actualizar(id, dto));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
-        productoService.eliminar(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    // =====================================================
-    // BUSCAR / FILTRAR PRODUCTOS (sin precios)
-    // =====================================================
-    @GetMapping("/buscar")
-    public ResponseEntity<Page<ProductoDTO>> buscar(
+            // =======================
+            // 0) FILTRO POR ID
+            // =======================
+            @RequestParam(required = false) Integer productoId,
 
             // =======================
             // 1) TEXTO
@@ -134,17 +105,27 @@ public class ProductoController {
             @RequestParam(required = false) List<Integer> mlaIds,
 
             // =======================
-            // 8) ORDENAMIENTO
+            // 8) ORDENAMIENTO ESPECIAL
             // =======================
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDir,
             @RequestParam(required = false) Integer sortCanalId,
 
+            // =======================
+            // 9) FILTRAR PRECIOS POR CANAL
+            // =======================
+            @RequestParam(required = false) Integer canalId,
+
+            // =======================
+            // 10) FILTRAR PRECIOS POR CUOTAS
+            // =======================
+            @RequestParam(required = false) Integer cuotas,
+
             Pageable pageable
     ) {
 
         ProductoFilter filter = new ProductoFilter(
-                null,  // productoId no aplica en buscar
+                productoId,
                 texto,
                 esCombo,
                 uxb,
@@ -181,11 +162,47 @@ public class ProductoController {
                 sortBy,
                 sortDir,
                 sortCanalId,
-                null,  // canalId no aplica en buscar (no devuelve precios)
-                null   // cuotas no aplica en buscar (no devuelve precios)
+                canalId,
+                cuotas
         );
 
-        return ResponseEntity.ok(productoService.filtrar(filter, pageable));
+        return ResponseEntity.ok(productoService.listarConPrecios(filter, pageable));
+    }
+
+    // =====================================================
+    // OBTENER FÓRMULA DEL CÁLCULO PASO A PASO
+    // =====================================================
+    @GetMapping("/formula")
+    public ResponseEntity<FormulaCalculoDTO> obtenerFormula(
+            @RequestParam @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @RequestParam @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
+            @RequestParam @PositiveOrZero(message = "Las cuotas deben ser 0 o positivas") Integer cuotas
+    ) {
+        return ResponseEntity.ok(
+                calculoPrecioService.obtenerFormulaCalculo(productoId, canalId, cuotas)
+        );
+    }
+
+    // =====================================================
+    // CALCULAR Y GUARDAR PRECIOS (TODAS LAS CUOTAS)
+    // =====================================================
+    @PostMapping("/calcular")
+    public ResponseEntity<CanalPreciosDTO> calcular(
+            @RequestParam @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @RequestParam @Positive(message = "El ID de canal debe ser positivo") Integer canalId
+    ) {
+        return ResponseEntity.ok(
+                calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
+        );
+    }
+
+    // =====================================================
+    // RECALCULAR TODOS LOS PRECIOS (OPERACIÓN MASIVA)
+    // =====================================================
+    @PostMapping("/recalcular-todos")
+    public ResponseEntity<RecalculoMasivoDTO> recalcularTodos() {
+        int total = recalculoPrecioFacade.recalcularTodos();
+        return ResponseEntity.ok(new RecalculoMasivoDTO(total, LocalDateTime.now()));
     }
 
 }

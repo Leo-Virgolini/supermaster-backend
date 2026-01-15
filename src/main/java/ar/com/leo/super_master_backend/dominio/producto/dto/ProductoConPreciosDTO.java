@@ -55,10 +55,6 @@ public record ProductoConPreciosDTO(
         LocalDateTime fechaCreacion,
         LocalDateTime fechaModificacion,
 
-        // Resumen de precios
-        BigDecimal pvpMin,
-        BigDecimal pvpMax,
-
         // Canales con sus precios
         List<CanalPreciosDTO> canales
 ) {

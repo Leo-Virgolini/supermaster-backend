@@ -364,19 +364,19 @@ public class ProductoServiceImpl implements ProductoService {
             );
             case "pvp" -> {
                 if (sortCanalId == null) {
-                    // Si no se especifica canal, ordenar por pvpMin
-                    yield Comparator.comparing(
-                            ProductoConPreciosDTO::pvpMin,
-                            Comparator.nullsLast(Comparator.naturalOrder())
-                    );
+                    // Sin canal especificado no se puede ordenar por PVP
+                    yield null;
                 }
-                // Ordenar por PVP del canal específico (contado)
+                // Ordenar por PVP del canal específico (cuotas=0 o primera cuota disponible)
                 yield Comparator.comparing(
                         (ProductoConPreciosDTO dto) -> {
                             List<ProductoCanalPrecio> precios = preciosPorProducto.get(dto.id());
                             if (precios == null) return null;
+                            // Primero buscar cuotas=0, si no existe usar la primera cuota disponible
                             return precios.stream()
-                                    .filter(p -> p.getCanal().getId().equals(sortCanalId) && p.getCuotas() == null)
+                                    .filter(p -> p.getCanal().getId().equals(sortCanalId))
+                                    .sorted(Comparator.comparing(ProductoCanalPrecio::getCuotas,
+                                            Comparator.nullsLast(Comparator.naturalOrder())))
                                     .map(ProductoCanalPrecio::getPvp)
                                     .findFirst()
                                     .orElse(null);
