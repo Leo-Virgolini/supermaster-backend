@@ -1,5 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
@@ -35,6 +37,7 @@ public class ProductoServiceImpl implements ProductoService {
     private final ProductoMargenRepository productoMargenRepository;
     private final RecalculoPrecioFacade recalculoFacade;
     private final CanalRepository canalRepository;
+    private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
 
     // ============================
     // LISTAR
@@ -276,6 +279,18 @@ public class ProductoServiceImpl implements ProductoService {
         Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
                 .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
 
+        // 4.2) Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
+        Set<Integer> canalIds = todosPrecios.stream()
+                .map(p -> p.getCanal().getId())
+                .collect(Collectors.toSet());
+        Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIds).stream()
+                .filter(c -> c.getDescripcion() != null)
+                .collect(Collectors.toMap(
+                        c -> c.getCanal().getId() + "_" + c.getCuotas(),
+                        CanalConceptoCuota::getDescripcion,
+                        (a, b) -> a
+                ));
+
         // 5) Mapear cada producto + sus márgenes + sus precios a DTO
         List<ProductoConPreciosDTO> dtos = productosPage.getContent().stream()
                 .map(producto -> {
@@ -303,7 +318,7 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
-                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -441,6 +456,18 @@ public class ProductoServiceImpl implements ProductoService {
         Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
                 .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
 
+        // Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
+        Set<Integer> canalIds = todosPrecios.stream()
+                .map(p -> p.getCanal().getId())
+                .collect(Collectors.toSet());
+        Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIds).stream()
+                .filter(c -> c.getDescripcion() != null)
+                .collect(Collectors.toMap(
+                        c -> c.getCanal().getId() + "_" + c.getCuotas(),
+                        CanalConceptoCuota::getDescripcion,
+                        (a, b) -> a
+                ));
+
         // Mapear a DTOs
         List<ProductoConPreciosDTO> dtos = productos.stream()
                 .map(producto -> {
@@ -465,7 +492,7 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
-                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios);
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
 

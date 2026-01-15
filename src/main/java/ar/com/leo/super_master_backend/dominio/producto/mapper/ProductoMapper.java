@@ -69,7 +69,19 @@ public interface ProductoMapper {
     // ================================================================
     // PRODUCTO CON PRECIOS POR CANAL
     // ================================================================
+
+    /**
+     * Versión que usa descripciones por defecto (para compatibilidad).
+     */
     default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, ProductoMargen productoMargen, List<ProductoCanalPrecio> precios) {
+        return toProductoConPreciosDTO(producto, productoMargen, precios, null);
+    }
+
+    /**
+     * Versión que usa descripciones de canal_concepto_cuota.
+     * @param descripcionesCuotas Mapa de (canalId + "_" + cuotas) -> descripcion
+     */
+    default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, ProductoMargen productoMargen, List<ProductoCanalPrecio> precios, Map<String, String> descripcionesCuotas) {
         // Obtener MLA (si existe)
         ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla mlaEntity = producto.getMla();
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
@@ -92,6 +104,7 @@ public interface ProductoMapper {
                     List<PrecioDTO> preciosList = preciosDelCanal.stream()
                             .map(pcp -> new PrecioDTO(
                                     pcp.getCuotas(),
+                                    obtenerDescripcionCuota(pcp.getCanal().getId(), pcp.getCuotas(), descripcionesCuotas),
                                     pcp.getPvp(),
                                     pcp.getPvpInflado(),
                                     pcp.getCostoTotal(),
@@ -182,5 +195,34 @@ public interface ProductoMapper {
                 // Precios por canal
                 preciosCanales
         );
+    }
+
+    /**
+     * Obtiene la descripción de la cuota del mapa o genera una por defecto.
+     */
+    default String obtenerDescripcionCuota(Integer canalId, Integer cuotas, Map<String, String> descripcionesCuotas) {
+        if (descripcionesCuotas != null && canalId != null && cuotas != null) {
+            String key = canalId + "_" + cuotas;
+            String descripcion = descripcionesCuotas.get(key);
+            if (descripcion != null && !descripcion.isBlank()) {
+                return descripcion;
+            }
+        }
+        return generarDescripcionCuota(cuotas);
+    }
+
+    /**
+     * Genera una descripción por defecto basada en el número de cuotas.
+     */
+    default String generarDescripcionCuota(Integer cuotas) {
+        if (cuotas == null) {
+            return "Contado";
+        } else if (cuotas == 0) {
+            return "Contado/Transferencia";
+        } else if (cuotas == 1) {
+            return "1 cuota";
+        } else {
+            return cuotas + " cuotas";
+        }
     }
 }

@@ -33,6 +33,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -396,7 +397,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (aplicarCuotas) {
             porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
 
-            // Si hay cuotas, incluir gastos PVP en el cálculo de cuotas (GTML[%])
+            // Obtener gastos PVP del canal
             List<CanalConcepto> todosConceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
             BigDecimal porcentajeConceptosCanal = todosConceptosCanal.stream()
                     .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
@@ -404,18 +405,38 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     .filter(p -> p != null)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            // GTML[%] = suma de conceptos PVP + porcentaje de cuotas
-            BigDecimal porcentajeCuotasTotal = porcentajeConceptosCanal.add(porcentajeCuota);
+            if (porcentajeCuota.compareTo(BigDecimal.ZERO) >= 0) {
+                // CUOTA >= 0 (interés o sin cambio): sumar a gastos PVP y aplicar juntos como divisor
+                // Fórmula: pvp = costo / (1 - (gastos_pvp% + cuota%)/100)
+                BigDecimal porcentajeCuotasTotal = porcentajeConceptosCanal.add(porcentajeCuota);
 
-            if (porcentajeCuotasTotal.compareTo(BigDecimal.ZERO) > 0) {
-                // Aplicar como divisor: / (1 - %CUOTAS/100)
-                BigDecimal cuotasFrac = porcentajeCuotasTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                BigDecimal divisorCuotas = BigDecimal.ONE.subtract(cuotasFrac);
-                if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
-                    costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                if (porcentajeCuotasTotal.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal cuotasFrac = porcentajeCuotasTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                    BigDecimal divisorCuotas = BigDecimal.ONE.subtract(cuotasFrac);
+                    if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
+                        costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                    }
                 }
+            } else {
+                // CUOTA < 0 (descuento): aplicar gastos PVP primero, luego descuento como multiplicador
+                // Fórmula: pvp = (costo / (1 - gastos_pvp%/100)) * (1 - |descuento|%/100)
+
+                // Primero gastos PVP
+                if (porcentajeConceptosCanal.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal gastosFrac = porcentajeConceptosCanal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                    BigDecimal divisorGastos = BigDecimal.ONE.subtract(gastosFrac);
+                    if (divisorGastos.compareTo(BigDecimal.ZERO) > 0) {
+                        costoConImpuestos = costoConImpuestos.divide(divisorGastos, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                    }
+                }
+
+                // Luego descuento como multiplicador
+                BigDecimal descuentoFrac = porcentajeCuota.abs().divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                BigDecimal factorDescuento = BigDecimal.ONE.subtract(descuentoFrac);
+                costoConImpuestos = costoConImpuestos.multiply(factorDescuento);
             }
-            // En este caso, no aplicamos gastos PVP como divisor separado
+
+            // En este caso, no aplicamos gastos PVP como divisor separado (ya se aplicaron arriba)
             gastosSobrePVPTotal = BigDecimal.ZERO;
         } else {
             // Si no hay cuotas, aplicar gastos PVP como divisor
@@ -1862,16 +1883,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     public List<PrecioCalculadoDTO> calcularPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
-        // Obtener todas las cuotas configuradas para el canal
+        // Obtener todas las cuotas configuradas para el canal (incluye cuotas=0 para transferencia/contado)
         List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
 
-        // Calcular para contado (null) + todas las cuotas
+        // Solo calcular las cuotas configuradas en canal_concepto_cuota
         List<PrecioCalculadoDTO> precios = new java.util.ArrayList<>();
 
-        // Primero contado
-        precios.add(calcularPrecioCanal(idProducto, idCanal, null));
-
-        // Luego cada opción de cuotas
         for (Integer cuotas : cuotasCanal) {
             precios.add(calcularPrecioCanal(idProducto, idCanal, cuotas));
         }
@@ -1882,16 +1899,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     @Override
     @Transactional
     public CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
-        // Obtener todas las cuotas configuradas para el canal
+        // Obtener todas las cuotas configuradas para el canal (incluye cuotas=0 para transferencia/contado)
         List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
 
-        // Calcular y guardar para contado (null) + todas las cuotas
+        // Obtener descripciones de cada cuota para el canal
+        Map<Integer, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalId(idCanal).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        CanalConceptoCuota::getCuotas,
+                        c -> c.getDescripcion() != null ? c.getDescripcion() : "",
+                        (a, b) -> a
+                ));
+
+        // Solo calcular las cuotas configuradas en canal_concepto_cuota
         List<PrecioCalculadoDTO> preciosCalculados = new ArrayList<>();
 
-        // Primero contado
-        preciosCalculados.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, null));
-
-        // Luego cada opción de cuotas
         for (Integer cuotas : cuotasCanal) {
             preciosCalculados.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas));
         }
@@ -1899,10 +1920,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Obtener info del canal del primer precio
         String canalNombre = preciosCalculados.isEmpty() ? null : preciosCalculados.get(0).canalNombre();
 
-        // Convertir a PrecioDTO (sin canalId y canalNombre repetidos)
+        // Convertir a PrecioDTO (sin canalId y canalNombre repetidos) + agregar descripcion
         List<PrecioDTO> precios = preciosCalculados.stream()
                 .map(p -> new PrecioDTO(
                         p.cuotas(),
+                        descripcionesCuotas.getOrDefault(p.cuotas(), ""),
                         p.pvp(),
                         p.pvpInflado(),
                         p.costoTotal(),

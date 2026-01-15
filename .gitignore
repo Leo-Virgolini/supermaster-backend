@@ -18,6 +18,7 @@ logs/
 .springBeans
 .sts4-cache
 .claude
+tmpclaude-*
 
 ### IntelliJ IDEA ###
 .idea

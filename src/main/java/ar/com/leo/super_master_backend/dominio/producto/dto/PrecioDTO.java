@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
  */
 public record PrecioDTO(
         Integer cuotas,
+        String descripcion,
         BigDecimal pvp,
         BigDecimal pvpInflado,
         BigDecimal costoTotal,

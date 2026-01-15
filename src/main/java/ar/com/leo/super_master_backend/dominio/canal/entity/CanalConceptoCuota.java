@@ -36,5 +36,8 @@ public class CanalConceptoCuota {
     @NotNull
     @Column(name = "porcentaje", nullable = false, precision = 6, scale = 2)
     private BigDecimal porcentaje;
+
+    @Column(name = "descripcion", length = 255)
+    private String descripcion;
 }
 
