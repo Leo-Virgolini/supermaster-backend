@@ -1926,4 +1926,164 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         return new CanalPreciosDTO(idCanal, canalNombre, precios);
     }
 
+    @Override
+    public CanalPreciosDTO recalcularYGuardar(Integer idProducto, Integer idCanal, Integer cuotas) {
+        // Validar que el canal existe
+        Canal canal = canalRepository.findById(idCanal)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + idCanal));
+
+        // Validar que las cuotas existen para este canal (si se especificaron)
+        if (cuotas != null) {
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            if (!cuotasDisponibles.contains(cuotas)) {
+                throw new NotFoundException(
+                        "Cuotas " + cuotas + " no configuradas para el canal '" + canal.getCanal() + "'. " +
+                        "Cuotas disponibles: " + cuotasDisponibles
+                );
+            }
+        }
+
+        if (cuotas == null) {
+            return recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal);
+        }
+
+        // Calcular solo para las cuotas especificadas
+        PrecioCalculadoDTO precioCalculado = recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas);
+
+        // Obtener descripción de la cuota
+        String descripcion = canalConceptoCuotaRepository.findByCanalId(idCanal).stream()
+                .filter(c -> c.getCuotas().equals(cuotas))
+                .map(c -> c.getDescripcion() != null ? c.getDescripcion() : "")
+                .findFirst()
+                .orElse("");
+
+        PrecioDTO precioDTO = new PrecioDTO(
+                precioCalculado.cuotas(),
+                descripcion,
+                precioCalculado.pvp(),
+                precioCalculado.pvpInflado(),
+                precioCalculado.costoTotal(),
+                precioCalculado.gananciaAbs(),
+                precioCalculado.gananciaPorcentaje(),
+                precioCalculado.markupPorcentaje(),
+                precioCalculado.fechaUltimoCalculo()
+        );
+
+        return new CanalPreciosDTO(idCanal, precioCalculado.canalNombre(), List.of(precioDTO));
+    }
+
+    @Override
+    @Transactional
+    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto) {
+        // Validar que el producto existe
+        Producto producto = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + idProducto));
+
+        // Obtener todos los canales donde el producto tiene precios configurados (query optimizada)
+        List<Integer> canalIds = productoCanalPrecioRepository.findDistinctCanalIdsByProductoId(idProducto);
+
+        if (canalIds.isEmpty()) {
+            throw new NotFoundException(
+                    "El producto '" + producto.getDescripcion() + "' (ID: " + idProducto + ") no tiene canales configurados"
+            );
+        }
+
+        // Recalcular para cada canal (todas las cuotas)
+        return canalIds.stream()
+                .map(idCanal -> recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto, Integer cuotas) {
+        // Validar que el producto existe
+        Producto producto = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + idProducto));
+
+        // Obtener todos los canales donde el producto tiene precios configurados (query optimizada)
+        List<Integer> canalIds = productoCanalPrecioRepository.findDistinctCanalIdsByProductoId(idProducto);
+
+        if (canalIds.isEmpty()) {
+            throw new NotFoundException(
+                    "El producto '" + producto.getDescripcion() + "' (ID: " + idProducto + ") no tiene canales configurados"
+            );
+        }
+
+        // Recalcular para cada canal solo las cuotas indicadas
+        List<CanalPreciosDTO> resultados = new ArrayList<>();
+        for (Integer idCanal : canalIds) {
+            // Verificar si este canal tiene configuradas esas cuotas
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            if (cuotasDisponibles.contains(cuotas)) {
+                resultados.add(recalcularYGuardar(idProducto, idCanal, cuotas));
+            }
+        }
+
+        if (resultados.isEmpty()) {
+            throw new NotFoundException(
+                    "Ningún canal del producto '" + producto.getDescripcion() + "' tiene configuradas " + cuotas + " cuotas"
+            );
+        }
+
+        return resultados;
+    }
+
+    @Override
+    @Transactional
+    public int recalcularTodos() {
+        // Obtener todos los productos que tienen márgenes configurados
+        List<ProductoMargen> productosConMargenes = productoMargenRepository.findAll();
+        List<Canal> todosLosCanales = canalRepository.findAll();
+
+        int totalRecalculados = 0;
+
+        for (ProductoMargen productoMargen : productosConMargenes) {
+            // Ignorar productos sin costo
+            BigDecimal costo = productoMargen.getProducto().getCosto();
+            if (costo == null || costo.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            Integer idProducto = productoMargen.getProducto().getId();
+
+            for (Canal canal : todosLosCanales) {
+                if (!tieneMargenValidoParaCanal(productoMargen, canal)) {
+                    continue;
+                }
+
+                try {
+                    CanalPreciosDTO resultado = recalcularYGuardarPrecioCanalTodasCuotas(idProducto, canal.getId());
+                    totalRecalculados += resultado.precios().size();
+                } catch (Exception e) {
+                    // Log silencioso, continuar con el siguiente
+                }
+            }
+        }
+
+        return totalRecalculados;
+    }
+
+    /**
+     * Verifica si un canal tiene margen válido (> 0) para un producto.
+     */
+    private boolean tieneMargenValidoParaCanal(ProductoMargen productoMargen, Canal canal) {
+        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(canal.getId());
+
+        for (CanalConcepto cc : conceptosCanal) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMayorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMinorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+            }
+        }
+
+        return false;
+    }
+
 }

@@ -1,9 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.precio.controller;
 
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.CalculoResultadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -28,7 +26,6 @@ public class PrecioController {
 
     private final ProductoService productoService;
     private final CalculoPrecioService calculoPrecioService;
-    private final RecalculoPrecioFacade recalculoPrecioFacade;
 
     // =====================================================
     // LISTAR PRODUCTOS CON PRECIOS (PAGINADO)
@@ -184,25 +181,40 @@ public class PrecioController {
     }
 
     // =====================================================
-    // CALCULAR Y GUARDAR PRECIOS (TODAS LAS CUOTAS)
+    // CALCULAR Y GUARDAR PRECIOS
+    // - Sin parámetros: recalcula TODOS los productos en TODOS los canales
+    // - Solo productoId: recalcula el producto en TODOS sus canales (todas las cuotas)
+    // - productoId + cuotas: recalcula el producto en TODOS sus canales (solo esas cuotas)
+    // - productoId + canalId: recalcula el producto en ese canal (todas las cuotas)
+    // - productoId + canalId + cuotas: recalcula solo para esas cuotas en ese canal
     // =====================================================
     @PostMapping("/calcular")
-    public ResponseEntity<CanalPreciosDTO> calcular(
-            @RequestParam @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
-            @RequestParam @Positive(message = "El ID de canal debe ser positivo") Integer canalId
+    public ResponseEntity<CalculoResultadoDTO> calcular(
+            @RequestParam(required = false) @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
+            @RequestParam(required = false) @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
+            @RequestParam(required = false) Integer cuotas
     ) {
-        return ResponseEntity.ok(
-                calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
-        );
-    }
+        // Sin parámetros: recalcular todos
+        if (productoId == null) {
+            int total = calculoPrecioService.recalcularTodos();
+            return ResponseEntity.ok(CalculoResultadoDTO.masivo(total));
+        }
 
-    // =====================================================
-    // RECALCULAR TODOS LOS PRECIOS (OPERACIÓN MASIVA)
-    // =====================================================
-    @PostMapping("/recalcular-todos")
-    public ResponseEntity<RecalculoMasivoDTO> recalcularTodos() {
-        int total = recalculoPrecioFacade.recalcularTodos();
-        return ResponseEntity.ok(new RecalculoMasivoDTO(total, LocalDateTime.now()));
+        // productoId sin canalId
+        if (canalId == null) {
+            // Con cuotas: recalcular todos los canales solo para esas cuotas
+            if (cuotas != null) {
+                var canales = calculoPrecioService.recalcularProductoTodosCanales(productoId, cuotas);
+                return ResponseEntity.ok(CalculoResultadoDTO.of(canales));
+            }
+            // Sin cuotas: recalcular todos los canales, todas las cuotas
+            var canales = calculoPrecioService.recalcularProductoTodosCanales(productoId);
+            return ResponseEntity.ok(CalculoResultadoDTO.of(canales));
+        }
+
+        // productoId + canalId (+ opcional cuotas): recalcular ese canal
+        CanalPreciosDTO canal = calculoPrecioService.recalcularYGuardar(productoId, canalId, cuotas);
+        return ResponseEntity.ok(CalculoResultadoDTO.of(canal));
     }
 
 }

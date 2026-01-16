@@ -2785,6 +2785,22 @@ public class ExcelServiceImpl implements ExcelService {
             IndexedColors.LEMON_CHIFFON.getIndex()
     };
 
+    // Colores para distinguir cuotas dentro de un canal
+    private static final short[] COLORES_CUOTAS = {
+            IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(),
+            IndexedColors.LIGHT_GREEN.getIndex(),
+            IndexedColors.LIGHT_YELLOW.getIndex(),
+            IndexedColors.LIGHT_ORANGE.getIndex(),
+            IndexedColors.LAVENDER.getIndex(),
+            IndexedColors.LIGHT_TURQUOISE.getIndex(),
+            IndexedColors.ROSE.getIndex(),
+            IndexedColors.TAN.getIndex(),
+            IndexedColors.CORAL.getIndex(),
+            IndexedColors.AQUA.getIndex(),
+            IndexedColors.GOLD.getIndex(),
+            IndexedColors.LIME.getIndex()
+    };
+
     @Override
     public byte[] exportarPrecios(ProductoFilter filter) throws IOException {
         log.info("Iniciando exportación de precios a Excel");
@@ -2813,10 +2829,13 @@ public class ExcelServiceImpl implements ExcelService {
 
         canalesCuotas.values().forEach(cuotas -> cuotas.sort(Integer::compareTo));
 
+        // Construir nombre de hoja con filtros aplicados
+        String nombreHoja = construirNombreHojaPrecios(filter, canalesCuotas);
+
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet("Productos con Precios");
+            XSSFSheet sheet = workbook.createSheet(nombreHoja);
 
             // Headers fijos del producto
             String[] headersFijos = {
@@ -2914,16 +2933,19 @@ public class ExcelServiceImpl implements ExcelService {
                 cell.setCellStyle(headerDatosStyle);
             }
 
-            // Headers dinámicos por canal y cuotas
+            // Headers dinámicos por canal y cuotas (colores por cuota)
             for (String canalNombre : nombresCanales) {
                 List<Integer> cuotasList = canalesCuotas.get(canalNombre);
                 boolean primerColumnDelCanal = true;
 
-                CellStyle estiloHeader = estilosHeaderPorCanal.get(canalNombre);
-                CellStyle estiloHeaderBorde = estilosHeaderBordePorCanal.get(canalNombre);
-
-                for (Integer cuotas : cuotasList) {
+                for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
+                    Integer cuotas = cuotasList.get(cuotaIndex);
                     String sufijoCuotas = cuotas == 0 ? "" : "_" + cuotas + "C";
+
+                    // Color diferente para cada cuota
+                    short colorCuota = COLORES_CUOTAS[cuotaIndex % COLORES_CUOTAS.length];
+                    CellStyle estiloHeaderCuota = crearEstiloHeaderCentrado(workbook, colorCuota, false);
+                    CellStyle estiloHeaderCuotaBorde = crearEstiloHeaderCentrado(workbook, colorCuota, true);
 
                     for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                         String headerName = CAMPOS_PRECIO[i] + "_" + canalNombre + sufijoCuotas;
@@ -2931,10 +2953,10 @@ public class ExcelServiceImpl implements ExcelService {
                         cell.setCellValue(headerName);
 
                         if (primerColumnDelCanal) {
-                            cell.setCellStyle(estiloHeaderBorde);
+                            cell.setCellStyle(estiloHeaderCuotaBorde);
                             primerColumnDelCanal = false;
                         } else {
-                            cell.setCellStyle(estiloHeader);
+                            cell.setCellStyle(estiloHeaderCuota);
                         }
                     }
                 }
@@ -3129,6 +3151,78 @@ public class ExcelServiceImpl implements ExcelService {
         } else {
             cell.setCellValue(value.format(dtf));
         }
+    }
+
+    /**
+     * Construye el nombre de la hoja de Excel basándose en los filtros aplicados.
+     * El nombre de hoja en Excel tiene un límite de 31 caracteres.
+     */
+    private String construirNombreHojaPrecios(ProductoFilter filter, Map<String, List<Integer>> canalesCuotas) {
+        StringBuilder sb = new StringBuilder("Precios");
+
+        // Agregar información de canales
+        if (filter.canalId() != null) {
+            // Si se filtró por un canal específico, usar su nombre
+            String canalNombre = canalesCuotas.keySet().stream().findFirst().orElse("C" + filter.canalId());
+            sb.append("_").append(canalNombre);
+        } else if (canalesCuotas.size() <= 2) {
+            // Si hay pocos canales, listarlos
+            sb.append("_").append(String.join("_", canalesCuotas.keySet()));
+        }
+
+        // Agregar información de cuotas
+        if (filter.cuotas() != null) {
+            sb.append("_").append(filter.cuotas()).append("C");
+        }
+
+        // Agregar búsqueda de texto si existe
+        if (filter.texto() != null && !filter.texto().isBlank()) {
+            String textoCorto = filter.texto().length() > 10
+                    ? filter.texto().substring(0, 10)
+                    : filter.texto();
+            sb.append("_").append(textoCorto);
+        }
+
+        // Limitar a 31 caracteres (límite de Excel para nombres de hoja)
+        String nombre = sb.toString().replaceAll("[\\\\/*?\\[\\]:]", ""); // Eliminar caracteres inválidos
+        return nombre.length() > 31 ? nombre.substring(0, 31) : nombre;
+    }
+
+    /**
+     * Construye un sufijo para el nombre del archivo basándose en los filtros.
+     * Usado por el controller para generar el nombre del archivo.
+     */
+    @Override
+    public String construirSufijoArchivoPrecios(ProductoFilter filter) {
+        StringBuilder sb = new StringBuilder();
+
+        if (filter.canalId() != null) {
+            sb.append("_canal").append(filter.canalId());
+        }
+
+        if (filter.cuotas() != null) {
+            sb.append("_").append(filter.cuotas()).append("cuotas");
+        }
+
+        if (filter.texto() != null && !filter.texto().isBlank()) {
+            String textoCorto = filter.texto().replaceAll("[^a-zA-Z0-9]", "");
+            textoCorto = textoCorto.length() > 15 ? textoCorto.substring(0, 15) : textoCorto;
+            sb.append("_").append(textoCorto);
+        }
+
+        if (filter.marcaId() != null) {
+            sb.append("_marca").append(filter.marcaId());
+        }
+
+        if (filter.proveedorId() != null) {
+            sb.append("_prov").append(filter.proveedorId());
+        }
+
+        if (filter.catalogoIds() != null && !filter.catalogoIds().isEmpty()) {
+            sb.append("_cat").append(filter.catalogoIds().get(0));
+        }
+
+        return sb.toString();
     }
 
     @Override

@@ -73,4 +73,42 @@ public interface CalculoPrecioService {
      * @return DTO con el canal y sus precios calculados y guardados
      */
     CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal);
+
+    /**
+     * Calcula y guarda precios de un producto para un canal.
+     * Si cuotas es null, calcula para todas las cuotas configuradas en el canal.
+     * Si cuotas tiene valor, calcula solo para esa cantidad de cuotas.
+     *
+     * @param idProducto ID del producto
+     * @param idCanal ID del canal
+     * @param cuotas Número de cuotas (opcional). Si es null, calcula todas.
+     * @return DTO con el canal y sus precios calculados y guardados
+     */
+    CanalPreciosDTO recalcularYGuardar(Integer idProducto, Integer idCanal, Integer cuotas);
+
+    /**
+     * Calcula y guarda precios de un producto en todos sus canales configurados.
+     *
+     * @param idProducto ID del producto
+     * @return Lista de DTOs con los precios de cada canal
+     */
+    List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto);
+
+    /**
+     * Calcula y guarda precios de un producto en todos sus canales configurados,
+     * pero solo para las cuotas especificadas.
+     *
+     * @param idProducto ID del producto
+     * @param cuotas Número de cuotas a calcular
+     * @return Lista de DTOs con los precios de cada canal (solo la cuota indicada)
+     */
+    List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto, Integer cuotas);
+
+    /**
+     * Calcula y guarda precios de TODOS los productos en TODOS los canales.
+     * Operación masiva que puede tomar tiempo considerable.
+     *
+     * @return Cantidad total de precios recalculados
+     */
+    int recalcularTodos();
 }

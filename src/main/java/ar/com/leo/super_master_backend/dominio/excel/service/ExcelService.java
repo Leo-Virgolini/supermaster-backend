@@ -61,6 +61,14 @@ public interface ExcelService {
     byte[] exportarPrecios(ProductoFilter filter) throws IOException;
 
     /**
+     * Construye un sufijo para el nombre del archivo basándose en los filtros aplicados.
+     *
+     * @param filter Filtros aplicados
+     * @return Sufijo para agregar al nombre del archivo (ej: "_canal1_3cuotas")
+     */
+    String construirSufijoArchivoPrecios(ProductoFilter filter);
+
+    /**
      * Exporta productos de un catálogo a un archivo Excel (.xlsx).
      * Columnas: SKU, PRODUCTO, PVP nombre_canal, UxB
      *

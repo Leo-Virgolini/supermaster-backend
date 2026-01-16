@@ -31,4 +31,7 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
 
     boolean existsByCanalIdAndCuotas(Integer canalId, Integer cuotas);
 
+    @Query("SELECT DISTINCT p.canal.id FROM ProductoCanalPrecio p WHERE p.producto.id = :productoId")
+    List<Integer> findDistinctCanalIdsByProductoId(@Param("productoId") Integer productoId);
+
 }

@@ -263,7 +263,10 @@ public class ExcelController {
 
             byte[] excelBytes = excelService.exportarPrecios(filter);
 
-            String filename = String.format("precios_%s.xlsx",
+            // Construir nombre de archivo con parámetros de filtro
+            String sufijo = excelService.construirSufijoArchivoPrecios(filter);
+            String filename = String.format("precios%s_%s.xlsx",
+                    sufijo,
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
