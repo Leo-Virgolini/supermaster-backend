@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
+import ar.com.leo.super_master_backend.dominio.excel.dto.ExportCatalogoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
@@ -9,17 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 public interface ExcelService {
-
-    /**
-     * Exporta datos a un archivo Excel
-     * @param tipo Tipo de exportación (catalogo, productos, precios, etc.)
-     * @param canalId ID del canal (requerido para catálogo)
-     * @param catalogoId ID del catálogo (requerido para catálogo)
-     * @param clasifGralId ID de clasificación general primer nivel (opcional)
-     * @return Bytes del archivo Excel generado
-     * @throws IOException Si hay error generando el archivo
-     */
-    byte[] exportar(String tipo, Integer canalId, Integer catalogoId, Integer clasifGralId) throws IOException;
 
     /**
      * Importación única de migración: Importa TODO el Excel completo a la base de datos
@@ -81,10 +71,10 @@ public interface ExcelService {
      * @param marcaId ID de la marca (opcional)
      * @param esMaquina Filtro por máquina (opcional)
      * @param ordenarPor Campos de ordenamiento separados por coma. Valores: clasifGral, clasifGastro, tipo, marca, esMaquina
-     * @return Bytes del archivo Excel generado
+     * @return ExportCatalogoResultDTO con archivo y nombre sugerido (canal-catalogo)
      * @throws IOException Si hay error generando el archivo
      */
-    byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
+    ExportCatalogoResultDTO exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
                             Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
                             Boolean esMaquina, String ordenarPor) throws IOException;
 

@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -28,6 +29,12 @@ public class Catalogo {
     @NotNull
     @Column(name = "catalogo", nullable = false, length = 45)
     private String catalogo;
+
+    @Column(name = "exportar_con_iva", nullable = false)
+    private Boolean exportarConIva = true;
+
+    @Column(name = "recargo_porcentaje", nullable = false, precision = 6, scale = 3)
+    private BigDecimal recargoPorcentaje = BigDecimal.ZERO;
 
     // --------------------------
     // RELACIÓN CON PRODUCTOS

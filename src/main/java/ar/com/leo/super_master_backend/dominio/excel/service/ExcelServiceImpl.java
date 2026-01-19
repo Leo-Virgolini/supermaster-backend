@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -54,6 +55,7 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
+import ar.com.leo.super_master_backend.dominio.excel.dto.ExportCatalogoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
@@ -136,48 +138,6 @@ public class ExcelServiceImpl implements ExcelService {
             }
         }
         return true;
-    }
-
-    @Override
-    public byte[] exportar(String tipo, Integer canalId, Integer catalogoId, Integer clasifGralId) throws IOException {
-        log.info("Iniciando exportación de tipo: {}, canalId: {}, catalogoId: {}, clasifGralId: {}",
-                tipo, canalId, catalogoId, clasifGralId);
-
-        // Validar parámetros requeridos para catálogo
-        if ("catalogo".equalsIgnoreCase(tipo)) {
-            if (canalId == null) {
-                throw new IllegalArgumentException("El canalId es requerido para exportar catálogo");
-            }
-            if (catalogoId == null) {
-                throw new IllegalArgumentException("El catalogoId es requerido para exportar catálogo");
-            }
-        }
-
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Datos");
-
-            // Crear encabezados según el tipo
-            Row headerRow = sheet.createRow(0);
-            List<String> headers = obtenerEncabezados(tipo);
-            for (int i = 0; i < headers.size(); i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers.get(i));
-                cell.setCellStyle(crearEstiloEncabezado(workbook));
-            }
-
-            // Llenar datos según el tipo
-            llenarDatos(sheet, tipo, canalId, catalogoId, clasifGralId);
-
-            // Auto-ajustar columnas
-            for (int i = 0; i < headers.size(); i++) {
-                sheet.autoSizeColumn(i);
-            }
-
-            // Escribir a bytes
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            return outputStream.toByteArray();
-        }
     }
 
     private boolean isExcelFile(MultipartFile file) {
@@ -441,104 +401,6 @@ public class ExcelServiceImpl implements ExcelService {
         }
 
         return null;
-    }
-
-    private List<String> obtenerEncabezados(String tipo) {
-        return switch (tipo.toLowerCase()) {
-            case "catalogo" -> List.of("SKU", "PRODUCTO", "PVP", "UxB");
-            case "productos" -> List.of("SKU", "Descripción", "Costo", "IVA", "Marca", "Origen");
-            case "precios" -> List.of("Producto ID", "Canal ID", "PVP", "Margen %");
-            default -> throw new IllegalArgumentException("Tipo de exportación no soportado: " + tipo);
-        };
-    }
-
-    /**
-     * Llena los datos en la hoja de Excel para exportación de catálogos
-     * Filtra productos por: canal, catálogo y clasificación general (primer nivel)
-     */
-    private void llenarDatos(Sheet sheet, String tipo, Integer canalId, Integer catalogoId, Integer clasifGralId) {
-        if (!"catalogo".equalsIgnoreCase(tipo)) {
-            log.warn("Tipo de exportación '{}' no implementado completamente", tipo);
-            return;
-        }
-
-        // Construir especificación de filtros
-        List<Specification<Producto>> specs = new ArrayList<>();
-
-        if (canalId != null) {
-            specs.add(ProductoSpecifications.canalIds(List.of(canalId)));
-        }
-
-        if (catalogoId != null) {
-            specs.add(ProductoSpecifications.catalogoIds(List.of(catalogoId)));
-        }
-
-        if (clasifGralId != null) {
-            specs.add(ProductoSpecifications.clasifGralId(clasifGralId));
-        }
-
-        // Buscar productos que cumplan los filtros
-        List<Producto> productos;
-        if (specs.isEmpty()) {
-            // Si no hay filtros, obtener todos los productos
-            productos = productoRepository.findAll();
-        } else {
-            Specification<Producto> spec = specs.stream()
-                    .reduce(Specification::and)
-                    .orElse(null);
-            productos = productoRepository.findAll(spec);
-        }
-        log.info("Productos encontrados para exportar: {}", productos.size());
-
-        int rowNum = 1; // Empezar desde la fila 1 (la 0 es encabezados)
-        for (Producto producto : productos) {
-            Row row = sheet.createRow(rowNum++);
-
-            // SKU
-            Cell cellSku = row.createCell(0);
-            cellSku.setCellValue(producto.getSku() != null ? producto.getSku() : "");
-
-            // PRODUCTO (titulo_web o descripcion)
-            Cell cellProducto = row.createCell(1);
-            String productoNombre = producto.getTituloWeb();
-            if (productoNombre == null || productoNombre.isBlank()) {
-                productoNombre = producto.getDescripcion();
-            }
-            cellProducto.setCellValue(productoNombre != null ? productoNombre : "");
-
-            // PVP (de producto_canal_precios)
-            Cell cellPvp = row.createCell(2);
-            if (canalId != null) {
-                Optional<ProductoCanalPrecio> precioOpt = productoCanalPrecioRepository
-                        .findByProductoIdAndCanalId(producto.getId(), canalId);
-                if (precioOpt.isPresent() && precioOpt.get().getPvp() != null) {
-                    cellPvp.setCellValue(precioOpt.get().getPvp().doubleValue());
-                } else {
-                    cellPvp.setCellValue("");
-                }
-            } else {
-                cellPvp.setCellValue("");
-            }
-
-            // UxB
-            Cell cellUxb = row.createCell(3);
-            if (producto.getUxb() != null) {
-                cellUxb.setCellValue(producto.getUxb());
-            } else {
-                cellUxb.setCellValue("");
-            }
-        }
-    }
-
-    private CellStyle crearEstiloEncabezado(Workbook workbook) {
-        CellStyle style = workbook.createCellStyle();
-        Font font = workbook.createFont();
-        font.setBold(true);
-        font.setFontHeightInPoints((short) 12);
-        style.setFont(font);
-        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        return style;
     }
 
     /**
@@ -2859,6 +2721,8 @@ public class ExcelServiceImpl implements ExcelService {
             CellStyle superHeaderDatosStyle = crearEstiloSuperHeader(workbook, IndexedColors.GREY_40_PERCENT.getIndex());
             CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle precioStyle = crearEstiloPrecio(workbook);
+            CellStyle precioBordeStyle = crearEstiloPrecioBorde(workbook);
 
             // Crear estilos por canal (con colores diferentes)
             List<String> nombresCanales = new ArrayList<>(canalesCuotas.keySet());
@@ -2975,7 +2839,7 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.sku(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.mla(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.mlau(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), precioStyle);
                 setCellValue(row.createCell(cellIndex++), producto.codExt(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.descripcion(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), dataStyle);
@@ -2999,7 +2863,7 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.diamboca(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.diambase(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.espesor(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.costo(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.costo(), precioStyle);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), dataStyle, dtf);
                 setCellValue(row.createCell(cellIndex++), producto.iva(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), dataStyle);
@@ -3036,13 +2900,15 @@ public class ExcelServiceImpl implements ExcelService {
                         for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                             Cell cell = row.createCell(cellIndex++);
                             CellStyle styleToUse = primerColumnDelCanal ? estiloDataBorde : estiloData;
+                            // Usar estilo de precio para columnas de valores monetarios (0-3)
+                            CellStyle stylePrecioToUse = primerColumnDelCanal ? precioBordeStyle : precioStyle;
 
                             if (precio != null) {
                                 switch (i) {
-                                    case 0 -> setCellValue(cell, precio.pvp(), styleToUse);
-                                    case 1 -> setCellValue(cell, precio.pvpInflado(), styleToUse);
-                                    case 2 -> setCellValue(cell, precio.costoTotal(), styleToUse);
-                                    case 3 -> setCellValue(cell, precio.gananciaAbs(), styleToUse);
+                                    case 0 -> setCellValue(cell, precio.pvp(), stylePrecioToUse);
+                                    case 1 -> setCellValue(cell, precio.pvpInflado(), stylePrecioToUse);
+                                    case 2 -> setCellValue(cell, precio.costoTotal(), stylePrecioToUse);
+                                    case 3 -> setCellValue(cell, precio.gananciaAbs(), stylePrecioToUse);
                                     case 4 -> setCellValue(cell, precio.gananciaPorcentaje(), styleToUse);
                                     case 5 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
                                     case 6 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
@@ -3121,6 +2987,39 @@ public class ExcelServiceImpl implements ExcelService {
         style.setBorderRight(BorderStyle.THIN);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    /**
+     * Crea un estilo para celdas de precio con formato de separador de miles.
+     * Formato: #,##0.00 (separador de miles)
+     */
+    private CellStyle crearEstiloPrecio(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0.00"));
+        return style;
+    }
+
+    /**
+     * Crea un estilo para celdas de precio con borde grueso izquierdo.
+     */
+    private CellStyle crearEstiloPrecioBorde(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0.00"));
         return style;
     }
 
@@ -3226,7 +3125,7 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     @Override
-    public byte[] exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
+    public ExportCatalogoResultDTO exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
                                    Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
                                    Boolean esMaquina, String ordenarPor) throws IOException {
         log.info("Iniciando exportación de catálogo {} con canal {}, cuotas {}, clasifGralId {}, clasifGastroId {}, tipoId {}, marcaId {}, esMaquina {}, ordenarPor {}",
@@ -3325,18 +3224,33 @@ public class ExcelServiceImpl implements ExcelService {
                             catalogo.getCatalogo(), canal.getCanal(), cuotasValue));
         }
 
+        // Construir nombre para hoja y archivo: canal-catalogo
+        String nombreBase = canal.getCanal() + "-" + catalogo.getCatalogo();
+
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet(catalogo.getCatalogo());
+            XSSFSheet sheet = workbook.createSheet(nombreBase);
 
             // Crear estilos
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle precioStyle = crearEstiloPrecio(workbook);
 
             // Crear headers
             Row headerRow = sheet.createRow(0);
-            String pvpHeader = "PVP " + canal.getCanal().toUpperCase() + (cuotasValue > 0 ? " (" + cuotasValue + " cuotas)" : "");
+            String pvpHeader = "PVP " + canal.getCanal().toUpperCase();
+            if (Boolean.FALSE.equals(catalogo.getExportarConIva())) {
+                pvpHeader += " (SIN IVA)";
+            }
+            if (catalogo.getRecargoPorcentaje() != null
+                    && catalogo.getRecargoPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+                String recargoStr = catalogo.getRecargoPorcentaje().stripTrailingZeros().toPlainString();
+                pvpHeader += " (+" + recargoStr + "%)";
+            }
+            if (cuotasValue > 0) {
+                pvpHeader += " (" + cuotasValue + " cuotas)";
+            }
             String[] headers = {"SKU", "PRODUCTO", pvpHeader, "UxB"};
 
             for (int i = 0; i < headers.length; i++) {
@@ -3352,10 +3266,34 @@ public class ExcelServiceImpl implements ExcelService {
                 ProductoCanalPrecio precioObj = preciosPorProducto.get(producto.getId());
                 if (precioObj == null) continue;
 
+                // Calcular PVP final aplicando configuración del catálogo
+                BigDecimal pvpFinal = precioObj.getPvp();
+                if (pvpFinal != null) {
+                    // 1. Quitar IVA si exportarConIva es false
+                    if (Boolean.FALSE.equals(catalogo.getExportarConIva())) {
+                        BigDecimal iva = producto.getIva();
+                        if (iva != null && iva.compareTo(BigDecimal.ZERO) > 0) {
+                            BigDecimal divisor = BigDecimal.ONE.add(
+                                    iva.divide(new BigDecimal("100"), 6, RoundingMode.HALF_UP)
+                            );
+                            pvpFinal = pvpFinal.divide(divisor, 2, RoundingMode.HALF_UP);
+                        }
+                    }
+
+                    // 2. Aplicar recargo si hay porcentaje
+                    BigDecimal recargo = catalogo.getRecargoPorcentaje();
+                    if (recargo != null && recargo.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal factor = BigDecimal.ONE.add(
+                                recargo.divide(new BigDecimal("100"), 6, RoundingMode.HALF_UP)
+                        );
+                        pvpFinal = pvpFinal.multiply(factor).setScale(2, RoundingMode.HALF_UP);
+                    }
+                }
+
                 Row row = sheet.createRow(rowIndex++);
                 setCellValue(row.createCell(0), producto.getSku(), dataStyle);
                 setCellValue(row.createCell(1), producto.getDescripcion(), dataStyle);
-                setCellValue(row.createCell(2), precioObj.getPvp(), dataStyle);
+                setCellValue(row.createCell(2), pvpFinal, precioStyle);
                 setCellValue(row.createCell(3), producto.getUxb(), dataStyle);
             }
 
@@ -3366,7 +3304,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             workbook.write(outputStream);
             log.info("Exportación de catálogo completada exitosamente");
-            return outputStream.toByteArray();
+            return new ExportCatalogoResultDTO(outputStream.toByteArray(), nombreBase);
         }
     }
 
@@ -3433,6 +3371,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle precioStyle = crearEstiloPrecio(workbook);
 
             // Headers: SKU, PRECIO, MLA
             Row headerRow = sheet.createRow(0);
@@ -3451,7 +3390,7 @@ public class ExcelServiceImpl implements ExcelService {
 
                 Row row = sheet.createRow(rowIndex++);
                 setCellValue(row.createCell(0), producto.getSku(), dataStyle);
-                setCellValue(row.createCell(1), precio.getPvpInflado(), dataStyle);
+                setCellValue(row.createCell(1), precio.getPvpInflado(), precioStyle);
                 setCellValue(row.createCell(2), mla, dataStyle);
             }
 
@@ -3530,6 +3469,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle precioStyle = crearEstiloPrecio(workbook);
 
             // Headers: SKU, PVP_NUBE (pvp), PVP_INFLADO
             Row headerRow = sheet.createRow(0);
@@ -3547,8 +3487,8 @@ public class ExcelServiceImpl implements ExcelService {
 
                 Row row = sheet.createRow(rowIndex++);
                 setCellValue(row.createCell(0), producto.getSku(), dataStyle);
-                setCellValue(row.createCell(1), precio.getPvp(), dataStyle);
-                setCellValue(row.createCell(2), precio.getPvpInflado(), dataStyle);
+                setCellValue(row.createCell(1), precio.getPvp(), precioStyle);
+                setCellValue(row.createCell(2), precio.getPvpInflado(), precioStyle);
             }
 
             for (int i = 0; i < headers.length; i++) {

@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.excel.controller;
 
+import ar.com.leo.super_master_backend.dominio.excel.dto.ExportCatalogoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
@@ -29,42 +30,6 @@ import java.util.Map;
 public class ExcelController {
 
     private final ExcelService excelService;
-
-    /**
-     * Exporta datos a un archivo Excel
-     *
-     * @param tipo         Tipo de exportación: "catalogo", "productos", "precios", etc.
-     * @param canalId      ID del canal (requerido para catálogo)
-     * @param catalogoId   ID del catálogo (requerido para catálogo)
-     * @param clasifGralId ID de clasificación general primer nivel (opcional)
-     * @return Archivo Excel descargable
-     */
-    @GetMapping("/exportar")
-    public ResponseEntity<byte[]> exportar(
-            @RequestParam("tipo") String tipo,
-            @RequestParam(value = "canalId", required = false) Integer canalId,
-            @RequestParam(value = "catalogoId", required = false) Integer catalogoId,
-            @RequestParam(value = "clasifGralId", required = false) Integer clasifGralId
-    ) {
-        try {
-            byte[] excelBytes = excelService.exportar(tipo, canalId, catalogoId, clasifGralId);
-
-            String filename = String.format("%s_%s.xlsx",
-                    tipo,
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", filename);
-            headers.setContentLength(excelBytes.length);
-
-            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
 
     /**
      * Importación única de migración: Importa TODO el Excel completo a la base de datos
@@ -321,18 +286,18 @@ public class ExcelController {
             @RequestParam(value = "ordenarPor", required = false) String ordenarPor
     ) {
         try {
-            byte[] excelBytes = excelService.exportarCatalogo(catalogoId, canalId, cuotas, clasifGralId, clasifGastroId, tipoId, marcaId, esMaquina, ordenarPor);
+            ExportCatalogoResultDTO result = excelService.exportarCatalogo(catalogoId, canalId, cuotas, clasifGralId, clasifGastroId, tipoId, marcaId, esMaquina, ordenarPor);
 
-            String filename = String.format("catalogo_%d_%s.xlsx",
-                    catalogoId,
+            String filename = String.format("%s_%s.xlsx",
+                    result.nombreArchivo(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
             headers.setContentDispositionFormData("attachment", filename);
-            headers.setContentLength(excelBytes.length);
+            headers.setContentLength(result.archivo().length);
 
-            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+            return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
