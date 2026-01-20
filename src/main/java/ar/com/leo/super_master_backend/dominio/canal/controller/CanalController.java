@@ -23,8 +23,8 @@ public class CanalController {
     private final CanalService service;
 
     @GetMapping
-    public ResponseEntity<Page<CanalDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<CanalDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

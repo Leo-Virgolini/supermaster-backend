@@ -22,7 +22,11 @@ public class OrigenServiceImpl implements OrigenService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OrigenDTO> listar(Pageable pageable) {
+    public Page<OrigenDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByOrigenContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

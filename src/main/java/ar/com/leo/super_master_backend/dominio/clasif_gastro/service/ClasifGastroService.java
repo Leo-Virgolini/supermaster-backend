@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface ClasifGastroService {
 
-    Page<ClasifGastroDTO> listar(Pageable pageable);
+    Page<ClasifGastroDTO> listar(String search, Pageable pageable);
 
     ClasifGastroDTO obtener(Integer id);
 

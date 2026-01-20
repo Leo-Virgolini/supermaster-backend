@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface CatalogoService {
 
-    Page<CatalogoDTO> listar(Pageable pageable);
+    Page<CatalogoDTO> listar(String search, Pageable pageable);
 
     CatalogoDTO obtener(Integer id);
 

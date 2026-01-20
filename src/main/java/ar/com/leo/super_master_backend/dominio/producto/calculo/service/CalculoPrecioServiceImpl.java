@@ -14,9 +14,9 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalcul
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.*;
 import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
@@ -158,11 +158,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * 11. INFLACION: Conceptos con aplica_sobre='INFLACION' (divisor: PVP / (1 - INFLACION/100))
      * 12. Promociones: Promociones de producto_canal_promocion
      *
-     * @param producto      El producto para calcular el precio
+     * @param producto       El producto para calcular el precio
      * @param productoMargen La relación producto-canal con configuración específica
-     * @param conceptos     Lista de conceptos ya filtrados por reglas según el producto y canal
-     * @param numeroCuotas  Número de cuotas (null si pago contado)
-     * @param idCanal       ID del canal para obtener información específica del canal
+     * @param conceptos      Lista de conceptos ya filtrados por reglas según el producto y canal
+     * @param numeroCuotas   Número de cuotas (null si pago contado)
+     * @param idCanal        ID del canal para obtener información específica del canal
      * @return DTO con el precio calculado y métricas relacionadas
      */
     private PrecioCalculadoDTO calcularPrecioUnificado(
@@ -571,11 +571,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Genera la fórmula de cálculo de precio para cualquier canal usando una fórmula unificada.
      * Esta fórmula reemplaza los métodos específicos por canal y muestra todos los pasos dinámicamente.
      *
-     * @param producto      El producto para calcular la fórmula
+     * @param producto       El producto para calcular la fórmula
      * @param productoMargen La relación producto-canal con configuración específica
-     * @param conceptos     Lista de conceptos ya filtrados por reglas según el producto y canal
-     * @param numeroCuotas  Número de cuotas (null si pago contado)
-     * @param idCanal       ID del canal para obtener información específica del canal
+     * @param conceptos      Lista de conceptos ya filtrados por reglas según el producto y canal
+     * @param numeroCuotas   Número de cuotas (null si pago contado)
+     * @param idCanal        ID del canal para obtener información específica del canal
      * @return DTO con los pasos de la fórmula y el resultado final
      */
     private FormulaCalculoDTO generarFormulaUnificado(
@@ -1938,7 +1938,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             if (!cuotasDisponibles.contains(cuotas)) {
                 throw new NotFoundException(
                         "Cuotas " + cuotas + " no configuradas para el canal '" + canal.getCanal() + "'. " +
-                        "Cuotas disponibles: " + cuotasDisponibles
+                                "Cuotas disponibles: " + cuotasDisponibles
                 );
             }
         }

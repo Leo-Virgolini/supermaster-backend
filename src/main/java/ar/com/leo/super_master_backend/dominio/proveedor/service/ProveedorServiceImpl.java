@@ -27,7 +27,11 @@ public class ProveedorServiceImpl implements ProveedorService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProveedorDTO> listar(Pageable pageable) {
+    public Page<ProveedorDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByProveedorContainingIgnoreCaseOrApodoContainingIgnoreCase(search, search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

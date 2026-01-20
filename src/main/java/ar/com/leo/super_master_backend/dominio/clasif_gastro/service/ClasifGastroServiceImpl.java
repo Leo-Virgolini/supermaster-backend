@@ -22,7 +22,11 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ClasifGastroDTO> listar(Pageable pageable) {
+    public Page<ClasifGastroDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByNombreContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

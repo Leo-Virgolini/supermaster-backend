@@ -8,8 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 public interface OrigenService {
 
-    Page<OrigenDTO> listar(Pageable pageable);
+    Page<OrigenDTO> listar(String search, Pageable pageable);
 
+    
     OrigenDTO obtener(Integer id);
 
     OrigenDTO crear(OrigenCreateDTO dto);

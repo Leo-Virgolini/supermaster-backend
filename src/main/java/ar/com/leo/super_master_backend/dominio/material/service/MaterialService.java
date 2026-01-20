@@ -8,8 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 public interface MaterialService {
 
-    Page<MaterialDTO> listar(Pageable pageable);
+    Page<MaterialDTO> listar(String search, Pageable pageable);
 
+    
     MaterialDTO obtener(Integer id);
 
     MaterialDTO crear(MaterialCreateDTO dto);

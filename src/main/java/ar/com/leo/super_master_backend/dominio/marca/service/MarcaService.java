@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface MarcaService {
 
-    Page<MarcaDTO> listar(Pageable pageable);
+    Page<MarcaDTO> listar(String search, Pageable pageable);
 
     MarcaDTO obtener(Integer id);
 

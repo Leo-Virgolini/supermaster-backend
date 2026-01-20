@@ -8,8 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 public interface TipoService {
 
-    Page<TipoDTO> listar(Pageable pageable);
+    Page<TipoDTO> listar(String search, Pageable pageable);
 
+    
     TipoDTO obtener(Integer id);
 
     TipoDTO crear(TipoCreateDTO dto);

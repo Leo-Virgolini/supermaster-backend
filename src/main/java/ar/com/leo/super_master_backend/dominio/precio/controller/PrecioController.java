@@ -41,7 +41,7 @@ public class PrecioController {
             // =======================
             // 1) TEXTO
             // =======================
-            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) String search,
 
             // =======================
             // 2) BOOLEANOS / NUMÉRICOS
@@ -123,7 +123,7 @@ public class PrecioController {
 
         ProductoFilter filter = new ProductoFilter(
                 productoId,
-                texto,
+                search,
                 esCombo,
                 uxb,
                 esMaquina,
@@ -173,7 +173,7 @@ public class PrecioController {
     public ResponseEntity<FormulaCalculoDTO> obtenerFormula(
             @RequestParam @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @RequestParam @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
-            @RequestParam @PositiveOrZero(message = "Las cuotas deben ser 0 o positivas") Integer cuotas
+            @RequestParam Integer cuotas  // -1=transferencia, 0=contado, >0=cuotas
     ) {
         return ResponseEntity.ok(
                 calculoPrecioService.obtenerFormulaCalculo(productoId, canalId, cuotas)

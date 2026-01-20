@@ -27,8 +27,8 @@ public class CatalogoController {
     // LISTAR
     // ===============================
     @GetMapping
-    public ResponseEntity<Page<CatalogoDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<CatalogoDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     // ===============================

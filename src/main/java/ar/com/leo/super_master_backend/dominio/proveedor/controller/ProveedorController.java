@@ -23,8 +23,8 @@ public class ProveedorController {
     private final ProveedorService service;
 
     @GetMapping
-    public ResponseEntity<Page<ProveedorDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<ProveedorDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

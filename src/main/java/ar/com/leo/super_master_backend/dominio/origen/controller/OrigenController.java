@@ -23,8 +23,8 @@ public class OrigenController {
     private final OrigenService service;
 
     @GetMapping
-    public ResponseEntity<Page<OrigenDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<OrigenDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

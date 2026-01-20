@@ -23,8 +23,8 @@ public class MaterialController {
     private final MaterialService service;
 
     @GetMapping
-    public ResponseEntity<Page<MaterialDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<MaterialDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

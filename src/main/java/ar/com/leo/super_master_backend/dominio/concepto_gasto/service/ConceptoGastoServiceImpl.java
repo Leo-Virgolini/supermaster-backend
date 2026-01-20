@@ -27,7 +27,11 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ConceptoGastoDTO> listar(Pageable pageable) {
+    public Page<ConceptoGastoDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return conceptoRepository.findByConceptoContainingIgnoreCaseOrDescripcionContainingIgnoreCase(search, search, pageable)
+                    .map(mapper::toDTO);
+        }
         return conceptoRepository.findAll(pageable)
                 .map(mapper::toDTO);
     }

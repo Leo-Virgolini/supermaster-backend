@@ -8,8 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 public interface ConceptoGastoService {
 
-    Page<ConceptoGastoDTO> listar(Pageable pageable);
+    Page<ConceptoGastoDTO> listar(String search, Pageable pageable);
 
+    
     ConceptoGastoDTO obtener(Integer id);
 
     ConceptoGastoDTO crear(ConceptoGastoCreateDTO dto);

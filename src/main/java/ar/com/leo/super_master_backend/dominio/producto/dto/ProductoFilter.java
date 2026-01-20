@@ -10,7 +10,7 @@ public record ProductoFilter(
         Integer productoId,
 
         // 1) BÚSQUEDA POR TEXTO
-        String texto,
+        String search,
 
         // 2) BOOLEANOS / NUMÉRICOS
         Boolean esCombo,

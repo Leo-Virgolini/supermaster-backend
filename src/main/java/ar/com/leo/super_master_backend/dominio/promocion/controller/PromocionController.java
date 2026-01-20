@@ -7,12 +7,13 @@ import ar.com.leo.super_master_backend.dominio.promocion.service.PromocionServic
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,8 +23,8 @@ public class PromocionController {
     private final PromocionService service;
 
     @GetMapping
-    public ResponseEntity<List<PromocionDTO>> listar() {
-        return ResponseEntity.ok(service.listar());
+    public ResponseEntity<Page<PromocionDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

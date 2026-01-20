@@ -21,8 +21,8 @@ public class MlaController {
     private final MlaService mlaService;
 
     @GetMapping
-    public ResponseEntity<Page<MlaDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(mlaService.listar(pageable));
+    public ResponseEntity<Page<MlaDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(mlaService.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 
 public interface CanalService {
-    Page<CanalDTO> listar(Pageable pageable);
+    Page<CanalDTO> listar(String search, Pageable pageable);
 
     CanalDTO obtener(Integer id);
 

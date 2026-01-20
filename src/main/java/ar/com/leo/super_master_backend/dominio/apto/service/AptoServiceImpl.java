@@ -30,7 +30,11 @@ public class AptoServiceImpl implements AptoService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<AptoDTO> listar(Pageable pageable) {
+    public Page<AptoDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByAptoContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

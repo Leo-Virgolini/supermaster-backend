@@ -26,7 +26,11 @@ public class MlaServiceImpl implements MlaService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<MlaDTO> listar(Pageable pageable) {
+    public Page<MlaDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByMlaContainingIgnoreCaseOrMlauContainingIgnoreCase(search, search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable).map(mapper::toDTO);
     }
 

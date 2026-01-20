@@ -8,8 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 public interface ProveedorService {
 
-    Page<ProveedorDTO> listar(Pageable pageable);
+    Page<ProveedorDTO> listar(String search, Pageable pageable);
 
+    
     ProveedorDTO obtener(Integer id);
 
     ProveedorDTO crear(ProveedorCreateDTO dto);

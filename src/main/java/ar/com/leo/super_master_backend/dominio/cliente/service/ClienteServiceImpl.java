@@ -22,7 +22,11 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ClienteDTO> listar(Pageable pageable) {
+    public Page<ClienteDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByClienteContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

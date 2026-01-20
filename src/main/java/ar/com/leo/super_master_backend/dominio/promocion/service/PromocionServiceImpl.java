@@ -8,10 +8,10 @@ import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
 import ar.com.leo.super_master_backend.dominio.promocion.mapper.PromocionMapper;
 import ar.com.leo.super_master_backend.dominio.promocion.repository.PromocionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,11 +22,13 @@ public class PromocionServiceImpl implements PromocionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PromocionDTO> listar() {
-        return repository.findAll()
-                .stream()
-                .map(mapper::toDTO)
-                .toList();
+    public Page<PromocionDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repository.findByCodigoContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
+        return repository.findAll(pageable)
+                .map(mapper::toDTO);
     }
 
     @Override

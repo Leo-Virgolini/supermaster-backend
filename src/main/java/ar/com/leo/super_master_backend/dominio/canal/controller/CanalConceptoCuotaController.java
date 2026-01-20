@@ -43,7 +43,7 @@ public class CanalConceptoCuotaController {
     @GetMapping("/canal/{canalId}/cuotas/{cuotas}")
     public ResponseEntity<List<CanalConceptoCuotaDTO>> listarPorCanalYCuotas(
             @PathVariable @Positive(message = "El ID del canal debe ser positivo") Integer canalId,
-            @PathVariable @Positive(message = "El número de cuotas debe ser positivo") Integer cuotas) {
+            @PathVariable Integer cuotas) {  // -1=transferencia, 0=contado, >0=cuotas
         return ResponseEntity.ok(service.listarPorCanalYCuotas(canalId, cuotas));
     }
 

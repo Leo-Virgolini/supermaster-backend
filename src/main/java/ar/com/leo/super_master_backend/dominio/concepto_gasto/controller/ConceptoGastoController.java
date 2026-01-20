@@ -23,8 +23,8 @@ public class ConceptoGastoController {
     private final ConceptoGastoService service;
 
     @GetMapping
-    public ResponseEntity<Page<ConceptoGastoDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<ConceptoGastoDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

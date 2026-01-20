@@ -114,19 +114,26 @@ public class ExcelController {
 
     /**
      * Exporta productos con precios a un archivo Excel (.xlsx).
-     * Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
-     * Headers en mayúsculas, negrita y fondo gris claro. Bordes finos en toda la tabla.
-     * Acepta los mismos filtros que GET /api/productos/precios.
      *
+     * Formatos disponibles:
+     * - completo (default): Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
+     *                       Acepta los mismos filtros que GET /api/precios.
+     * - mercadolibre: Columnas SKU, PRECIO (pvp_inflado), MLA. Usa canal "ML" internamente.
+     * - nube: Columnas SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado). Usa canal "KT HOGAR" internamente.
+     *
+     * @param formato Formato de exportación: completo (default), mercadolibre, nube
      * @return Archivo Excel descargable
      */
-    @GetMapping("/precios")
+    @GetMapping("/exportar-precios")
     public ResponseEntity<?> exportarPrecios(
+            // FORMATO DE EXPORTACIÓN
+            @RequestParam(required = false, defaultValue = "completo") String formato,
+
             // 0) ID
             @RequestParam(required = false) Integer productoId,
 
             // 1) TEXTO
-            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) String search,
 
             // 2) BOOLEANOS / NUMÉRICOS
             @RequestParam(required = false) Boolean esCombo,
@@ -184,9 +191,26 @@ public class ExcelController {
             @RequestParam(required = false) Integer cuotas
     ) {
         try {
+            // Validar formato
+            if (!formato.equals("completo") && !formato.equals("mercadolibre") && !formato.equals("nube")) {
+                return ResponseEntity.badRequest()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("message", "Formato inválido. Valores permitidos: completo, mercadolibre, nube",
+                                "path", "/api/excel/exportar-precios"));
+            }
+
+            // Formatos específicos (mercadolibre, nube) tienen su propia lógica
+            if (formato.equals("mercadolibre")) {
+                return exportarFormatoMercadoLibre(cuotas);
+            }
+            if (formato.equals("nube")) {
+                return exportarFormatoNube(cuotas);
+            }
+
+            // Formato completo: usar filtros
             ProductoFilter filter = new ProductoFilter(
                     productoId,
-                    texto,
+                    search,
                     esCombo,
                     uxb,
                     esMaquina,
@@ -244,17 +268,17 @@ public class ExcelController {
             log.error("Error de validación al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/precios"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/precios"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/precios"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
         }
     }
 
@@ -264,7 +288,7 @@ public class ExcelController {
      *
      * @param catalogoId ID del catálogo (requerido)
      * @param canalId    ID del canal para obtener el PVP (requerido)
-     * @param cuotas     Cantidad de cuotas (0 = contado, por defecto)
+     * @param cuotas     Cantidad de cuotas (requerido): -1=transferencia, 0=contado, >0=cuotas
      * @param clasifGralId ID de clasificación general (opcional)
      * @param clasifGastroId ID de clasificación gastro (opcional)
      * @param tipoId ID del tipo (opcional)
@@ -273,11 +297,11 @@ public class ExcelController {
      * @param ordenarPor Campos de ordenamiento separados por coma (opcional). Valores: clasifGral, clasifGastro, tipo, marca, esMaquina
      * @return Archivo Excel descargable
      */
-    @GetMapping("/catalogo")
+    @GetMapping("/exportar-catalogo")
     public ResponseEntity<?> exportarCatalogo(
             @RequestParam("catalogoId") Integer catalogoId,
             @RequestParam("canalId") Integer canalId,
-            @RequestParam(value = "cuotas", required = false, defaultValue = "0") Integer cuotas,
+            @RequestParam("cuotas") Integer cuotas,  // -1=transferencia, 0=contado, >0=cuotas
             @RequestParam(value = "clasifGralId", required = false) Integer clasifGralId,
             @RequestParam(value = "clasifGastroId", required = false) Integer clasifGastroId,
             @RequestParam(value = "tipoId", required = false) Integer tipoId,
@@ -302,34 +326,25 @@ public class ExcelController {
             log.error("Error de validación al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/catalogo"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/catalogo"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/catalogo"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
         }
     }
 
     /**
-     * Exporta datos para subir precios a Mercado Libre.
-     * Usa el canal "ML" internamente.
+     * Método privado para exportar formato Mercado Libre.
      * Columnas: SKU, PRECIO (pvp_inflado), MLA
-     * Si hay productos sin MLA o con precio inválido, se excluyen del archivo
-     * y se devuelven en el header "X-Advertencias".
-     *
-     * @param cuotas Cantidad de cuotas (null = sin cuotas)
-     * @return Archivo Excel descargable con header de advertencias si aplica
      */
-    @GetMapping("/mercadolibre")
-    public ResponseEntity<?> exportarMercadoLibre(
-            @RequestParam(value = "cuotas", required = false) Integer cuotas
-    ) {
+    private ResponseEntity<?> exportarFormatoMercadoLibre(Integer cuotas) {
         try {
             ExportResultDTO result = excelService.exportarMercadoLibre(cuotas);
 
@@ -352,34 +367,25 @@ public class ExcelController {
             log.error("Error de validación al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/mercadolibre"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/mercadolibre"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/mercadolibre"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
         }
     }
 
     /**
-     * Exporta datos para subir precios a Tienda Nube.
-     * Usa el canal "KT HOGAR" internamente.
+     * Método privado para exportar formato Tienda Nube.
      * Columnas: SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado)
-     * Si hay productos con precio inválido, se excluyen del archivo
-     * y se devuelven en el header "X-Advertencias".
-     *
-     * @param cuotas Cantidad de cuotas (null = sin cuotas)
-     * @return Archivo Excel descargable con header de advertencias si aplica
      */
-    @GetMapping("/nube")
-    public ResponseEntity<?> exportarNube(
-            @RequestParam(value = "cuotas", required = false) Integer cuotas
-    ) {
+    private ResponseEntity<?> exportarFormatoNube(Integer cuotas) {
         try {
             ExportResultDTO result = excelService.exportarNube(cuotas);
 
@@ -402,17 +408,17 @@ public class ExcelController {
             log.error("Error de validación al exportar para Tienda Nube: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar para Tienda Nube: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar para Tienda Nube: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
         }
     }
 }

@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface ClienteService {
 
-    Page<ClienteDTO> listar(Pageable pageable);
+    Page<ClienteDTO> listar(String search, Pageable pageable);
 
     ClienteDTO obtener(Integer id);
 

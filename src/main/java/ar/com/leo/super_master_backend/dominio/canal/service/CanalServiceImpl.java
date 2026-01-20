@@ -41,7 +41,11 @@ public class CanalServiceImpl implements CanalService {
     // =======================================
     @Override
     @Transactional(readOnly = true)
-    public Page<CanalDTO> listar(Pageable pageable) {
+    public Page<CanalDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return canalRepository.findByCanalContainingIgnoreCase(search, pageable)
+                    .map(canalMapper::toDTO);
+        }
         return canalRepository.findAll(pageable)
                 .map(canalMapper::toDTO);
     }

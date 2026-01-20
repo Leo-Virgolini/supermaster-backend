@@ -23,8 +23,8 @@ public class MarcaController {
     private final MarcaService service;
 
     @GetMapping
-    public ResponseEntity<Page<MarcaDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(service.listar(pageable));
+    public ResponseEntity<Page<MarcaDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+        return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")

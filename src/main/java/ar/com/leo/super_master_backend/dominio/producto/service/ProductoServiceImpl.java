@@ -140,7 +140,7 @@ public class ProductoServiceImpl implements ProductoService {
                 // =======================
                 // 1) TEXTO
                 // =======================
-                ProductoSpecifications.textoLike(filter.texto()),
+                ProductoSpecifications.textoLike(filter.search()),
 
                 // =======================
                 // 2) BOOLEANOS / NÚMEROS
@@ -215,7 +215,7 @@ public class ProductoServiceImpl implements ProductoService {
                 // ID
                 ProductoSpecifications.productoId(filter.productoId()),
                 // Texto
-                ProductoSpecifications.textoLike(filter.texto()),
+                ProductoSpecifications.textoLike(filter.search()),
                 // Booleanos/Numéricos
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
@@ -400,7 +400,7 @@ public class ProductoServiceImpl implements ProductoService {
 
         Specification<Producto> spec = Specification.allOf(
                 ProductoSpecifications.productoId(filter.productoId()),
-                ProductoSpecifications.textoLike(filter.texto()),
+                ProductoSpecifications.textoLike(filter.search()),
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
                 ProductoSpecifications.esMaquina(filter.esMaquina()),

@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface MlaService {
 
-    Page<MlaDTO> listar(Pageable pageable);
+    Page<MlaDTO> listar(String search, Pageable pageable);
 
     MlaDTO obtener(Integer id);
 

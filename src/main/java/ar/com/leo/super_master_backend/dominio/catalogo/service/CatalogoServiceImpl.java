@@ -22,7 +22,11 @@ public class CatalogoServiceImpl implements CatalogoService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<CatalogoDTO> listar(Pageable pageable) {
+    public Page<CatalogoDTO> listar(String search, Pageable pageable) {
+        if (search != null && !search.isBlank()) {
+            return repo.findByCatalogoContainingIgnoreCase(search, pageable)
+                    .map(mapper::toDTO);
+        }
         return repo.findAll(pageable)
                 .map(mapper::toDTO);
     }

@@ -27,53 +27,15 @@ public class ProductoController {
     private final ProductoService productoService;
 
     // =====================================================
-    // CRUD
+    // LISTAR / FILTRAR PRODUCTOS
     // =====================================================
-
     @GetMapping
-    public ResponseEntity<Page<ProductoDTO>> listar(Pageable pageable) {
-        return ResponseEntity.ok(productoService.listar(pageable));
-    }
-
-    @PostMapping
-    public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoCreateDTO dto) {
-        ProductoDTO creado = productoService.crear(dto);
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(creado.id())
-                .toUri();
-        return ResponseEntity.created(location).body(creado);
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
-        return ResponseEntity.ok(productoService.obtener(id));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductoDTO> actualizar(
-            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
-            @Valid @RequestBody ProductoUpdateDTO dto) {
-        return ResponseEntity.ok(productoService.actualizar(id, dto));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
-        productoService.eliminar(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    // =====================================================
-    // BUSCAR / FILTRAR PRODUCTOS (sin precios)
-    // =====================================================
-    @GetMapping("/buscar")
-    public ResponseEntity<Page<ProductoDTO>> buscar(
+    public ResponseEntity<Page<ProductoDTO>> listar(
 
             // =======================
             // 1) TEXTO
             // =======================
-            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) String search,
 
             // =======================
             // 2) BOOLEANOS / NUMÉRICOS
@@ -144,8 +106,8 @@ public class ProductoController {
     ) {
 
         ProductoFilter filter = new ProductoFilter(
-                null,  // productoId no aplica en buscar
-                texto,
+                null,  // productoId
+                search,
                 esCombo,
                 uxb,
                 esMaquina,
@@ -181,11 +143,44 @@ public class ProductoController {
                 sortBy,
                 sortDir,
                 sortCanalId,
-                null,  // canalId no aplica en buscar (no devuelve precios)
-                null   // cuotas no aplica en buscar (no devuelve precios)
+                null,  // canalId (no aplica, no devuelve precios)
+                null   // cuotas (no aplica, no devuelve precios)
         );
 
         return ResponseEntity.ok(productoService.filtrar(filter, pageable));
+    }
+
+    // =====================================================
+    // CRUD
+    // =====================================================
+
+    @PostMapping
+    public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoCreateDTO dto) {
+        ProductoDTO creado = productoService.crear(dto);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(creado.id())
+                .toUri();
+        return ResponseEntity.created(location).body(creado);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        return ResponseEntity.ok(productoService.obtener(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProductoDTO> actualizar(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
+            @Valid @RequestBody ProductoUpdateDTO dto) {
+        return ResponseEntity.ok(productoService.actualizar(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        productoService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
 }

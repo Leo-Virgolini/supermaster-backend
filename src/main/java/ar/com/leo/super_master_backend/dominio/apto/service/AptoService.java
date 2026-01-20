@@ -7,8 +7,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface AptoService {
-    Page<AptoDTO> listar(Pageable pageable);
+    Page<AptoDTO> listar(String search, Pageable pageable);
 
+    
     AptoDTO obtener(Integer id);
 
     AptoDTO crear(AptoCreateDTO dto);

@@ -1,38 +1,44 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.util.CuotasUtil;
+import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
+import ar.com.leo.super_master_backend.dominio.catalogo.repository.CatalogoRepository;
+import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
+import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
+import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
+import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
+import ar.com.leo.super_master_backend.dominio.excel.dto.*;
+import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
+import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
+import ar.com.leo.super_master_backend.dominio.material.entity.Material;
+import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepository;
+import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
+import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
+import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
+import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
+import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
+import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
+import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
+import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
+import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.openxml4j.opc.OPCPackage;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.DataFormat;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.FillPatternType;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.VerticalAlignment;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.AreaReference;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
@@ -41,57 +47,26 @@ import org.apache.poi.xssf.usermodel.XSSFTable;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.hibernate.AssertionFailure;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
-import ar.com.leo.super_master_backend.dominio.catalogo.repository.CatalogoRepository;
-import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
-import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
-import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
-import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
-import ar.com.leo.super_master_backend.dominio.excel.dto.ExportCatalogoResultDTO;
-import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
-import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
-import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
-import ar.com.leo.super_master_backend.dominio.excel.dto.ImportResultDTO;
-import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
-import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
-import ar.com.leo.super_master_backend.dominio.material.entity.Material;
-import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepository;
-import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
-import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
-import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
-import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
-import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
-import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
-import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
-import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
-import org.apache.poi.ss.usermodel.BorderStyle;
-import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
-import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
-import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
-import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 // Record para almacenar información de hojas a procesar
-record SheetInfo(Sheet sheet, String nombre, int prioridad) {}
+record SheetInfo(Sheet sheet, String nombre, int prioridad) {
+}
 
 @Slf4j
 @Service
@@ -153,19 +128,19 @@ public class ExcelServiceImpl implements ExcelService {
      * Abre un Workbook de manera eficiente.
      * Para archivos .xlsx grandes, usa OPCPackage para mejor rendimiento y menor uso de memoria.
      * Para archivos .xls o como fallback, usa WorkbookFactory.
-     * 
+     * <p>
      * Nota: El OPCPackage se cierra automáticamente cuando se cierra el Workbook.
-     * 
+     *
      * @param file El archivo Excel a abrir
      * @return Workbook abierto
      * @throws IOException Si hay un error al leer el archivo
      */
     private Workbook abrirWorkbookEficiente(MultipartFile file) throws IOException {
         String filename = file.getOriginalFilename();
-        boolean esXlsx = filename != null && 
-                (filename.endsWith(".xlsx") || filename.endsWith(".XLSX") || 
-                 filename.endsWith(".xlsm") || filename.endsWith(".XLSM"));
-        
+        boolean esXlsx = filename != null &&
+                (filename.endsWith(".xlsx") || filename.endsWith(".XLSX") ||
+                        filename.endsWith(".xlsm") || filename.endsWith(".XLSM"));
+
         if (esXlsx) {
             // Para archivos .xlsx, usar OPCPackage para mejor rendimiento
             // OPCPackage lee el archivo de manera más eficiente para archivos grandes
@@ -430,15 +405,15 @@ public class ExcelServiceImpl implements ExcelService {
             log.warn("⚠️  Las tablas estructuradas solo están disponibles en archivos .xlsx. Saltando procesamiento de tablas estructuradas");
             return;
         }
-        
+
         XSSFSheet xssfSheet = (XSSFSheet) sheet;
         List<XSSFTable> tablas = xssfSheet.getTables();
-        
+
         if (tablas.isEmpty()) {
             log.info("No se encontraron tablas estructuradas en la hoja VALIDACIONES");
             return;
         }
-        
+
         log.info("🔍 Encontradas {} tablas estructuradas en la hoja VALIDACIONES", tablas.size());
         for (XSSFTable tabla : tablas) {
             String nombreTabla = tabla.getName();
@@ -459,32 +434,32 @@ public class ExcelServiceImpl implements ExcelService {
             log.warn("⚠️  Las tablas estructuradas solo están disponibles en archivos .xlsx. Saltando procesamiento de tabla '{}'", nombreTabla);
             return;
         }
-        
+
         // Obtener el rango de la tabla
         AreaReference areaRef = tabla.getArea();
         if (areaRef == null) {
             log.warn("⚠️  La tabla '{}' no tiene un rango válido", nombreTabla);
             return;
         }
-        
+
         CellReference primeraCelda = areaRef.getFirstCell();
         CellReference ultimaCelda = areaRef.getLastCell();
-        
+
         int filaInicio = primeraCelda.getRow();
         int filaFin = ultimaCelda.getRow();
         int colInicio = primeraCelda.getCol();
         int colFin = ultimaCelda.getCol();
-        
-        log.info("Tabla '{}' rango: filas {} a {}, columnas {} a {}", nombreTabla, 
+
+        log.info("Tabla '{}' rango: filas {} a {}, columnas {} a {}", nombreTabla,
                 filaInicio + 1, filaFin + 1, colInicio + 1, colFin + 1);
-        
+
         // Obtener el encabezado (primera fila del rango de datos, que es la segunda fila del área total)
         Row headerRow = sheet.getRow(filaInicio);
         if (headerRow == null) {
             log.warn("⚠️  No se encontró el encabezado de la tabla '{}' en fila {}", nombreTabla, filaInicio + 1);
             return;
         }
-        
+
         // Mapear las columnas de esta tabla específica
         Map<String, Integer> columnasTabla = new HashMap<>();
         for (int colIdx = colInicio; colIdx <= colFin; colIdx++) {
@@ -494,9 +469,9 @@ public class ExcelServiceImpl implements ExcelService {
                 columnasTabla.put(nombreNormalizado, colIdx);
             }
         }
-        
+
         log.info("Columnas mapeadas para tabla '{}': {}", nombreTabla, columnasTabla.keySet());
-        
+
         // Procesar las filas de datos (desde filaInicio + 1 hasta filaFin)
         int filasProcesadas = 0;
         for (int i = filaInicio + 1; i <= filaFin; i++) {
@@ -504,7 +479,7 @@ public class ExcelServiceImpl implements ExcelService {
             if (row == null || esFilaVacia(row)) {
                 continue;
             }
-            
+
             try {
                 procesarFilaTablaEstructurada(row, nombreTabla, columnasTabla, i);
                 filasProcesadas++;
@@ -512,7 +487,7 @@ public class ExcelServiceImpl implements ExcelService {
                 log.warn("❌ Error procesando fila {} de tabla '{}': {}", i + 1, nombreTabla, e.getMessage());
             }
         }
-        
+
         log.info("✓ Tabla estructurada '{}' procesada: {} filas procesadas", nombreTabla, filasProcesadas);
     }
 
@@ -521,13 +496,13 @@ public class ExcelServiceImpl implements ExcelService {
      */
     private void procesarFilaTablaEstructurada(Row row, String nombreTabla, Map<String, Integer> columnasTabla, int filaIndex) {
         String nombreTablaUpper = nombreTabla.toUpperCase();
-        
+
         try {
             // VMARCA/VLINEA - Marcas con jerarquía
             if (nombreTablaUpper.equals("VMARCA") || nombreTablaUpper.equals("VMARCAS")) {
                 String marcaPadreNombreTemp = null;
                 String marcaHijoNombreTemp = null;
-                
+
                 for (Map.Entry<String, Integer> entry : columnasTabla.entrySet()) {
                     String nombreCol = entry.getKey();
                     String valor = obtenerValorCelda(row, entry.getValue());
@@ -539,10 +514,10 @@ public class ExcelServiceImpl implements ExcelService {
                         }
                     }
                 }
-                
+
                 final String marcaPadreNombre = marcaPadreNombreTemp;
                 final String marcaHijoNombre = marcaHijoNombreTemp;
-                
+
                 if (marcaPadreNombre != null && !marcaPadreNombre.isBlank()) {
                     Marca marcaPadre = buscarOCrearMarca(marcaPadreNombre);
                     if (marcaPadre.getId() == null) {
@@ -550,7 +525,7 @@ public class ExcelServiceImpl implements ExcelService {
                         marcaPadre = marcaRepository.findByNombreIgnoreCase(marcaPadreNombre)
                                 .orElseThrow(() -> new RuntimeException("No se pudo crear o encontrar marca: " + marcaPadreNombre));
                     }
-                    
+
                     if (marcaHijoNombre != null && !marcaHijoNombre.isBlank()) {
                         Marca marcaHijo = buscarOCrearMarca(marcaHijoNombre);
                         if (marcaHijo.getId() == null) {
@@ -640,32 +615,32 @@ public class ExcelServiceImpl implements ExcelService {
             else if (nombreTablaUpper.equals("TIPO2")) {
                 String tipoNombre = null;
                 Integer idTipo1 = null;
-                
+
                 if (columnasTabla.containsKey("TIPO2")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("TIPO2"));
                     if (valor != null && !valor.isBlank()) {
                         tipoNombre = valor.trim();
                     }
                 }
-                
+
                 if (columnasTabla.containsKey("ID TIPO1")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("ID TIPO1"));
                     if (valor != null && !valor.isBlank()) {
                         try {
                             idTipo1 = Integer.parseInt(valor.trim());
                         } catch (NumberFormatException e) {
-                            log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1='{}' no es un número válido", 
+                            log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1='{}' no es un número válido",
                                     filaIndex + 1, valor);
                         }
                     }
                 }
-                
+
                 if (tipoNombre != null && !tipoNombre.isBlank()) {
                     Tipo padre = null;
                     if (idTipo1 != null) {
                         padre = tipoRepository.findById(idTipo1).orElse(null);
                         if (padre == null) {
-                            log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1={} no encontrado para tipo='{}'", 
+                            log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1={} no encontrado para tipo='{}'",
                                     filaIndex + 1, idTipo1, tipoNombre);
                         }
                     }
@@ -677,32 +652,32 @@ public class ExcelServiceImpl implements ExcelService {
             else if (nombreTablaUpper.equals("TIPO3")) {
                 String tipoNombre = null;
                 Integer idTipo2 = null;
-                
+
                 if (columnasTabla.containsKey("TIPO3")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("TIPO3"));
                     if (valor != null && !valor.isBlank()) {
                         tipoNombre = valor.trim();
                     }
                 }
-                
+
                 if (columnasTabla.containsKey("ID TIPO2")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("ID TIPO2"));
                     if (valor != null && !valor.isBlank()) {
                         try {
                             idTipo2 = Integer.parseInt(valor.trim());
                         } catch (NumberFormatException e) {
-                            log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2='{}' no es un número válido", 
+                            log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2='{}' no es un número válido",
                                     filaIndex + 1, valor);
                         }
                     }
                 }
-                
+
                 if (tipoNombre != null && !tipoNombre.isBlank()) {
                     Tipo padre = null;
                     if (idTipo2 != null) {
                         padre = tipoRepository.findById(idTipo2).orElse(null);
                         if (padre == null) {
-                            log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2={} no encontrado para tipo='{}'", 
+                            log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2={} no encontrado para tipo='{}'",
                                     filaIndex + 1, idTipo2, tipoNombre);
                         }
                     }
@@ -715,7 +690,7 @@ public class ExcelServiceImpl implements ExcelService {
                 String clasif2Nombre = null;
                 String clasif3Nombre = null;
                 String clasif4Nombre = null;
-                
+
                 for (Map.Entry<String, Integer> entry : columnasTabla.entrySet()) {
                     String nombreCol = entry.getKey();
                     String valor = obtenerValorCelda(row, entry.getValue());
@@ -731,7 +706,7 @@ public class ExcelServiceImpl implements ExcelService {
                         }
                     }
                 }
-                
+
                 // Procesar ClasifGral (VCLASIF1 y VCLASIF2)
                 ClasifGral clasifGralPadre = null;
                 if (clasif1Nombre != null && !clasif1Nombre.isBlank()) {
@@ -740,7 +715,7 @@ public class ExcelServiceImpl implements ExcelService {
                 if (clasif2Nombre != null && !clasif2Nombre.isBlank()) {
                     buscarOCrearClasifGral(clasif2Nombre, clasifGralPadre);
                 }
-                
+
                 // Procesar ClasifGastro (VCLASIF3 y VCLASIF4)
                 ClasifGastro clasifGastroPadre = null;
                 if (clasif3Nombre != null && !clasif3Nombre.isBlank()) {
@@ -749,8 +724,7 @@ public class ExcelServiceImpl implements ExcelService {
                 if (clasif4Nombre != null && !clasif4Nombre.isBlank()) {
                     buscarOCrearClasifGastro(clasif4Nombre, clasifGastroPadre);
                 }
-            }
-            else {
+            } else {
                 log.debug("Tabla '{}' no tiene procesador específico, se omite", nombreTabla);
             }
         } catch (Exception e) {
@@ -769,7 +743,7 @@ public class ExcelServiceImpl implements ExcelService {
             log.debug("Ejecutando procesarHoja para hoja '{}' dentro de la transacción", nombreHoja);
             return procesarHoja(sheet, tipo, nombreHoja);
         } catch (Exception e) {
-            log.error("Error dentro de la transacción para hoja '{}': {} - {}", nombreHoja, 
+            log.error("Error dentro de la transacción para hoja '{}': {} - {}", nombreHoja,
                     e.getMessage(), e.getClass().getSimpleName(), e);
             throw e; // @Transactional hará rollback automáticamente por rollbackFor = Exception.class
         }
@@ -791,7 +765,7 @@ public class ExcelServiceImpl implements ExcelService {
 
         Map<String, Integer> columnasMap = mapearColumnasPorNombre(headerRow);
         log.info("Columnas mapeadas para hoja '{}': {}", nombreHoja, columnasMap.keySet());
-        
+
         // Contadores iniciales para rastrear entidades creadas (solo para VALIDACIONES)
         int marcasInicial = 0;
         int origenesInicial = 0;
@@ -800,7 +774,7 @@ public class ExcelServiceImpl implements ExcelService {
         int tiposInicial = 0;
         int clasifGralInicial = 0;
         int clasifGastroInicial = 0;
-        
+
         if ("validaciones".equalsIgnoreCase(tipo)) {
             marcasInicial = cacheMarcas.size();
             origenesInicial = cacheOrigenes.size();
@@ -810,14 +784,14 @@ public class ExcelServiceImpl implements ExcelService {
             clasifGralInicial = cacheClasifGral.size();
             clasifGastroInicial = cacheClasifGastro.size();
             log.info("📊 Estado inicial de entidades relacionadas: {} marcas, {} orígenes, {} materiales, {} proveedores, {} tipos, {} clasifGral, {} clasifGastro",
-                    marcasInicial, origenesInicial, materialesInicial, proveedoresInicial, 
+                    marcasInicial, origenesInicial, materialesInicial, proveedoresInicial,
                     tiposInicial, clasifGralInicial, clasifGastroInicial);
-            
+
             // Procesar todas las tablas estructuradas (ListObjects) de la hoja VALIDACIONES
             log.info("🔍 Buscando y procesando todas las tablas estructuradas (ListObjects)...");
             procesarTablasEstructuradas(sheet);
         }
-        
+
         // ====================================================================
         // FASE 1: PREPROCESAMIENTO - Crear todas las entidades relacionadas
         // ====================================================================
@@ -844,7 +818,7 @@ public class ExcelServiceImpl implements ExcelService {
         List<String> errors = new ArrayList<>();
         int totalRows = 0;
         int successRows = 0;
-        
+
         // Tamaño del batch para optimizar rendimiento (hacer flush cada N productos)
         int batchSize = 50;
         int productosEnBatch = 0;
@@ -853,21 +827,21 @@ public class ExcelServiceImpl implements ExcelService {
         // fila 2 (índice 1)
         int startRow = "master".equalsIgnoreCase(tipo) ? 2 : 1;
         int lastRowNum = sheet.getLastRowNum();
-        
+
         // Límite de seguridad: máximo 100,000 filas para evitar loops infinitos
         int maxRows = Math.min(lastRowNum, startRow + 100000);
         int filasVaciasConsecutivas = 0;
         int maxFilasVaciasConsecutivas = 100; // Detener si hay 100 filas vacías consecutivas
-        
-        log.info("Procesando filas desde {} hasta {} (total: {} filas posibles, límite de seguridad: {}, batch size: {})", 
+
+        log.info("Procesando filas desde {} hasta {} (total: {} filas posibles, límite de seguridad: {}, batch size: {})",
                 startRow + 1, lastRowNum + 1, lastRowNum - startRow + 1, maxRows - startRow + 1, batchSize);
-        
+
         for (int i = startRow; i <= maxRows; i++) {
             Row row = sheet.getRow(i);
             if (row == null) {
                 filasVaciasConsecutivas++;
                 if (filasVaciasConsecutivas >= maxFilasVaciasConsecutivas) {
-                    log.info("Deteniendo procesamiento: {} filas vacías consecutivas encontradas (última fila procesada: {})", 
+                    log.info("Deteniendo procesamiento: {} filas vacías consecutivas encontradas (última fila procesada: {})",
                             filasVaciasConsecutivas, i);
                     break;
                 }
@@ -877,13 +851,13 @@ public class ExcelServiceImpl implements ExcelService {
             if (esFilaVacia(row)) {
                 filasVaciasConsecutivas++;
                 if (filasVaciasConsecutivas >= maxFilasVaciasConsecutivas) {
-                    log.info("Deteniendo procesamiento: {} filas vacías consecutivas encontradas (última fila procesada: {})", 
+                    log.info("Deteniendo procesamiento: {} filas vacías consecutivas encontradas (última fila procesada: {})",
                             filasVaciasConsecutivas, i);
                     break;
                 }
                 continue;
             }
-            
+
             // Resetear contador de filas vacías si encontramos una fila con datos
             filasVaciasConsecutivas = 0;
 
@@ -902,12 +876,12 @@ public class ExcelServiceImpl implements ExcelService {
                 } catch (Exception ex) {
                     // Ignorar errores al obtener SKU para logging
                 }
-                
+
                 // Log cada 100 filas para ver el progreso
                 if (totalRows % 100 == 0) {
                     log.info("📊 Procesando fila {} (total procesadas: {}, exitosas: {})", i + 1, totalRows, successRows);
                 }
-                
+
                 // Log cada fila para debugging (solo las primeras 10 y luego cada 1000)
                 if (totalRows <= 10 || totalRows % 1000 == 0) {
                     if (skuFila != null && !skuFila.isEmpty()) {
@@ -916,11 +890,11 @@ public class ExcelServiceImpl implements ExcelService {
                         log.debug("📄 Procesando fila {}", i + 1);
                     }
                 }
-                
+
                 procesarFila(row, tipo, i, columnasMap);
                 successRows++;
                 productosEnBatch++;
-                
+
                 // Hacer flush cada batchSize productos para optimizar rendimiento
                 // Esto permite que Hibernate agrupe múltiples inserts en un solo batch
                 if (productosEnBatch >= batchSize) {
@@ -932,7 +906,7 @@ public class ExcelServiceImpl implements ExcelService {
                 }
             } catch (UnsupportedOperationException e) {
                 // Si el tipo no está implementado, agregar error pero continuar
-                String errorMsg = String.format("Fila %d%s: %s", i + 1, 
+                String errorMsg = String.format("Fila %d%s: %s", i + 1,
                         skuFila != null ? " (SKU: " + skuFila + ")" : "", e.getMessage());
                 errors.add(errorMsg);
                 log.warn("❌ ERROR en fila {} de hoja '{}'{}: {}", i + 1, nombreHoja,
@@ -1017,7 +991,7 @@ public class ExcelServiceImpl implements ExcelService {
                 }
             }
         }
-        
+
         // Flush final para asegurar que todos los productos pendientes se guarden
         if (productosEnBatch > 0) {
             productoRepository.flush();
@@ -1033,7 +1007,7 @@ public class ExcelServiceImpl implements ExcelService {
             int tiposFinal = cacheTipos.size();
             int clasifGralFinal = cacheClasifGral.size();
             int clasifGastroFinal = cacheClasifGastro.size();
-            
+
             int marcasCreadas = marcasFinal - marcasInicial;
             int origenesCreados = origenesFinal - origenesInicial;
             int materialesCreados = materialesFinal - materialesInicial;
@@ -1041,7 +1015,7 @@ public class ExcelServiceImpl implements ExcelService {
             int tiposCreados = tiposFinal - tiposInicial;
             int clasifGralCreadas = clasifGralFinal - clasifGralInicial;
             int clasifGastroCreadas = clasifGastroFinal - clasifGastroInicial;
-            
+
             log.info("📊 RESUMEN DE ENTIDADES RELACIONADAS CREADAS en hoja '{}':", nombreHoja);
             log.info("   ✓ Marcas: {} creadas (total en cache: {})", marcasCreadas, marcasFinal);
             log.info("   ✓ Orígenes: {} creados (total en cache: {})", origenesCreados, origenesFinal);
@@ -1056,7 +1030,7 @@ public class ExcelServiceImpl implements ExcelService {
             log.info("✅ Hoja '{}' procesada exitosamente: {} filas procesadas de {} totales", nombreHoja, successRows, totalRows);
             return ImportResultDTO.success(totalRows, successRows);
         } else {
-            log.error("⚠️  Hoja '{}' procesada con errores: {} exitosas, {} con errores de {} totales", 
+            log.error("⚠️  Hoja '{}' procesada con errores: {} exitosas, {} con errores de {} totales",
                     nombreHoja, successRows, errors.size(), totalRows);
             log.error("📋 RESUMEN DE ERRORES en hoja '{}':", nombreHoja);
             for (int j = 0; j < Math.min(errors.size(), 10); j++) {
@@ -1075,7 +1049,7 @@ public class ExcelServiceImpl implements ExcelService {
      */
     private void preprocesarEntidadesRelacionadas(Sheet sheet, Map<String, Integer> columnasMap) {
         log.info("Iniciando preprocesamiento de entidades relacionadas...");
-        
+
         // Nota: Las siguientes entidades ahora se obtienen de la hoja VALIDACIONES, no de MASTER:
         // - marcas (tabla VMARCAS)
         // - origenes (VORIGEN)
@@ -1085,33 +1059,33 @@ public class ExcelServiceImpl implements ExcelService {
         // - clasificaciones (ClasifGral y ClasifGastro, tabla VCLASIF)
         // IMPORTANTE: La hoja VALIDACIONES debe procesarse ANTES que MASTER para que todas estas
         // entidades estén disponibles cuando se procesen los productos.
-        
+
         // Segunda fase: crear todas las entidades en batch
         log.info("🔨 Creando entidades relacionadas...");
-        
+
         // Nota: marcas, tipos, orígenes, materiales, proveedores y clasificaciones se procesan desde VALIDACIONES,
         // no desde aquí
-        
+
         // Crear catálogos fijos
-        String[] catalogosFijos = { "LG GASTRO", "LG HOGAR", "LG HUDSON", "KT GASTRO", "DEPTOS" };
+        String[] catalogosFijos = {"LG GASTRO", "LG HOGAR", "LG HUDSON", "KT GASTRO", "DEPTOS"};
         for (String nombre : catalogosFijos) {
             buscarOCrearCatalogo(nombre);
         }
         log.info("   ✓ {} catálogos fijos creados: {}", catalogosFijos.length, String.join(", ", catalogosFijos));
-        
+
         // Crear canales fijos
-        String[] canalesFijos = { "ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY" };
+        String[] canalesFijos = {"ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY"};
         for (String nombre : canalesFijos) {
             buscarOCrearCanal(nombre);
         }
         log.info("   ✓ {} canales fijos creados: {}", canalesFijos.length, String.join(", ", canalesFijos));
-        
+
         // Flush final para asegurar que todas las entidades se guarden
         catalogoRepository.flush();
         canalRepository.flush();
         // marcaRepository, tipoRepository, origenRepository, materialRepository, proveedorRepository,
         // clasifGralRepository y clasifGastroRepository se flushan al procesar VALIDACIONES
-        
+
         log.info("✅ Todas las entidades relacionadas creadas y guardadas");
     }
 
@@ -1135,7 +1109,7 @@ public class ExcelServiceImpl implements ExcelService {
         log.info("========================================");
         log.info("INICIANDO IMPORTACIÓN COMPLETA DE MIGRACIÓN");
         log.info("========================================");
-        
+
         // Limpiar caches al inicio de la importación
         cacheMarcas.clear();
         cacheOrigenes.clear();
@@ -1167,7 +1141,7 @@ public class ExcelServiceImpl implements ExcelService {
                 Sheet sheet = workbook.getSheetAt(i);
                 String nombreHoja = sheet.getSheetName();
                 String nombreNormalizado = nombreHoja.trim().toUpperCase();
-                
+
                 if ("VALIDACIONES".equals(nombreNormalizado) || "MASTER".equals(nombreNormalizado)) {
                     // Prioridad: VALIDACIONES = 0, MASTER = 1 (para ordenar)
                     int prioridad = "VALIDACIONES".equals(nombreNormalizado) ? 0 : 1;
@@ -1176,11 +1150,11 @@ public class ExcelServiceImpl implements ExcelService {
                     hojasOmitidas++;
                 }
             }
-            
+
             // Ordenar por prioridad (VALIDACIONES primero)
             hojasAProcesar.sort(Comparator.comparingInt(SheetInfo::prioridad));
-            
-            log.info("Hojas a procesar (en orden): {}", 
+
+            log.info("Hojas a procesar (en orden): {}",
                     hojasAProcesar.stream().map(SheetInfo::nombre).collect(Collectors.toList()));
 
             // Procesar cada hoja en el orden correcto
@@ -1228,7 +1202,7 @@ public class ExcelServiceImpl implements ExcelService {
                     resultadosPorHoja.put(nombreHoja, ImportResultDTO.withErrors(
                             0, 0, 0, List.of(e.getMessage())));
                 } catch (Exception e) {
-                    log.error("   ❌ ERROR CRÍTICO procesando hoja '{}': {} - {}", nombreHoja, 
+                    log.error("   ❌ ERROR CRÍTICO procesando hoja '{}': {} - {}", nombreHoja,
                             e.getMessage(), e.getClass().getSimpleName(), e);
                     erroresGenerales.add(String.format("Hoja '%s': %s", nombreHoja, e.getMessage()));
                     hojasConErrores++;
@@ -1497,7 +1471,7 @@ public class ExcelServiceImpl implements ExcelService {
                             BigDecimal iva = ivaDecimal.multiply(BigDecimal.valueOf(100));
                             // Validar que el IVA esté entre 0 y 100 (después de multiplicar)
                             if (iva.compareTo(BigDecimal.ZERO) < 0 || iva.compareTo(new BigDecimal("100")) > 0) {
-                                log.warn("IVA fuera de rango para producto SKU {}: {} (convertido a {}%), usando 0", 
+                                log.warn("IVA fuera de rango para producto SKU {}: {} (convertido a {}%), usando 0",
                                         skuFinal, ivaStr, iva);
                                 producto.setIva(BigDecimal.ZERO);
                             } else {
@@ -1544,15 +1518,15 @@ public class ExcelServiceImpl implements ExcelService {
 
             // Guardar producto
             Producto productoGuardado = productoRepository.save(producto);
-            
+
             // Si el producto es nuevo (sin ID) y necesitamos crear relaciones que requieren el ID,
             // hacer flush inmediatamente para obtener el ID. Para productos existentes, el ID ya está disponible.
             // Esto optimiza el rendimiento: solo hacemos flush cuando es absolutamente necesario.
             boolean productoEsNuevo = productoGuardado.getId() == null;
-            boolean tieneRelaciones = columnasMap.containsKey("MLA") || 
-                    columnasMap.keySet().stream().anyMatch(k -> 
-                        k.contains("LG ") || k.contains("KT ") || k.contains("DEPTOS") || k.equals("CANAL"));
-            
+            boolean tieneRelaciones = columnasMap.containsKey("MLA") ||
+                    columnasMap.keySet().stream().anyMatch(k ->
+                            k.contains("LG ") || k.contains("KT ") || k.contains("DEPTOS") || k.equals("CANAL"));
+
             if (productoEsNuevo && tieneRelaciones) {
                 // Flush inmediato solo para productos nuevos que necesitan relaciones
                 productoRepository.flush();
@@ -1563,20 +1537,20 @@ public class ExcelServiceImpl implements ExcelService {
                                     "No se pudo obtener el producto guardado con SKU: " + skuFinal));
                 }
             }
-            
+
             final Producto productoFinal = productoGuardado; // Variable final para usar en lambdas
 
             // MIX DE PRODUCTOS - Catalogos (LG GASTRO, LG HOGAR, LG HUDSON, KT GASTRO,
             // DEPTOS)
             // Crear relaciones ProductoCatalogo si el valor de la columna es "VERDADERO" o "TRUE"
-            String[] nombresCatalogos = { "LG GASTRO", "LG HOGAR", "LG HUDSON", "KT GASTRO", "DEPTOS" };
+            String[] nombresCatalogos = {"LG GASTRO", "LG HOGAR", "LG HUDSON", "KT GASTRO", "DEPTOS"};
             for (String nombreCatalogo : nombresCatalogos) {
                 try {
                     if (columnasMap.containsKey(nombreCatalogo)) {
                         String valor = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, nombreCatalogo));
                         // Solo crear la relación si el valor es "VERDADERO" o "TRUE"
-                        if (valor != null && !valor.isBlank() && 
-                            (valor.equalsIgnoreCase("VERDADERO") || valor.equalsIgnoreCase("TRUE"))) {
+                        if (valor != null && !valor.isBlank() &&
+                                (valor.equalsIgnoreCase("VERDADERO") || valor.equalsIgnoreCase("TRUE"))) {
                             Catalogo catalogoTemp = buscarOCrearCatalogo(nombreCatalogo);
                             // Asegurar que el catálogo tenga ID
                             if (catalogoTemp.getId() == null) {
@@ -1642,7 +1616,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             // Canales (ML, KT HOGAR, KT GASTRO, LINEA GE, LIZZY)
             // Asociar TODOS los productos con TODOS los canales
-            String[] nombresCanales = { "ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY" };
+            String[] nombresCanales = {"ML", "KT HOGAR", "KT GASTRO", "LINEA GE", "LIZZY"};
             // Crear ProductoMargen solo si no existe (ahora es 1 por producto, no por producto+canal)
             if (productoFinal.getId() != null) {
                 Optional<ProductoMargen> productoMargenOpt = productoMargenRepository
@@ -1678,7 +1652,7 @@ public class ExcelServiceImpl implements ExcelService {
         // IMPORTANTE: La restricción UNIQUE está solo en 'nombre', no en (nombre, id_padre)
         // Por lo tanto, solo puede haber UNA clasificación con ese nombre,
         // independientemente del padre
-        
+
         if (nombre == null || nombre.trim().isEmpty()) {
             return null;
         }
@@ -1744,31 +1718,31 @@ public class ExcelServiceImpl implements ExcelService {
 
     /**
      * Procesa una fila de la hoja Validaciones (entidades maestras)
-     * 
+     * <p>
      * Tabla VMARCAS:
-     *   - VMARCA (primer nivel/padre), VLINEA (segundo nivel/hijo)
-     * 
+     * - VMARCA (primer nivel/padre), VLINEA (segundo nivel/hijo)
+     * <p>
      * Tabla MATERIALES:
-     *   - MATERIAL
-     * 
+     * - MATERIAL
+     * <p>
      * Tabla PROVEEDORES:
-     *   - PROVEEDOR, ALIAS (para apodo)
-     * 
+     * - PROVEEDOR, ALIAS (para apodo)
+     * <p>
      * Tabla TIPOS:
-     *   - TIPO1 (nivel 1, sin padre)
-     *   - TIPO2 (nivel 2, hijo de TIPO1), columna ID TIPO1 indica el padre
-     *   - TIPO3 (nivel 3, hijo de TIPO2), columna ID TIPO2 indica el padre
-     * 
+     * - TIPO1 (nivel 1, sin padre)
+     * - TIPO2 (nivel 2, hijo de TIPO1), columna ID TIPO1 indica el padre
+     * - TIPO3 (nivel 3, hijo de TIPO2), columna ID TIPO2 indica el padre
+     * <p>
      * Tabla VCLASIF:
-     *   - VCLASIF1, VCLASIF2 → ClasifGral (VCLASIF2 es hija de VCLASIF1)
-     *   - VCLASIF3, VCLASIF4 → ClasifGastro (VCLASIF4 es hija de VCLASIF3)
-     * 
+     * - VCLASIF1, VCLASIF2 → ClasifGral (VCLASIF2 es hija de VCLASIF1)
+     * - VCLASIF3, VCLASIF4 → ClasifGastro (VCLASIF4 es hija de VCLASIF3)
+     * <p>
      * Otras:
-     *   - VORIGEN
+     * - VORIGEN
      */
     private void procesarFilaValidaciones(Row row, int rowIndex, Map<String, Integer> columnasMap) {
         List<String> erroresFila = new ArrayList<>();
-        
+
         try {
             // VMARCA y VLINEA - Procesar marcas con jerarquía
             // VMARCA es el primer nivel (padre), VLINEA es el segundo nivel (hijo)
@@ -1901,11 +1875,11 @@ public class ExcelServiceImpl implements ExcelService {
                                     Integer idTipo1 = Integer.parseInt(idTipo1Str.trim());
                                     padreTipo2 = tipoRepository.findById(idTipo1).orElse(null);
                                     if (padreTipo2 == null) {
-                                        log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1={} no encontrado para TIPO2='{}'", 
+                                        log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1={} no encontrado para TIPO2='{}'",
                                                 rowIndex + 1, idTipo1, tipo2Nombre);
                                     }
                                 } catch (NumberFormatException e) {
-                                    log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1='{}' no es un número válido para TIPO2='{}'", 
+                                    log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1='{}' no es un número válido para TIPO2='{}'",
                                             rowIndex + 1, idTipo1Str, tipo2Nombre);
                                 }
                             }
@@ -1932,11 +1906,11 @@ public class ExcelServiceImpl implements ExcelService {
                                     Integer idTipo2 = Integer.parseInt(idTipo2Str.trim());
                                     padreTipo3 = tipoRepository.findById(idTipo2).orElse(null);
                                     if (padreTipo3 == null) {
-                                        log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2={} no encontrado para TIPO3='{}'", 
+                                        log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2={} no encontrado para TIPO3='{}'",
                                                 rowIndex + 1, idTipo2, tipo3Nombre);
                                     }
                                 } catch (NumberFormatException e) {
-                                    log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2='{}' no es un número válido para TIPO3='{}'", 
+                                    log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2='{}' no es un número válido para TIPO3='{}'",
                                             rowIndex + 1, idTipo2Str, tipo3Nombre);
                                 }
                             }
@@ -1952,7 +1926,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             // VCLASIF1, VCLASIF2 → ClasifGral (VCLASIF2 es hija de VCLASIF1)
             // VCLASIF3, VCLASIF4 → ClasifGastro (VCLASIF4 es hija de VCLASIF3)
-            
+
             // Procesar ClasifGral (VCLASIF1 y VCLASIF2)
             ClasifGral clasifGralPadre = null;
             if (columnasMap.containsKey("VCLASIF1")) {
@@ -1968,7 +1942,7 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                 }
             }
-            
+
             if (columnasMap.containsKey("VCLASIF2")) {
                 String clasif2Nombre = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "VCLASIF2"));
                 if (clasif2Nombre != null && !clasif2Nombre.isBlank()) {
@@ -1982,7 +1956,7 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                 }
             }
-            
+
             // Procesar ClasifGastro (VCLASIF3 y VCLASIF4)
             ClasifGastro clasifGastroPadre = null;
             if (columnasMap.containsKey("VCLASIF3")) {
@@ -1998,7 +1972,7 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                 }
             }
-            
+
             if (columnasMap.containsKey("VCLASIF4")) {
                 String clasif4Nombre = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "VCLASIF4"));
                 if (clasif4Nombre != null && !clasif4Nombre.isBlank()) {
@@ -2012,7 +1986,7 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                 }
             }
-            
+
             // Si hay errores en la fila, lanzar excepción con todos los errores
             if (!erroresFila.isEmpty()) {
                 String mensajeCompleto = String.format("Fila %d de VALIDACIONES tiene %d error(es): %s",
@@ -2146,7 +2120,7 @@ public class ExcelServiceImpl implements ExcelService {
         // Si el padre es null, usar "null", si tiene padre, usar su ID
         String keyPadre = (padre == null || padre.getId() == null) ? "null" : String.valueOf(padre.getId());
         String key = nombreNormalizado.toUpperCase() + "|PADRE:" + keyPadre;
-        
+
         return cacheTipos.computeIfAbsent(key, k -> {
             // Buscar por nombre Y padre (puede haber tipos con el mismo nombre pero diferentes padres)
             // Si el padre tiene ID, buscar por nombre y padre
@@ -2158,11 +2132,11 @@ public class ExcelServiceImpl implements ExcelService {
                 // Para tipos sin padre, buscar por nombre y padre null
                 tipoOpt = tipoRepository.findByNombreIgnoreCaseAndPadre(nombreNormalizado, null);
             }
-            
+
             if (tipoOpt.isPresent()) {
                 return tipoOpt.get();
             }
-            
+
             // Si no existe, crear uno nuevo
             Tipo nuevo = new Tipo();
             nuevo.setNombre(nombreNormalizado);
@@ -2176,7 +2150,8 @@ public class ExcelServiceImpl implements ExcelService {
 
     /**
      * Busca un tipo por ID, o lo crea si no existe
-     * @param id El ID del tipo a buscar
+     *
+     * @param id            El ID del tipo a buscar
      * @param nombreDefault El nombre a usar si se debe crear el tipo
      * @return El tipo encontrado o cREADo
      */
@@ -2196,7 +2171,7 @@ public class ExcelServiceImpl implements ExcelService {
                                         Tipo nuevo = new Tipo();
                                         nuevo.setNombre(nombreDefaultNormalizado);
                                         Tipo guardado = tipoRepository.save(nuevo);
-                                        log.warn("Tipo con id {} no existía, se creó uno nuevo con id {} y nombre '{}'", 
+                                        log.warn("Tipo con id {} no existía, se creó uno nuevo con id {} y nombre '{}'",
                                                 idBuscado, guardado.getId(), guardado.getNombre());
                                         return guardado;
                                     });
@@ -2208,7 +2183,7 @@ public class ExcelServiceImpl implements ExcelService {
                         Tipo nuevo = new Tipo();
                         nuevo.setNombre("SIN TIPO");
                         Tipo guardado = tipoRepository.save(nuevo);
-                        log.warn("No había tipos en la BD, se creó uno nuevo con id {} y nombre 'SIN TIPO'", 
+                        log.warn("No había tipos en la BD, se creó uno nuevo con id {} y nombre 'SIN TIPO'",
                                 guardado.getId());
                         return guardado;
                     });
@@ -2224,7 +2199,7 @@ public class ExcelServiceImpl implements ExcelService {
         // id_padre)
         // Por lo tanto, solo puede haber UNA clasificación con ese nombre,
         // independientemente del padre
-        
+
         if (nombre == null || nombre.trim().isEmpty()) {
             return null;
         }
@@ -3075,10 +3050,10 @@ public class ExcelServiceImpl implements ExcelService {
         }
 
         // Agregar búsqueda de texto si existe
-        if (filter.texto() != null && !filter.texto().isBlank()) {
-            String textoCorto = filter.texto().length() > 10
-                    ? filter.texto().substring(0, 10)
-                    : filter.texto();
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String textoCorto = filter.search().length() > 10
+                    ? filter.search().substring(0, 10)
+                    : filter.search();
             sb.append("_").append(textoCorto);
         }
 
@@ -3103,8 +3078,8 @@ public class ExcelServiceImpl implements ExcelService {
             sb.append("_").append(filter.cuotas()).append("cuotas");
         }
 
-        if (filter.texto() != null && !filter.texto().isBlank()) {
-            String textoCorto = filter.texto().replaceAll("[^a-zA-Z0-9]", "");
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String textoCorto = filter.search().replaceAll("[^a-zA-Z0-9]", "");
             textoCorto = textoCorto.length() > 15 ? textoCorto.substring(0, 15) : textoCorto;
             sb.append("_").append(textoCorto);
         }
@@ -3126,8 +3101,8 @@ public class ExcelServiceImpl implements ExcelService {
 
     @Override
     public ExportCatalogoResultDTO exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
-                                   Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
-                                   Boolean esMaquina, String ordenarPor) throws IOException {
+                                                    Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
+                                                    Boolean esMaquina, String ordenarPor) throws IOException {
         log.info("Iniciando exportación de catálogo {} con canal {}, cuotas {}, clasifGralId {}, clasifGastroId {}, tipoId {}, marcaId {}, esMaquina {}, ordenarPor {}",
                 catalogoId, canalId, cuotas, clasifGralId, clasifGastroId, tipoId, marcaId, esMaquina, ordenarPor);
 
@@ -3320,9 +3295,9 @@ public class ExcelServiceImpl implements ExcelService {
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
-            String cuotasDesc = cuotas != null ? cuotas + " cuotas" : "sin cuotas";
             throw new IllegalArgumentException(
-                    String.format("No existen precios para el canal '%s' con %s", canal.getCanal(), cuotasDesc));
+                    String.format("No existen precios para el canal '%s' %s",
+                            canal.getCanal(), CuotasUtil.describirConPreposicion(cuotas)));
         }
 
         // Filtrar productos válidos y recolectar advertencias
@@ -3417,9 +3392,9 @@ public class ExcelServiceImpl implements ExcelService {
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
-            String cuotasDesc = cuotas != null ? cuotas + " cuotas" : "sin cuotas";
             throw new IllegalArgumentException(
-                    String.format("No existen precios para el canal '%s' con %s", canal.getCanal(), cuotasDesc));
+                    String.format("No existen precios para el canal '%s' %s",
+                            canal.getCanal(), CuotasUtil.describirConPreposicion(cuotas)));
         }
 
         // Filtrar productos válidos y recolectar advertencias

@@ -4,11 +4,12 @@ import ar.com.leo.super_master_backend.dominio.promocion.dto.PromocionCreateDTO;
 import ar.com.leo.super_master_backend.dominio.promocion.dto.PromocionDTO;
 import ar.com.leo.super_master_backend.dominio.promocion.dto.PromocionUpdateDTO;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface PromocionService {
 
-    List<PromocionDTO> listar();
+    Page<PromocionDTO> listar(String search, Pageable pageable);
 
     PromocionDTO obtenerPorId(Integer id);
 
