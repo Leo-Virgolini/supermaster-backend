@@ -7,7 +7,6 @@ target/
 logs/
 *.md
 !README.md
-*.sql
 
 ### STS ###
 .apt_generated
