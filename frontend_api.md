@@ -285,6 +285,39 @@ interface Page<T> {
 }
 ```
 
+### Búsqueda con `search`
+
+La mayoría de los endpoints de listado soportan un parámetro `search` para filtrado por texto:
+
+| Parámetro | Tipo   | Descripción                                      |
+|-----------|--------|--------------------------------------------------|
+| `search`  | string | Texto para buscar (case-insensitive, parcial)    |
+
+**Endpoints que soportan `search`:**
+- `/api/productos` - busca en descripción, SKU, título web
+- `/api/canales` - busca en nombre del canal
+- `/api/conceptos-gasto` - busca en concepto y descripción
+- `/api/catalogos` - busca en nombre
+- `/api/clientes` - busca en nombre
+- `/api/proveedores` - busca en nombre
+- `/api/marcas` - busca en nombre
+- `/api/tipos` - busca en nombre
+- `/api/origenes` - busca en nombre
+- `/api/materiales` - busca en nombre
+- `/api/aptos` - busca en nombre
+- `/api/clasif-gral` - busca en nombre
+- `/api/clasif-gastro` - busca en nombre
+- `/api/promociones` - busca en código y descripción
+- `/api/mlas` - busca en MLA y MLAU
+
+**Ejemplo:**
+```
+GET /api/productos?search=cafetera&page=0&size=10
+GET /api/marcas?search=oster
+```
+
+**Nota:** El parámetro `search` se puede combinar con paginación y ordenamiento.
+
 ### Formato de Errores
 
 ```typescript
