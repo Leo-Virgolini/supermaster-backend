@@ -7,6 +7,7 @@ public record ClasifGastroCreateDTO(
         @NotNull
         @Size(max = 45)
         String nombre,
+        Boolean esMaquina,
         Integer padreId
 ) {
 }

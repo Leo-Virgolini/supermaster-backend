@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 public record ClasifGastroUpdateDTO(
         @Size(max = 45)
         String nombre,
+        Boolean esMaquina,
         Integer padreId
 ) {
 }

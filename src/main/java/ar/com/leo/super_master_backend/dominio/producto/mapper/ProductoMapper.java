@@ -108,9 +108,11 @@ public interface ProductoMapper {
                                     obtenerDescripcionCuota(pcp.getCanal().getId(), pcp.getCuotas(), descripcionesCuotas),
                                     pcp.getPvp(),
                                     pcp.getPvpInflado(),
-                                    pcp.getCostoTotal(),
-                                    pcp.getGananciaAbs(),
-                                    pcp.getGananciaPorcentaje(),
+                                    pcp.getCostoProducto(),
+                                    pcp.getCostosVenta(),
+                                    pcp.getIngresoNetoVendedor(),
+                                    pcp.getGanancia(),
+                                    pcp.getMargenPorcentaje(),
                                     pcp.getMarkupPorcentaje(),
                                     pcp.getFechaUltimoCalculo()
                             ))

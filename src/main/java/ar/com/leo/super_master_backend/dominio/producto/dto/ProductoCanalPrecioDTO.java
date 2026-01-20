@@ -9,9 +9,11 @@ public record ProductoCanalPrecioDTO(
         Integer cuotas,
         BigDecimal pvp,
         BigDecimal pvpInflado,
-        BigDecimal costoTotal,
-        BigDecimal gananciaAbs,
-        BigDecimal gananciaPorcentaje,
+        BigDecimal costoProducto,
+        BigDecimal costosVenta,
+        BigDecimal ingresoNetoVendedor,
+        BigDecimal ganancia,
+        BigDecimal margenPorcentaje,
         BigDecimal markupPorcentaje,
         LocalDateTime fechaUltimoCalculo
 ) {

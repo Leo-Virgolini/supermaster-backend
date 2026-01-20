@@ -2605,7 +2605,7 @@ public class ExcelServiceImpl implements ExcelService {
 
     // Campos de precio por cada canal/cuota
     private static final String[] CAMPOS_PRECIO = {
-            "PVP", "PVP_INFLADO", "COSTO_TOTAL", "GANANCIA_ABS", "GANANCIA_PCT", "MARKUP_PCT", "FECHA_CALCULO"
+            "PVP", "PVP_INFLADO", "COSTO_PRODUCTO", "COSTOS_VENTA", "INGRESO_NETO", "GANANCIA", "MARGEN_PCT", "MARKUP_PCT", "FECHA_CALCULO"
     };
 
     // Colores para distinguir canales
@@ -2882,11 +2882,13 @@ public class ExcelServiceImpl implements ExcelService {
                                 switch (i) {
                                     case 0 -> setCellValue(cell, precio.pvp(), stylePrecioToUse);
                                     case 1 -> setCellValue(cell, precio.pvpInflado(), stylePrecioToUse);
-                                    case 2 -> setCellValue(cell, precio.costoTotal(), stylePrecioToUse);
-                                    case 3 -> setCellValue(cell, precio.gananciaAbs(), stylePrecioToUse);
-                                    case 4 -> setCellValue(cell, precio.gananciaPorcentaje(), styleToUse);
-                                    case 5 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
-                                    case 6 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
+                                    case 2 -> setCellValue(cell, precio.costoProducto(), stylePrecioToUse);
+                                    case 3 -> setCellValue(cell, precio.costosVenta(), stylePrecioToUse);
+                                    case 4 -> setCellValue(cell, precio.ingresoNetoVendedor(), stylePrecioToUse);
+                                    case 5 -> setCellValue(cell, precio.ganancia(), stylePrecioToUse);
+                                    case 6 -> setCellValue(cell, precio.margenPorcentaje(), styleToUse);
+                                    case 7 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
+                                    case 8 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
                                 }
                             } else {
                                 cell.setBlank();

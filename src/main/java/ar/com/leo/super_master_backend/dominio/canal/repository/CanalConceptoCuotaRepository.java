@@ -19,5 +19,8 @@ public interface CanalConceptoCuotaRepository extends JpaRepository<CanalConcept
     List<Integer> findDistinctCuotasByCanalId(Integer canalId);
 
     List<CanalConceptoCuota> findByCanalIdIn(java.util.Collection<Integer> canalIds);
+
+    @Query("SELECT DISTINCT c.canal.id FROM CanalConceptoCuota c ORDER BY c.canal.id")
+    List<Integer> findDistinctCanalIds();
 }
 

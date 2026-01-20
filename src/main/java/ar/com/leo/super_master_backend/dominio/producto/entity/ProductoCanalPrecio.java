@@ -59,17 +59,39 @@ public class ProductoCanalPrecio {
     @Column(name = "pvp_inflado", precision = 12, scale = 2)
     private BigDecimal pvpInflado;
 
-    @Column(name = "costo_total", precision = 12, scale = 2)
-    private BigDecimal costoTotal;
-
-    @Column(name = "ganancia_abs", precision = 12, scale = 2)
-    private BigDecimal gananciaAbs;
-
-    @Column(name = "ganancia_porcentaje", precision = 6, scale = 2)
-    private BigDecimal gananciaPorcentaje;
+    /**
+     * Costo del producto = costoBase × (1 + financiacionProveedor/100) × (1 + embalaje/100)
+     */
+    @Column(name = "costo_producto", precision = 12, scale = 2)
+    private BigDecimal costoProducto;
 
     /**
-     * Markup porcentaje: (gananciaAbs / costoTotal) * 100
+     * Costos de venta = Σ conceptos donde AplicaSobre IN (PVP, DESCUENTO, RECARGO_CUPON, ENVIO)
+     * EXCEPTO "EMBALAJE" + porcentajeCuotas
+     */
+    @Column(name = "costos_venta", precision = 12, scale = 2)
+    private BigDecimal costosVenta;
+
+    /**
+     * Ingreso neto vendedor = PVP - montoIVA - montoImpuestos - costosVenta
+     */
+    @Column(name = "ingreso_neto_vendedor", precision = 12, scale = 2)
+    private BigDecimal ingresoNetoVendedor;
+
+    /**
+     * Ganancia = ingresoNetoVendedor - costoProducto
+     */
+    @Column(name = "ganancia", precision = 12, scale = 2)
+    private BigDecimal ganancia;
+
+    /**
+     * Margen porcentaje = (ganancia / ingresoNetoVendedor) × 100
+     */
+    @Column(name = "margen_porcentaje", precision = 6, scale = 2)
+    private BigDecimal margenPorcentaje;
+
+    /**
+     * Markup porcentaje = (ganancia / costoProducto) × 100
      */
     @Column(name = "markup_porcentaje", precision = 6, scale = 2)
     private BigDecimal markupPorcentaje;

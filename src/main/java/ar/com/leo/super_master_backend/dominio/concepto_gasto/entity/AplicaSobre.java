@@ -10,14 +10,14 @@ package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
  *          NOTA: Para conceptos de cuotas (con campo cuotas != NULL), usar PVP.
  *                Estos conceptos se procesan de manera especial como divisor sobre el PVP base.
  * - COSTO_IVA: Se aplica sobre el costo después de aplicar IVA (se multiplica después de IMP)
- * - AUMENTA_MARGEN_PTS: Suma puntos porcentuales directamente al margen: GAN.MIN.ML + porcentaje
- *                       Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 25%, entonces ganancia = 60% + 25% = 85%
- * - REDUCE_MARGEN_PTS: Resta puntos porcentuales directamente del margen: GAN.MIN.ML - porcentaje
- *                      Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 20%, entonces ganancia = 60% - 20% = 40%
- * - AUMENTA_MARGEN_PROP: Aumenta el margen proporcionalmente: GAN.MIN.ML * (1 + porcentaje/100)
- *                        Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 10%, entonces ganancia = 60% * 1.10 = 66%
- * - REDUCE_MARGEN_PROP: Reduce el margen proporcionalmente: GAN.MIN.ML * (1 - porcentaje/100)
- *                       Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = 10%, entonces ganancia = 60% * 0.90 = 54%
+ * - MARGEN_PTS: Ajusta el margen sumando/restando puntos porcentuales: GAN.MIN.ML + porcentaje
+ *               El signo del porcentaje determina si aumenta (+) o reduce (-).
+ *               Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +25%, entonces ganancia = 85%
+ *               Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -20%, entonces ganancia = 40%
+ * - MARGEN_PROP: Ajusta el margen proporcionalmente: GAN.MIN.ML * (1 + porcentaje/100)
+ *                El signo del porcentaje determina si aumenta (+) o reduce (-).
+ *                Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +10%, entonces ganancia = 66%
+ *                Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -10%, entonces ganancia = 54%
  * - IMP: Se suma al factor de impuestos (IMP = 1 + IVA/100 + concepto/100)
  *        Ejemplo: IIBB se suma directamente al factor IMP
  * - RECARGO_CUPON: Se aplica como divisor adicional sobre el PVP después de GT3C, aumentando el precio
@@ -64,10 +64,8 @@ public enum AplicaSobre {
     COSTO,
     PVP,
     COSTO_IVA,
-    AUMENTA_MARGEN_PTS,
-    REDUCE_MARGEN_PTS,
-    AUMENTA_MARGEN_PROP,
-    REDUCE_MARGEN_PROP,
+    MARGEN_PTS,
+    MARGEN_PROP,
     IMP,
     RECARGO_CUPON,
     DESCUENTO,
