@@ -204,9 +204,9 @@ Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 |-------|-------------|
 | `pvp` | Precio de venta al público |
 | `pvp_inflado` | PVP con inflación (para mostrar tachado) |
-| `costo_producto` | Costo ajustado (con financiación/embalaje) |
-| `costos_venta` | Suma de comisiones y gastos |
-| `ingreso_neto_vendedor` | Lo que queda después de todo |
+| `costo_producto` | Costo base × (1 + financiación proveedor) |
+| `costos_venta` | Σ conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO (incluye embalaje, comisiones, cuotas) |
+| `ingreso_neto_vendedor` | PVP - IVA - impuestos - costosVenta |
 | `ganancia` | Ingreso neto - costo producto |
 | `margen_porcentaje` | (ganancia / ingreso neto) × 100 |
 | `markup_porcentaje` | (ganancia / costo) × 100 |
@@ -457,8 +457,8 @@ interface Precio {
   descripcion: string;             // "Transferencia", "Contado", "3 cuotas", etc.
   pvp: number;
   pvpInflado: number | null;
-  costoProducto: number;           // Costo base × financiación × embalaje
-  costosVenta: number;             // Suma de conceptos de venta aplicables
+  costoProducto: number;           // Costo base × (1 + financiación proveedor)
+  costosVenta: number;             // Σ conceptos PVP + DESCUENTO + RECARGO_CUPON + ENVIO + cuotas
   ingresoNetoVendedor: number;     // PVP - IVA - impuestos - costosVenta
   ganancia: number;                // ingresoNetoVendedor - costoProducto
   margenPorcentaje: number;        // (ganancia / ingresoNetoVendedor) × 100
