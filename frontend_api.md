@@ -8,9 +8,11 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
 
 ## Tabla de Contenidos
 
-1. [Convenciones Generales](#convenciones-generales)
-2. [Tipos TypeScript](#tipos-typescript)
-3. [Endpoints por Módulo](#endpoints-por-módulo)
+1. [Visión General del Sistema](#visión-general-del-sistema)
+2. [Modelo de Datos](#modelo-de-datos)
+3. [Convenciones Generales](#convenciones-generales)
+4. [Tipos TypeScript](#tipos-typescript)
+5. [Endpoints por Módulo](#endpoints-por-módulo)
    - [Productos](#productos)
    - [Precios](#precios)
    - [Canales](#canales)
@@ -20,6 +22,235 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Catálogos y Clientes](#catálogos-y-clientes)
    - [Atributos Maestros](#atributos-maestros)
    - [Excel](#excel-importexport)
+
+---
+
+## Visión General del Sistema
+
+Este backend gestiona un sistema de **cálculo de precios multicanal** para productos. La idea central es:
+
+1. **Productos** tienen un costo base e IVA
+2. **Canales** representan diferentes puntos de venta (ej: Mercado Libre, Tienda Nube, Mayorista, etc.)
+3. Cada canal tiene **conceptos de gasto** asociados que afectan el cálculo del precio
+4. Los precios se calculan automáticamente aplicando márgenes, impuestos, comisiones y descuentos
+5. Cada canal puede tener diferentes **opciones de cuotas** con recargos o descuentos
+
+### Flujo de Cálculo de Precios
+
+```
+┌─────────────┐     ┌─────────────┐     ┌──────────────────┐
+│  PRODUCTO   │     │   CANAL     │     │ PRECIO CALCULADO │
+│  - costo    │ ──► │  - conceptos│ ──► │  - pvp           │
+│  - iva      │     │  - cuotas   │     │  - ganancia      │
+│  - margen   │     │  - reglas   │     │  - margen %      │
+└─────────────┘     └─────────────┘     └──────────────────┘
+```
+
+**Fórmula simplificada:**
+```
+PVP = (COSTO × (1 + MARGEN/100) × FACTOR_IMP) / (1 - COMISIONES/100)
+```
+
+Donde los conceptos de gasto modifican diferentes partes de la fórmula según su `aplicaSobre`.
+
+---
+
+## Modelo de Datos
+
+### Diagrama de Relaciones
+
+```
+                                    ┌─────────────┐
+                                    │   MARCA     │
+                                    └──────┬──────┘
+                                           │
+┌─────────────┐    ┌─────────────┐    ┌────▼────────┐    ┌─────────────┐
+│  PROVEEDOR  │◄───┤  PRODUCTO   ├───►│    TIPO     │    │   ORIGEN    │
+│  -porcentaje│    │  -sku       │    └─────────────┘    └──────▲──────┘
+└─────────────┘    │  -costo     │                              │
+                   │  -iva       │◄─────────────────────────────┘
+                   └──────┬──────┘
+                          │
+          ┌───────────────┼───────────────┐
+          │               │               │
+          ▼               ▼               ▼
+   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+   │  CATALOGO   │ │   CLIENTE   │ │    APTO     │
+   │  (N:M)      │ │   (N:M)     │ │   (N:M)     │
+   └─────────────┘ └─────────────┘ └─────────────┘
+
+                   ┌─────────────┐
+                   │   PRODUCTO  │
+                   │   MARGEN    │
+                   │ -minorista  │
+                   │ -mayorista  │
+                   └──────┬──────┘
+                          │
+                          ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   CANAL     │◄───┤  PRODUCTO   │    │    MLA      │
+│  -nombre    │    │   CANAL     │◄───┤  -mla       │
+│  -canalBase │    │   PRECIO    │    │  -precioEnvio│
+└──────┬──────┘    │  -pvp       │    └─────────────┘
+       │           │  -ganancia  │
+       │           └─────────────┘
+       │
+       ├────────────────┬────────────────┐
+       ▼                ▼                ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│   CANAL     │  │   CANAL     │  │   REGLA     │
+│  CONCEPTO   │  │  CONCEPTO   │  │  DESCUENTO  │
+│  (N:M)      │  │   CUOTA     │  │  -monto     │
+└──────┬──────┘  │  -cuotas    │  │  -descuento │
+       │         │  -porcentaje│  └─────────────┘
+       ▼         └─────────────┘
+┌─────────────┐
+│  CONCEPTO   │
+│   GASTO     │
+│ -porcentaje │
+│ -aplicaSobre│
+└─────────────┘
+```
+
+### Tablas Principales
+
+#### 1. `productos` - Catálogo de Productos
+| Campo | Descripción |
+|-------|-------------|
+| `sku` | Código único del producto |
+| `descripcion` | Nombre interno |
+| `titulo_web` | Nombre para mostrar en web |
+| `costo` | Precio de compra/costo base |
+| `iva` | Porcentaje de IVA (ej: 21) |
+| `es_combo` | Si es un pack/combo |
+| `stock` | Cantidad disponible |
+| `activo` | Si está activo para venta |
+
+**Relaciones:** marca, tipo, origen, material, proveedor, clasificaciones (gral y gastro), MLA.
+
+#### 2. `producto_margen` - Márgenes por Producto
+| Campo | Descripción |
+|-------|-------------|
+| `margen_minorista` | % ganancia para canales minoristas |
+| `margen_mayorista` | % ganancia para canales mayoristas |
+| `margen_fijo_*` | Ganancia fija en $ (opcional, tiene prioridad) |
+
+Cada producto puede tener UN registro de márgenes. El canal determina cuál usar según tenga el concepto `MARGEN_MINORISTA` o `MARGEN_MAYORISTA`.
+
+#### 3. `canales` - Canales de Venta
+| Campo | Descripción |
+|-------|-------------|
+| `canal` | Nombre del canal (ej: "ML", "KT GASTRO") |
+| `canal_base_id` | Canal padre para calcular sobre su PVP |
+
+**Ejemplos de canales:**
+- ML (Mercado Libre)
+- KT HOGAR (Tienda Nube Hogar)
+- KT GASTRO (Tienda Nube Gastronómico)
+- MAYORISTA
+
+#### 4. `conceptos_gastos` - Conceptos de Costo/Gasto
+| Campo | Descripción |
+|-------|-------------|
+| `concepto` | Nombre (ej: "GTML", "IIBB", "IVA") |
+| `porcentaje` | Valor del concepto |
+| `aplica_sobre` | Cómo se aplica en la fórmula |
+
+**Valores de `aplica_sobre`:**
+
+| Valor | Descripción | Ejemplo |
+|-------|-------------|---------|
+| `COSTO` | Se suma al costo base | Embalaje +2% |
+| `PVP` | Se aplica sobre precio final | Comisión ML -13% |
+| `IMP` | Se suma a impuestos | IIBB +3.5% |
+| `MARGEN_PTS` | Ajusta margen en puntos | +5 puntos al margen |
+| `MARGEN_PROP` | Ajusta margen proporcional | -12% del margen |
+| `RECARGO_CUPON` | Divisor sobre PVP | Cupones +5% |
+| `DESCUENTO` | Descuento final | Promo -10% |
+| `ENVIO` | Usa precio de envío del MLA | Envío gratis |
+| `INFLACION` | Divisor de inflación | Inflación +8% |
+| `PROVEEDOR_FIN` | Usa % financiación del proveedor | |
+| `IVA` | Flag: aplicar IVA del producto | |
+| `MARGEN_MINORISTA` | Flag: usar margen minorista | |
+| `MARGEN_MAYORISTA` | Flag: usar margen mayorista | |
+| `PROMOCION` | Flag: aplicar promociones | |
+| `SOBRE_PVP_BASE` | Calcula sobre PVP del canal base | |
+
+#### 5. `canal_concepto` - Conceptos Asignados a Canales
+Tabla intermedia que relaciona qué conceptos aplican a cada canal.
+
+**Ejemplo:**
+- Canal "ML" tiene: GTML, IIBB, IVA, MARGEN_MINORISTA
+- Canal "MAYORISTA" tiene: IVA, MARGEN_MAYORISTA
+
+#### 6. `canal_concepto_cuota` - Opciones de Cuotas por Canal
+| Campo | Descripción |
+|-------|-------------|
+| `cuotas` | -1=transferencia, 0=contado, >0=cuotas |
+| `porcentaje` | Recargo (+) o descuento (-) |
+| `descripcion` | Texto a mostrar |
+
+**Ejemplo para canal ML:**
+| cuotas | porcentaje | descripcion |
+|--------|------------|-------------|
+| -1 | -15 | Transferencia |
+| 0 | 0 | Contado |
+| 1 | 0 | 1 cuota sin interés |
+| 3 | 10 | 3 cuotas |
+| 6 | 20 | 6 cuotas |
+
+#### 7. `producto_canal_precios` - Precios Calculados
+| Campo | Descripción |
+|-------|-------------|
+| `pvp` | Precio de venta al público |
+| `pvp_inflado` | PVP con inflación (para mostrar tachado) |
+| `costo_producto` | Costo ajustado (con financiación/embalaje) |
+| `costos_venta` | Suma de comisiones y gastos |
+| `ingreso_neto_vendedor` | Lo que queda después de todo |
+| `ganancia` | Ingreso neto - costo producto |
+| `margen_porcentaje` | (ganancia / ingreso neto) × 100 |
+| `markup_porcentaje` | (ganancia / costo) × 100 |
+
+**Clave única:** (producto, canal, cuotas)
+
+#### 8. `reglas_descuento` - Descuentos Automáticos
+| Campo | Descripción |
+|-------|-------------|
+| `canal_id` | Canal donde aplica |
+| `monto_minimo` | Monto mínimo para aplicar |
+| `descuento_porcentaje` | % de descuento |
+| `prioridad` | Orden de evaluación |
+| `catalogo_id` | Filtro por catálogo (opcional) |
+| `clasif_gral_id` | Filtro por clasificación (opcional) |
+
+#### 9. `promociones` - Promociones Globales
+| Campo | Descripción |
+|-------|-------------|
+| `codigo` | Código único |
+| `tipo` | MULTIPLICADOR, DESCUENTO_PORC, DIVISOR, PRECIO_FIJO |
+| `valor` | Valor según el tipo |
+
+#### 10. `mlas` - Datos de Mercado Libre
+| Campo | Descripción |
+|-------|-------------|
+| `mla` | Código MLA (ej: "MLA123456") |
+| `mlau` | Código MLAU (variante) |
+| `precio_envio` | Costo de envío para concepto ENVIO |
+
+### Tablas de Clasificación (Maestros)
+
+| Tabla | Descripción |
+|-------|-------------|
+| `marcas` | Marcas de productos (jerárquica) |
+| `tipos` | Tipos de producto (jerárquica) |
+| `origenes` | País/origen del producto |
+| `materiales` | Material del producto |
+| `aptos` | Certificaciones (apto celíaco, vegano, etc.) |
+| `clasif_gral` | Clasificación general (jerárquica) |
+| `clasif_gastro` | Clasificación gastronómica (jerárquica, tiene `es_maquina`) |
+| `catalogos` | Catálogos/listas de precios |
+| `clientes` | Clientes especiales |
+| `proveedores` | Proveedores con % financiación |
 
 ---
 
