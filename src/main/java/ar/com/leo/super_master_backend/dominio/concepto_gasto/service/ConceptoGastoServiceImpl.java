@@ -60,12 +60,16 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
                 .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
 
         BigDecimal porcentajeAnterior = entity.getPorcentaje();
+        var aplicaSobreAnterior = entity.getAplicaSobre();
 
         mapper.updateEntityFromDTO(dto, entity);
         conceptoRepository.save(entity);
 
-        // Si cambió el porcentaje, recalcular todos los productos afectados
-        if (dto.porcentaje() != null && dto.porcentaje().compareTo(porcentajeAnterior) != 0) {
+        // Si cambió el porcentaje o aplicaSobre, recalcular todos los productos afectados
+        boolean cambioPorcentaje = dto.porcentaje() != null && dto.porcentaje().compareTo(porcentajeAnterior) != 0;
+        boolean cambioAplicaSobre = dto.aplicaSobre() != null && !dto.aplicaSobre().equals(aplicaSobreAnterior);
+
+        if (cambioPorcentaje || cambioAplicaSobre) {
             recalculoFacade.recalcularPorCambioConceptoGasto(id);
         }
 

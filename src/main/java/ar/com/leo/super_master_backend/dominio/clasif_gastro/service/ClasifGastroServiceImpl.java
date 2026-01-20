@@ -7,11 +7,14 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.mapper.ClasifGastroMapper;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +22,7 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
 
     private final ClasifGastroRepository repo;
     private final ClasifGastroMapper mapper;
+    private final RecalculoPrecioFacade recalculoFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -53,8 +57,15 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
         ClasifGastro entity = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Clasificación Gastro no encontrada"));
 
+        Boolean esMaquinaAnterior = entity.getEsMaquina();
+
         mapper.updateEntityFromDTO(dto, entity);
         repo.save(entity);
+
+        // Si cambió esMaquina, recalcular todos los productos de esta clasificación
+        if (dto.esMaquina() != null && !Objects.equals(dto.esMaquina(), esMaquinaAnterior)) {
+            recalculoFacade.recalcularPorCambioClasifGastro(id);
+        }
 
         return mapper.toDTO(entity);
     }

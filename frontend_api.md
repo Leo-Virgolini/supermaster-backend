@@ -222,8 +222,8 @@ interface CanalPrecios {
 }
 
 interface Precio {
-  cuotas: number | null;           // null = sin cuotas, 0 = contado/transferencia
-  descripcion: string;             // "Transferencia", "3 cuotas", etc.
+  cuotas: number;                  // -1 = transferencia, 0 = contado, >0 = cuotas
+  descripcion: string;             // "Transferencia", "Contado", "3 cuotas", etc.
   pvp: number;
   pvpInflado: number | null;
   costoProducto: number;           // Costo base × financiación × embalaje
@@ -391,14 +391,14 @@ interface CanalConcepto {
 interface CanalConceptoCuota {
   id: number;
   canalId: number;
-  cuotas: number;         // 0 = contado/transferencia, 1+ = cuotas
+  cuotas: number;         // -1 = transferencia, 0 = contado, >0 = cuotas
   porcentaje: number;     // positivo = recargo, negativo = descuento
-  descripcion: string | null;  // "Transferencia", "3 cuotas sin interés", etc.
+  descripcion: string | null;  // "Transferencia", "Contado", "3 cuotas", etc.
 }
 
 interface CanalConceptoCuotaCreate {
   canalId: number;
-  cuotas: number;         // >= 0
+  cuotas: number;         // -1 = transferencia, 0 = contado, >0 = cuotas
   porcentaje: number;     // -100 a 100
   descripcion?: string;
 }
@@ -744,7 +744,7 @@ GET /api/precios/formula?productoId=1&canalId=2&cuotas=0
 **Query params:**
 - `productoId` (required): ID del producto
 - `canalId` (required): ID del canal
-- `cuotas` (required): Número de cuotas (0 = contado/transferencia)
+- `cuotas` (required): Número de cuotas (-1 = transferencia, 0 = contado, >0 = cuotas)
 
 **Response:** `FormulaCalculo`
 
@@ -813,7 +813,7 @@ interface CalculoResultadoDTO {
       "canalNombre": "KT GASTRO",
       "precios": [
         {
-          "cuotas": 0,
+          "cuotas": -1,
           "descripcion": "Transferencia",
           "pvp": 8640.85,
           "pvpInflado": null,
@@ -878,7 +878,7 @@ DELETE /api/canal-concepto-cuotas/{id}                    # Eliminar
 ```json
 {
   "canalId": 1,
-  "cuotas": 0,
+  "cuotas": -1,
   "porcentaje": -15,
   "descripcion": "Transferencia bancaria"
 }
@@ -887,9 +887,9 @@ DELETE /api/canal-concepto-cuotas/{id}                    # Eliminar
 **Ejemplos de configuración:**
 | cuotas | porcentaje | descripcion | Significado |
 |--------|------------|-------------|-------------|
-| 0 | -15 | Transferencia | 15% descuento por transferencia |
+| -1 | -15 | Transferencia | 15% descuento por transferencia |
 | 0 | 0 | Contado | Precio contado sin cambio |
-| 1 | 0 | Cuota promocionada | 1 cuota sin interés |
+| 1 | 0 | 1 cuota | 1 cuota sin interés |
 | 3 | 10 | 3 cuotas | 3 cuotas con 10% recargo |
 | 6 | 20 | 6 cuotas | 6 cuotas con 20% recargo |
 
@@ -1221,7 +1221,19 @@ try {
 
 ## Notas para el Frontend
 
-1. **Recálculo automático:** Cuando se modifican ciertos datos (costo, IVA, márgenes, conceptos), el backend recalcula automáticamente los precios afectados.
+1. **Recálculo automático:** El backend recalcula automáticamente los precios cuando se modifican:
+
+   | Dato modificado | Alcance del recálculo |
+   |-----------------|----------------------|
+   | Producto (costo, IVA) | Ese producto en todos sus canales |
+   | ProductoMargen (márgenes) | Ese producto en todos sus canales |
+   | ConceptoGasto (porcentaje o aplicaSobre) | Todos los productos de canales que usan ese concepto |
+   | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
+   | Proveedor (porcentaje financiación) | Todos los productos de ese proveedor |
+   | ReglaDescuento | Todos los productos del canal de la regla |
+   | Promoción (asignar/desasignar) | Ese producto en ese canal |
+   | MLA (precioEnvio) | Todos los productos con ese MLA |
+   | ClasifGastro (esMaquina) | Todos los productos de esa clasificación en todos sus canales |
 
 2. **Filtros many-to-many:** Para filtrar por múltiples valores, enviar como array o separados por coma:
    ```
@@ -1241,6 +1253,11 @@ try {
 
 6. **Conceptos flag:** Algunos conceptos (`IVA`, `MARGEN_MINORISTA`, `MARGEN_MAYORISTA`, `PROMOCION`) actúan como flags. Solo importa si están asignados al canal o no, el porcentaje se ignora.
 
-7. **Cuotas:** El sistema usa `cuotas=0` para contado/transferencia. Solo se calculan las opciones configuradas en `canal_concepto_cuota` para cada canal.
+7. **Cuotas:** El sistema de cuotas usa:
+   - `cuotas = -1` → Transferencia (generalmente con descuento)
+   - `cuotas = 0` → Contado (precio base)
+   - `cuotas > 0` → Cantidad de cuotas (1, 3, 6, 12, etc.)
+
+   Solo se calculan las opciones configuradas en `canal_concepto_cuota` para cada canal.
 
 8. **Porcentaje en cuotas:** Valores positivos son recargos (ej: +10% para 3 cuotas), valores negativos son descuentos (ej: -15% para transferencia).

@@ -155,14 +155,15 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula cuando cambia la clasificación gastronómica de un producto (esMaquina).
-     * Alcance: Ese producto en todos sus canales.
+     * Recalcula cuando cambia la clasificación gastronómica (esMaquina).
+     * Alcance: Todos los productos de esa clasificación en todos sus canales.
      */
     @Transactional
-    public void recalcularPorCambioClasifGastro(Integer idProducto) {
-        log.info("Recalculando precios por cambio en clasificación gastronómica: producto={}", idProducto);
+    public void recalcularPorCambioClasifGastro(Integer idClasifGastro) {
+        log.info("Recalculando precios por cambio en clasificación gastronómica: clasifGastro={}", idClasifGastro);
 
-        recalcularPorCambioProducto(idProducto);
+        productoRepository.findByClasifGastroId(idClasifGastro)
+                .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
     }
 
     /**
