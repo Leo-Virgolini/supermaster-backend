@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -50,22 +51,22 @@ public class ExcelController {
             log.error("Error de validación al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(
                     ImportCompletoResultDTO.withErrors(0, 0, 1,
-                            new java.util.HashMap<>(),
-                            java.util.List.of(e.getMessage()))
+                            new HashMap<>(),
+                            List.of(e.getMessage()))
             );
         } catch (IOException e) {
             log.error("Error de I/O al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     ImportCompletoResultDTO.withErrors(0, 0, 1,
-                            new java.util.HashMap<>(),
-                            java.util.List.of("Error de lectura/escritura: " + e.getMessage()))
+                            new HashMap<>(),
+                            List.of("Error de lectura/escritura: " + e.getMessage()))
             );
         } catch (Exception e) {
             log.error("Error inesperado al importar migración: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     ImportCompletoResultDTO.withErrors(0, 0, 1,
-                            new java.util.HashMap<>(),
-                            java.util.List.of("Error inesperado: " + e.getMessage()))
+                            new HashMap<>(),
+                            List.of("Error inesperado: " + e.getMessage()))
             );
         }
     }

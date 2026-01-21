@@ -24,6 +24,7 @@ import ar.com.leo.super_master_backend.dominio.promocion.entity.TipoPromocionTab
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,12 +32,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CalculoPrecioServiceImpl implements CalculoPrecioService {
@@ -59,6 +58,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private static final BigDecimal CIEN = BigDecimal.valueOf(100);
     private static final int PRECISION_CALCULO = 6;
     private static final int PRECISION_RESULTADO = 2;
+
+    // ====================================================
+    // CACHE PARA RECÁLCULO MASIVO (ThreadLocal para evitar problemas de concurrencia)
+    // ====================================================
+    private static final ThreadLocal<Map<String, BigDecimal>> CACHE_PORCENTAJE_CUOTAS = new ThreadLocal<>();
+    // Cache de precios calculados para canales base (clave: "productoId-canalId-cuotas")
+    private static final ThreadLocal<Map<String, PrecioCalculadoDTO>> CACHE_PRECIOS_BASE = new ThreadLocal<>();
 
     // ====================================================
     // API PÚBLICA
@@ -173,6 +179,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptos,
             Integer numeroCuotas,
             Integer idCanal) {
+        Canal canalActual = canalRepository.findById(idCanal).orElse(null);
+        return calcularPrecioUnificado(producto, productoMargen, conceptos, numeroCuotas, idCanal, canalActual);
+    }
+
+    /**
+     * Versión optimizada que recibe el Canal pre-cargado (evita consulta a BD).
+     */
+    private PrecioCalculadoDTO calcularPrecioUnificado(
+            Producto producto,
+            ProductoMargen productoMargen,
+            List<CanalConcepto> conceptos,
+            Integer numeroCuotas,
+            Integer idCanal,
+            Canal canalActual) {
         if (producto.getCosto() == null || producto.getCosto().compareTo(BigDecimal.ZERO) == 0) {
             throw new BadRequestException("El producto no tiene costo cargado");
         }
@@ -186,7 +206,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // CASO ESPECIAL: CANAL CON CANAL_BASE
         // Si el canal tiene canalBase configurado, el cálculo se basa en el PVP del canal padre
         // ============================================
-        Canal canalActual = canalRepository.findById(idCanal).orElse(null);
         boolean tieneCanalBase = canalActual != null && canalActual.getCanalBase() != null;
 
         if (tieneCanalBase) {
@@ -582,7 +601,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptos,
             Integer numeroCuotas,
             Integer idCanal) {
-        List<FormulaCalculoDTO.PasoCalculo> pasos = new java.util.ArrayList<>();
+        List<FormulaCalculoDTO.PasoCalculo> pasos = new ArrayList<>();
         int pasoNumero = 1;
 
         // ============================================
@@ -1118,11 +1137,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptos,
             Integer idCanal,
             Integer numeroCuotas) {
-
-
-        // Obtener el canal actual para acceder al canal base
         Canal canalActual = canalRepository.findById(idCanal)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado: " + idCanal));
+        return calcularPrecioSobrePvpBase(producto, productoMargen, conceptos, idCanal, numeroCuotas, canalActual);
+    }
+
+    /**
+     * Versión optimizada que recibe el Canal pre-cargado.
+     */
+    private PrecioCalculadoDTO calcularPrecioSobrePvpBase(
+            Producto producto,
+            ProductoMargen productoMargen,
+            List<CanalConcepto> conceptos,
+            Integer idCanal,
+            Integer numeroCuotas,
+            Canal canalActual) {
 
         if (canalActual.getCanalBase() == null) {
             throw new BadRequestException(
@@ -1131,8 +1160,23 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         Integer idCanalBase = canalActual.getCanalBase().getId();
 
-        // Calcular el precio del canal base en tiempo real (llamada recursiva)
-        PrecioCalculadoDTO precioBase = calcularPrecioCanal(producto.getId(), idCanalBase, null);
+        // Intentar obtener del cache primero (optimización para recálculo masivo)
+        PrecioCalculadoDTO precioBase = null;
+        Map<String, PrecioCalculadoDTO> cachePrecios = CACHE_PRECIOS_BASE.get();
+        if (cachePrecios != null) {
+            // Buscar en cache: primero contado (null o 0), luego transferencia (-1)
+            String claveContado = producto.getId() + "-" + idCanalBase + "-0";
+            String claveNull = producto.getId() + "-" + idCanalBase + "-null";
+            precioBase = cachePrecios.get(claveContado);
+            if (precioBase == null) {
+                precioBase = cachePrecios.get(claveNull);
+            }
+        }
+
+        // Si no está en cache, calcular (fallback para llamadas individuales)
+        if (precioBase == null) {
+            precioBase = calcularPrecioCanal(producto.getId(), idCanalBase, null);
+        }
 
         BigDecimal pvpCanalBase = precioBase.pvp();
         if (pvpCanalBase == null || pvpCanalBase.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1222,7 +1266,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<CanalConcepto> conceptosSobrePvpBase,
             Integer idCanal) {
 
-        List<FormulaCalculoDTO.PasoCalculo> pasos = new java.util.ArrayList<>();
+        List<FormulaCalculoDTO.PasoCalculo> pasos = new ArrayList<>();
         int pasoNumero = 1;
 
         // Obtener el canal actual y su canal base
@@ -1304,6 +1348,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * @return Porcentaje de cuota o null si no se encuentra
      */
     private BigDecimal obtenerPorcentajeCuota(Integer idCanal, Integer numeroCuotas) {
+        // Usar cache si está disponible (recálculo masivo)
+        Map<String, BigDecimal> cache = CACHE_PORCENTAJE_CUOTAS.get();
+        if (cache != null) {
+            String clave = idCanal + "-" + numeroCuotas;
+            return cache.getOrDefault(clave, BigDecimal.ZERO);
+        }
+
+        // Sin cache: consulta normal a BD
         List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas);
 
         return cuotasCanal.stream()
@@ -1496,13 +1548,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * <p>
      * NOTA: Los valores de aplica_sobre para ajuste de margen:
      * - MARGEN_PTS: Suma/resta puntos porcentuales al margen (GAN.MIN.ML + porcentaje)
-     *   El signo del porcentaje determina si aumenta (+) o reduce (-).
-     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +25%, entonces ganancia = 85%
-     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -20%, entonces ganancia = 40%
+     * El signo del porcentaje determina si aumenta (+) o reduce (-).
+     * Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +25%, entonces ganancia = 85%
+     * Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -20%, entonces ganancia = 40%
      * - MARGEN_PROP: Ajusta el margen proporcionalmente (MARGEN * (1 + porcentaje/100))
-     *   El signo del porcentaje determina si aumenta (+) o reduce (-).
-     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +10%, entonces ganancia = 66%
-     *   Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -10%, entonces ganancia = 54%
+     * El signo del porcentaje determina si aumenta (+) o reduce (-).
+     * Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = +10%, entonces ganancia = 66%
+     * Ejemplo: Si GAN.MIN.ML = 60% y porcentaje = -10%, entonces ganancia = 54%
      * NOTA: Esta aplicación es consistente para todos los canales.
      * <p>
      * NOTA: Todos los conceptos (comunes y específicos) deben estar en
@@ -1641,8 +1693,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoGasto> conceptos, Integer idCanal) {
         // Obtener las relaciones canal_concepto para estos conceptos y el canal
         List<CanalConcepto> relacionesExistentes = canalConceptoRepository.findByCanalId(idCanal);
-        java.util.Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
-                .collect(java.util.stream.Collectors.toMap(
+        Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
+                .collect(Collectors.toMap(
                         cc -> cc.getConcepto().getId(),
                         cc -> cc,
                         (existing, replacement) -> existing));
@@ -1855,7 +1907,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
 
         // Solo calcular las cuotas configuradas en canal_concepto_cuota
-        List<PrecioCalculadoDTO> precios = new java.util.ArrayList<>();
+        List<PrecioCalculadoDTO> precios = new ArrayList<>();
 
         for (Integer cuotas : cuotasCanal) {
             precios.add(calcularPrecioCanal(idProducto, idCanal, cuotas));
@@ -1872,7 +1924,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Obtener descripciones de cada cuota para el canal
         Map<Integer, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalId(idCanal).stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         CanalConceptoCuota::getCuotas,
                         c -> c.getDescripcion() != null ? c.getDescripcion() : "",
                         (a, b) -> a
@@ -2007,61 +2059,371 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         return resultados;
     }
 
+    // No usar @Transactional porque realentiza considerablemente
     @Override
-    @Transactional
     public int recalcularTodos() {
-        // Obtener todos los productos que tienen márgenes configurados
+        log.info("Iniciando recálculo masivo optimizado...");
+        long inicio = System.currentTimeMillis();
+
+        // =====================================================
+        // PASO 1: PRECARGAR TODOS LOS DATOS EN MEMORIA
+        // =====================================================
+        log.info("Precargando datos en memoria...");
+
+        // Productos con márgenes
         List<ProductoMargen> productosConMargenes = productoMargenRepository.findAll();
         List<Canal> todosLosCanales = canalRepository.findAll();
 
-        int totalRecalculados = 0;
+        // Cache de conceptos por canal (evita N consultas)
+        Map<Integer, List<CanalConcepto>> conceptosPorCanal = new HashMap<>();
+        for (Canal canal : todosLosCanales) {
+            conceptosPorCanal.put(canal.getId(), canalConceptoRepository.findByCanalId(canal.getId()));
+        }
 
+        // Cache de cuotas por canal
+        Map<Integer, List<Integer>> cuotasPorCanal = new HashMap<>();
+        Map<Integer, List<CanalConceptoCuota>> cuotasConfigPorCanal = new HashMap<>();
+        for (Canal canal : todosLosCanales) {
+            cuotasPorCanal.put(canal.getId(), canalConceptoCuotaRepository.findDistinctCuotasByCanalId(canal.getId()));
+            cuotasConfigPorCanal.put(canal.getId(), canalConceptoCuotaRepository.findByCanalId(canal.getId()));
+        }
+
+        // Cache de reglas por canal
+        Map<Integer, List<CanalConceptoRegla>> reglasPorCanal = new HashMap<>();
+        for (Canal canal : todosLosCanales) {
+            reglasPorCanal.put(canal.getId(), canalConceptoReglaRepository.findByCanalId(canal.getId()));
+        }
+
+        // Cache de reglas de descuento por canal
+        Map<Integer, List<ReglaDescuento>> reglasDescuentoPorCanal = new HashMap<>();
+        for (Canal canal : todosLosCanales) {
+            reglasDescuentoPorCanal.put(canal.getId(),
+                    reglaDescuentoRepository.findByCanalIdAndActivoTrueOrderByPrioridadAsc(canal.getId()));
+        }
+
+        // Determinar qué tipo de margen usa cada canal
+        Map<Integer, AplicaSobre> tipoMargenPorCanal = new HashMap<>();
+        for (Canal canal : todosLosCanales) {
+            List<CanalConcepto> conceptos = conceptosPorCanal.get(canal.getId());
+            for (CanalConcepto cc : conceptos) {
+                if (cc.getConcepto() != null) {
+                    AplicaSobre aplicaSobre = cc.getConcepto().getAplicaSobre();
+                    if (aplicaSobre == AplicaSobre.MARGEN_MAYORISTA || aplicaSobre == AplicaSobre.MARGEN_MINORISTA) {
+                        tipoMargenPorCanal.put(canal.getId(), aplicaSobre);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Precargar TODOS los precios existentes (evita ~100k consultas individuales)
+        log.info("Precargando precios existentes...");
+        List<ProductoCanalPrecio> todosLosPrecios = productoCanalPrecioRepository.findAll();
+        Map<String, ProductoCanalPrecio> preciosExistentes = todosLosPrecios.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getProducto().getId() + "-" + p.getCanal().getId() + "-" + p.getCuotas(),
+                        p -> p,
+                        (a, b) -> a
+                ));
+        log.info("Precios existentes cargados: {}", preciosExistentes.size());
+
+        // Cache de porcentajes de cuotas (evita ~100k consultas)
+        Map<String, BigDecimal> cachePorcentajeCuotas = new HashMap<>();
+        for (Map.Entry<Integer, List<CanalConceptoCuota>> entry : cuotasConfigPorCanal.entrySet()) {
+            Integer canalId = entry.getKey();
+            for (CanalConceptoCuota cuotaConfig : entry.getValue()) {
+                String clave = canalId + "-" + cuotaConfig.getCuotas();
+                cachePorcentajeCuotas.put(clave, cuotaConfig.getPorcentaje() != null ? cuotaConfig.getPorcentaje() : BigDecimal.ZERO);
+            }
+        }
+
+        log.info("Datos precargados: {} productos, {} canales, {} conceptos, {} precios existentes, {} config cuotas",
+                productosConMargenes.size(), todosLosCanales.size(),
+                conceptosPorCanal.values().stream().mapToInt(List::size).sum(),
+                preciosExistentes.size(), cachePorcentajeCuotas.size());
+
+        // Setear cache en ThreadLocal para que lo use obtenerPorcentajeCuota()
+        CACHE_PORCENTAJE_CUOTAS.set(cachePorcentajeCuotas);
+
+        // Separar canales en "base" (sin canalBase) y "dependientes" (con canalBase)
+        List<Canal> canalesBase = todosLosCanales.stream()
+                .filter(c -> c.getCanalBase() == null)
+                .collect(Collectors.toList());
+        List<Canal> canalesDependientes = todosLosCanales.stream()
+                .filter(c -> c.getCanalBase() != null)
+                .collect(Collectors.toList());
+
+        log.info("Canales base: {}, canales dependientes: {}", canalesBase.size(), canalesDependientes.size());
+
+        // Inicializar cache de precios calculados para canales base
+        Map<String, PrecioCalculadoDTO> cachePrecios = new HashMap<>();
+        CACHE_PRECIOS_BASE.set(cachePrecios);
+
+        // =====================================================
+        // PASO 2: CALCULAR PRECIOS (dos pasadas)
+        // =====================================================
+        int totalProductos = productosConMargenes.size();
+        int totalRecalculados = 0;
+        int productosCalculados = 0;
+        int errores = 0;
+        List<ProductoCanalPrecio> batchParaGuardar = new ArrayList<>();
+        int BATCH_SIZE = 500;
+
+        // ==============================================================
+        // PASADA 1: Calcular precios de canales BASE y guardar en cache
+        // ==============================================================
+        log.info("Pasada 1: Calculando canales base...");
         for (ProductoMargen productoMargen : productosConMargenes) {
+            Producto producto = productoMargen.getProducto();
+
             // Ignorar productos sin costo
-            BigDecimal costo = productoMargen.getProducto().getCosto();
+            BigDecimal costo = producto.getCosto();
             if (costo == null || costo.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
-            Integer idProducto = productoMargen.getProducto().getId();
+            Integer idProducto = producto.getId();
 
-            for (Canal canal : todosLosCanales) {
-                if (!tieneMargenValidoParaCanal(productoMargen, canal)) {
+            for (Canal canal : canalesBase) {
+                Integer idCanal = canal.getId();
+
+                // Verificar si el canal tiene margen válido para este producto
+                AplicaSobre tipoMargen = tipoMargenPorCanal.get(idCanal);
+                if (tipoMargen == null) {
                     continue;
                 }
 
-                try {
-                    CanalPreciosDTO resultado = recalcularYGuardarPrecioCanalTodasCuotas(idProducto, canal.getId());
-                    totalRecalculados += resultado.precios().size();
-                } catch (Exception e) {
-                    // Log silencioso, continuar con el siguiente
+                BigDecimal margen = (tipoMargen == AplicaSobre.MARGEN_MAYORISTA)
+                        ? productoMargen.getMargenMayorista()
+                        : productoMargen.getMargenMinorista();
+
+                if (margen == null || margen.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+
+                List<Integer> cuotasDelCanal = cuotasPorCanal.get(idCanal);
+                if (cuotasDelCanal == null || cuotasDelCanal.isEmpty()) {
+                    continue;
+                }
+
+                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
+                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
+                List<ConceptoGasto> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
+                List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
+
+                for (Integer cuotas : cuotasDelCanal) {
+                    try {
+                        PrecioCalculadoDTO precioCalculado = calcularPrecioUnificado(
+                                producto, productoMargen, conceptosParaCalculo, cuotas, idCanal, canal);
+
+                        // Guardar en cache para uso por canales dependientes
+                        String claveCache = idProducto + "-" + idCanal + "-" + cuotas;
+                        cachePrecios.put(claveCache, precioCalculado);
+
+                        // Buscar precio existente y actualizar
+                        String clavePrecio = idProducto + "-" + idCanal + "-" + cuotas;
+                        ProductoCanalPrecio pcp = preciosExistentes.get(clavePrecio);
+                        if (pcp == null) {
+                            pcp = new ProductoCanalPrecio();
+                            pcp.setProducto(producto);
+                            pcp.setCanal(canal);
+                            pcp.setCuotas(cuotas);
+                        }
+
+                        pcp.setPvp(precioCalculado.pvp());
+                        pcp.setPvpInflado(precioCalculado.pvpInflado());
+                        pcp.setCostoProducto(precioCalculado.costoProducto());
+                        pcp.setCostosVenta(precioCalculado.costosVenta());
+                        pcp.setIngresoNetoVendedor(precioCalculado.ingresoNetoVendedor());
+                        pcp.setGanancia(precioCalculado.ganancia());
+                        pcp.setMargenPorcentaje(precioCalculado.margenPorcentaje());
+                        pcp.setMarkupPorcentaje(precioCalculado.markupPorcentaje());
+                        pcp.setFechaUltimoCalculo(LocalDateTime.now());
+
+                        batchParaGuardar.add(pcp);
+                        totalRecalculados++;
+
+                        if (batchParaGuardar.size() >= BATCH_SIZE) {
+                            productoCanalPrecioRepository.saveAll(batchParaGuardar);
+                            batchParaGuardar.clear();
+                        }
+
+                    } catch (Exception e) {
+                        errores++;
+                        if (errores <= 10) {
+                            log.warn("Error calculando producto {} en canal base {} cuotas {}: {}",
+                                    idProducto, idCanal, cuotas, e.getMessage());
+                        }
+                    }
                 }
             }
+
+            productosCalculados++;
+            if (productosCalculados % 500 == 0) {
+                long tiempoTranscurrido = (System.currentTimeMillis() - inicio) / 1000;
+                double velocidad = productosCalculados / (double) Math.max(1, tiempoTranscurrido);
+                log.info("Pasada 1: {}/{} productos, {} precios - {} prod/seg",
+                        productosCalculados, totalProductos, totalRecalculados, String.format("%.1f", velocidad));
+            }
         }
+
+        // Guardar batch pendiente de pasada 1
+        if (!batchParaGuardar.isEmpty()) {
+            productoCanalPrecioRepository.saveAll(batchParaGuardar);
+            batchParaGuardar.clear();
+        }
+
+        log.info("Pasada 1 completada: {} precios en cache", cachePrecios.size());
+
+        // ==============================================================
+        // PASADA 2: Calcular precios de canales DEPENDIENTES usando cache
+        // ==============================================================
+        log.info("Pasada 2: Calculando canales dependientes...");
+        productosCalculados = 0;
+
+        for (ProductoMargen productoMargen : productosConMargenes) {
+            Producto producto = productoMargen.getProducto();
+
+            BigDecimal costo = producto.getCosto();
+            if (costo == null || costo.compareTo(BigDecimal.ZERO) <= 0) {
+                productosCalculados++;
+                continue;
+            }
+
+            Integer idProducto = producto.getId();
+
+            for (Canal canal : canalesDependientes) {
+                Integer idCanal = canal.getId();
+
+                // Los canales dependientes no usan tipoMargen directamente, heredan del base
+                List<Integer> cuotasDelCanal = cuotasPorCanal.get(idCanal);
+                if (cuotasDelCanal == null || cuotasDelCanal.isEmpty()) {
+                    continue;
+                }
+
+                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
+                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
+                List<ConceptoGasto> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
+                List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
+
+                for (Integer cuotas : cuotasDelCanal) {
+                    try {
+                        PrecioCalculadoDTO precioCalculado = calcularPrecioUnificado(
+                                producto, productoMargen, conceptosParaCalculo, cuotas, idCanal, canal);
+
+                        String clavePrecio = idProducto + "-" + idCanal + "-" + cuotas;
+                        ProductoCanalPrecio pcp = preciosExistentes.get(clavePrecio);
+                        if (pcp == null) {
+                            pcp = new ProductoCanalPrecio();
+                            pcp.setProducto(producto);
+                            pcp.setCanal(canal);
+                            pcp.setCuotas(cuotas);
+                        }
+
+                        pcp.setPvp(precioCalculado.pvp());
+                        pcp.setPvpInflado(precioCalculado.pvpInflado());
+                        pcp.setCostoProducto(precioCalculado.costoProducto());
+                        pcp.setCostosVenta(precioCalculado.costosVenta());
+                        pcp.setIngresoNetoVendedor(precioCalculado.ingresoNetoVendedor());
+                        pcp.setGanancia(precioCalculado.ganancia());
+                        pcp.setMargenPorcentaje(precioCalculado.margenPorcentaje());
+                        pcp.setMarkupPorcentaje(precioCalculado.markupPorcentaje());
+                        pcp.setFechaUltimoCalculo(LocalDateTime.now());
+
+                        batchParaGuardar.add(pcp);
+                        totalRecalculados++;
+
+                        if (batchParaGuardar.size() >= BATCH_SIZE) {
+                            productoCanalPrecioRepository.saveAll(batchParaGuardar);
+                            batchParaGuardar.clear();
+                        }
+
+                    } catch (Exception e) {
+                        errores++;
+                        if (errores <= 10) {
+                            log.warn("Error calculando producto {} en canal dependiente {} cuotas {}: {}",
+                                    idProducto, idCanal, cuotas, e.getMessage());
+                        }
+                    }
+                }
+            }
+
+            productosCalculados++;
+            if (productosCalculados % 500 == 0) {
+                long tiempoTranscurrido = (System.currentTimeMillis() - inicio) / 1000;
+                double velocidad = productosCalculados / (double) Math.max(1, tiempoTranscurrido);
+                int restantes = totalProductos - productosCalculados;
+                long tiempoEstimado = (long) (restantes / Math.max(0.1, velocidad));
+                log.info("Pasada 2: {}/{} productos ({} precios, {} errores) - {} prod/seg - ETA: {}s",
+                        productosCalculados, totalProductos, totalRecalculados, errores,
+                        String.format("%.1f", velocidad), tiempoEstimado);
+            }
+        }
+
+        // Guardar el último batch
+        if (!batchParaGuardar.isEmpty()) {
+            productoCanalPrecioRepository.saveAll(batchParaGuardar);
+        }
+
+        // Limpiar ThreadLocals
+        CACHE_PORCENTAJE_CUOTAS.remove();
+        CACHE_PRECIOS_BASE.remove();
+
+        long tiempoTotal = (System.currentTimeMillis() - inicio) / 1000;
+        log.info("Recálculo masivo completado en {}s: {}/{} productos, {} precios calculados, {} errores",
+                tiempoTotal, productosCalculados, totalProductos, totalRecalculados, errores);
 
         return totalRecalculados;
     }
 
     /**
-     * Verifica si un canal tiene margen válido (> 0) para un producto.
+     * Filtra conceptos según las reglas del canal (versión optimizada sin consultas).
      */
-    private boolean tieneMargenValidoParaCanal(ProductoMargen productoMargen, Canal canal) {
-        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(canal.getId());
+    private List<ConceptoGasto> filtrarConceptosPorReglas(
+            List<CanalConcepto> conceptosCanal,
+            List<CanalConceptoRegla> reglasCanal,
+            Producto producto) {
 
-        for (CanalConcepto cc : conceptosCanal) {
-            if (cc.getConcepto() != null) {
-                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
-                    BigDecimal margen = productoMargen.getMargenMayorista();
-                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
-                }
-                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
-                    BigDecimal margen = productoMargen.getMargenMinorista();
-                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
-                }
-            }
-        }
+        return conceptosCanal.stream()
+                .map(CanalConcepto::getConcepto)
+                .filter(concepto -> {
+                    List<CanalConceptoRegla> reglasConcepto = reglasCanal.stream()
+                            .filter(regla -> regla.getConcepto().getId().equals(concepto.getId()))
+                            .collect(Collectors.toList());
 
-        return false;
+                    for (CanalConceptoRegla regla : reglasConcepto) {
+                        boolean cumpleCondiciones = cumpleCondicionesRegla(regla, producto);
+
+                        if (regla.getTipoRegla() == TipoRegla.INCLUIR && !cumpleCondiciones) {
+                            return false;
+                        }
+                        if (regla.getTipoRegla() == TipoRegla.EXCLUIR && cumpleCondiciones) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convierte conceptos a CanalConcepto usando datos ya cargados (sin consultas).
+     */
+    private List<CanalConcepto> convertirConceptosACanalConceptoOptimizado(
+            List<ConceptoGasto> conceptos,
+            List<CanalConcepto> relacionesExistentes) {
+
+        Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
+                .collect(Collectors.toMap(
+                        cc -> cc.getConcepto().getId(),
+                        cc -> cc,
+                        (a, b) -> a
+                ));
+
+        return conceptos.stream()
+                .map(concepto -> mapaPorConceptoId.get(concepto.getId()))
+                .filter(cc -> cc != null)
+                .collect(Collectors.toList());
     }
 
     // ====================================================
@@ -2072,7 +2434,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * AplicaSobre que representan costos de venta (se deducen del ingreso).
      * Incluye: PVP (ej: ML COMISION, MARKETING, EMBALAJE), DESCUENTO, RECARGO_CUPON, ENVIO
      */
-    private static final java.util.Set<AplicaSobre> APLICA_SOBRE_COSTOS_VENTA = java.util.Set.of(
+    private static final Set<AplicaSobre> APLICA_SOBRE_COSTOS_VENTA = Set.of(
             AplicaSobre.PVP,
             AplicaSobre.DESCUENTO,
             AplicaSobre.RECARGO_CUPON,
@@ -2084,10 +2446,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Incluye conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO
      * Agrega: porcentaje de cuotas si aplica
      *
-     * @param pvp          PVP calculado
-     * @param conceptos    Lista de conceptos del canal
-     * @param cuotas       Número de cuotas (null si contado)
-     * @param canalId      ID del canal
+     * @param pvp       PVP calculado
+     * @param conceptos Lista de conceptos del canal
+     * @param cuotas    Número de cuotas (null si contado)
+     * @param canalId   ID del canal
      * @return Monto total de costos de venta en pesos
      */
     private BigDecimal calcularCostosVenta(BigDecimal pvp, List<CanalConcepto> conceptos,
@@ -2126,9 +2488,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Calcula el monto de impuestos (conceptos con AplicaSobre = IMP).
      * Usa la fórmula para extraer el impuesto incluido en el PVP.
      *
-     * @param pvp        PVP calculado (incluye impuestos)
-     * @param conceptos  Lista de conceptos del canal
-     * @param iva        Porcentaje de IVA aplicado
+     * @param pvp       PVP calculado (incluye impuestos)
+     * @param conceptos Lista de conceptos del canal
+     * @param iva       Porcentaje de IVA aplicado
      * @return Monto total de impuestos en pesos
      */
     private BigDecimal calcularMontoImpuestos(BigDecimal pvp, List<CanalConcepto> conceptos, BigDecimal iva) {

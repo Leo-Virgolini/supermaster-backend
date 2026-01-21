@@ -1351,6 +1351,8 @@ interface ImportCostosResult {
 }
 ```
 
+**Recálculo automático:** Si la importación modifica `costo`, `iva` o `proveedor`, los precios de esos productos se recalculan automáticamente en todos sus canales.
+
 #### Importar migración completa
 ```http
 POST /api/excel/importar-migracion

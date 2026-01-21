@@ -31,6 +31,7 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatal
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
@@ -52,10 +53,12 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -90,6 +93,7 @@ public class ExcelServiceImpl implements ExcelService {
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoMargenRepository productoMargenRepository;
     private final ProductoService productoService;
+    private final RecalculoPrecioFacade recalculoPrecioFacade;
 
     // Caches en memoria para evitar consultas repetidas durante la importación
     private final Map<String, Marca> cacheMarcas = new ConcurrentHashMap<>();
@@ -113,6 +117,16 @@ public class ExcelServiceImpl implements ExcelService {
             }
         }
         return true;
+    }
+
+    /**
+     * Compara dos BigDecimal por valor numérico (no por escala).
+     * BigDecimal.equals() considera 100.00 != 100.0, pero compareTo() los considera iguales.
+     */
+    private boolean bigDecimalEquals(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.compareTo(b) == 0;
     }
 
     private boolean isExcelFile(MultipartFile file) {
@@ -156,7 +170,7 @@ public class ExcelServiceImpl implements ExcelService {
                 // Esto es necesario porque el InputStream ya se consumió
                 log.warn("No se pudo abrir con OPCPackage, usando WorkbookFactory con contenido en memoria: {}", e.getMessage());
                 byte[] contenido = file.getBytes();
-                return WorkbookFactory.create(new java.io.ByteArrayInputStream(contenido));
+                return WorkbookFactory.create(new ByteArrayInputStream(contenido));
             }
         } else {
             // Para archivos .xls, usar WorkbookFactory
@@ -232,7 +246,7 @@ public class ExcelServiceImpl implements ExcelService {
             case NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     // Para fechas, retornar en formato DUX
-                    java.util.Date fecha = cell.getDateCellValue();
+                    Date fecha = cell.getDateCellValue();
                     LocalDateTime ldt = fecha.toInstant()
                             .atZone(ZoneId.of("America/Argentina/Buenos_Aires"))
                             .toLocalDateTime();
@@ -316,7 +330,7 @@ public class ExcelServiceImpl implements ExcelService {
         // Si la celda es NUMERIC y está formateada como fecha
         if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
             try {
-                java.util.Date fecha = cell.getDateCellValue();
+                Date fecha = cell.getDateCellValue();
                 return fecha.toInstant().atZone(ZONA_ARG).toLocalDateTime();
             } catch (Exception e) {
                 log.warn("Error al obtener fecha de celda numérica: {}", e.getMessage());
@@ -332,7 +346,7 @@ public class ExcelServiceImpl implements ExcelService {
                 if (cellValue != null && cellValue.getCellType() == CellType.NUMERIC) {
                     // Intentar como fecha
                     try {
-                        java.util.Date fecha = DateUtil.getJavaDate(cellValue.getNumberValue());
+                        Date fecha = DateUtil.getJavaDate(cellValue.getNumberValue());
                         return fecha.toInstant().atZone(ZONA_ARG).toLocalDateTime();
                     } catch (Exception e) {
                         // No es una fecha, continuar con parseo de string
@@ -2334,6 +2348,7 @@ public class ExcelServiceImpl implements ExcelService {
 
         List<String> skusNoEncontrados = new ArrayList<>();
         List<String> errores = new ArrayList<>();
+        List<Integer> productosARecalcular = new ArrayList<>();
         int productosActualizados = 0;
         int proveedoresCreados = 0;
 
@@ -2379,6 +2394,12 @@ public class ExcelServiceImpl implements ExcelService {
 
                     Producto producto = productoOpt.get();
                     boolean actualizado = false;
+                    boolean requiereRecalculo = false;
+
+                    // Guardar valores anteriores para detectar cambios que afectan el precio
+                    BigDecimal costoAnterior = producto.getCosto();
+                    BigDecimal ivaAnterior = producto.getIva();
+                    Integer proveedorIdAnterior = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
 
                     // PRODUCTO → descripcion
                     if (columnasMap.containsKey("PRODUCTO")) {
@@ -2496,6 +2517,17 @@ public class ExcelServiceImpl implements ExcelService {
                     if (actualizado) {
                         productoRepository.save(producto);
                         productosActualizados++;
+
+                        // Verificar si cambió algún campo que afecta el precio
+                        // Usar compareTo para BigDecimal (equals considera escala, compareTo solo valor)
+                        boolean cambioCosto = !bigDecimalEquals(costoAnterior, producto.getCosto());
+                        boolean cambioIva = !bigDecimalEquals(ivaAnterior, producto.getIva());
+                        Integer proveedorIdNuevo = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
+                        boolean cambioProveedor = !Objects.equals(proveedorIdAnterior, proveedorIdNuevo);
+
+                        if (cambioCosto || cambioIva || cambioProveedor) {
+                            productosARecalcular.add(producto.getId());
+                        }
                     }
 
                 } catch (Exception e) {
@@ -2509,8 +2541,23 @@ public class ExcelServiceImpl implements ExcelService {
         int proveedoresDespues = (int) proveedorRepository.count();
         proveedoresCreados = proveedoresDespues - proveedoresAntes;
 
-        log.info("Importación de costos completada: {} actualizados, {} no encontrados, {} proveedores creados, {} errores",
-                productosActualizados, skusNoEncontrados.size(), proveedoresCreados, errores.size());
+        // Recalcular precios solo para productos con cambios en costo/IVA/proveedor
+        int productosRecalculados = 0;
+        if (!productosARecalcular.isEmpty()) {
+            log.info("Recalculando precios para {} productos con cambios relevantes...", productosARecalcular.size());
+            for (Integer idProducto : productosARecalcular) {
+                try {
+                    recalculoPrecioFacade.recalcularPorCambioProducto(idProducto);
+                    productosRecalculados++;
+                } catch (Exception e) {
+                    log.warn("Error recalculando precios para producto {}: {}", idProducto, e.getMessage());
+                }
+            }
+            log.info("Recálculo completado: {} productos", productosRecalculados);
+        }
+
+        log.info("Importación de costos completada: {} actualizados, {} no encontrados, {} proveedores creados, {} recalculados, {} errores",
+                productosActualizados, skusNoEncontrados.size(), proveedoresCreados, productosRecalculados, errores.size());
 
         return new ImportCostosResultDTO(
                 productosActualizados,
@@ -2547,7 +2594,7 @@ public class ExcelServiceImpl implements ExcelService {
                 if (formato.contains("HH") || formato.contains("H:")) {
                     return LocalDateTime.parse(fechaNormalizada, DateTimeFormatter.ofPattern(formato));
                 } else {
-                    return java.time.LocalDate.parse(fechaNormalizada, DateTimeFormatter.ofPattern(formato))
+                    return LocalDate.parse(fechaNormalizada, DateTimeFormatter.ofPattern(formato))
                             .atStartOfDay();
                 }
             } catch (DateTimeParseException ignored) {
@@ -3157,10 +3204,10 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                     return true;
                 })
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
 
         // Parsear campos de ordenamiento
-        List<String> camposOrden = new java.util.ArrayList<>();
+        List<String> camposOrden = new ArrayList<>();
         if (ordenarPor != null && !ordenarPor.isBlank()) {
             for (String campo : ordenarPor.split(",")) {
                 camposOrden.add(campo.trim().toLowerCase());

@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.dominio.precio.controller;
+package ar.com.leo.super_master_backend.dominio.producto.calculo.controller;
 
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.CalculoResultadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;

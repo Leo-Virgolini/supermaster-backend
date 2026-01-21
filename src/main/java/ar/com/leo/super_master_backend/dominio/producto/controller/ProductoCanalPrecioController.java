@@ -22,12 +22,4 @@ public class ProductoCanalPrecioController {
         return ResponseEntity.ok(service.obtener(productoId, canalId));
     }
 
-    @PostMapping("/recalcular")
-    public ResponseEntity<ProductoCanalPrecioDTO> recalcular(
-            @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
-            @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId
-    ) {
-        return ResponseEntity.ok(service.recalcular(productoId, canalId));
-    }
-
 }

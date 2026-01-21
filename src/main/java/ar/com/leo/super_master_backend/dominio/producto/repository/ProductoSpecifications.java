@@ -321,9 +321,9 @@ public class ProductoSpecifications {
         return (root, query, cb) -> {
             if (canalId == null || (pvpMin == null && pvpMax == null)) return null;
 
-            jakarta.persistence.criteria.Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", JoinType.INNER);
+            Join<Producto, ?> preciosJoin = root.join("productoCanalPrecios", JoinType.INNER);
 
-            java.util.ArrayList<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            ArrayList<Predicate> predicates = new ArrayList<>();
 
             // Filtrar por canal
             predicates.add(cb.equal(preciosJoin.get("canal").get("id"), canalId));
