@@ -2742,6 +2742,7 @@ public class ExcelServiceImpl implements ExcelService {
             // Crear estilos base
             CellStyle superHeaderDatosStyle = crearEstiloSuperHeader(workbook, IndexedColors.GREY_40_PERCENT.getIndex());
             CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle headerDatosBordeDerechoStyle = crearEstiloHeaderConBordeDerecho(workbook, IndexedColors.GREY_25_PERCENT.getIndex());
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
             CellStyle precioBordeStyle = crearEstiloPrecioBorde(workbook);
@@ -2812,14 +2813,19 @@ public class ExcelServiceImpl implements ExcelService {
             Row headerRow = sheet.createRow(1);
             int colIndex = 0;
 
-            // Headers fijos (DATOS: hasta PVP_MAX)
+            // Headers fijos (DATOS: hasta PVP_MAX) - última columna con borde grueso derecho
             for (int i = 0; i < headersFijos.length; i++) {
                 Cell cell = headerRow.createCell(colIndex++);
                 cell.setCellValue(headersFijos[i]);
-                cell.setCellStyle(headerDatosStyle);
+                // Última columna de DATOS tiene borde grueso derecho
+                if (i == headersFijos.length - 1) {
+                    cell.setCellStyle(headerDatosBordeDerechoStyle);
+                } else {
+                    cell.setCellStyle(headerDatosStyle);
+                }
             }
 
-            // Headers dinámicos por canal y cuotas (colores por cuota)
+            // Headers dinámicos por canal y cuotas (colores por cuota, borde grueso en primer columna de canal)
             for (String canalNombre : nombresCanales) {
                 List<Integer> cuotasList = canalesCuotas.get(canalNombre);
                 boolean primerColumnDelCanal = true;
@@ -2838,6 +2844,7 @@ public class ExcelServiceImpl implements ExcelService {
                         Cell cell = headerRow.createCell(colIndex++);
                         cell.setCellValue(headerName);
 
+                        // Primera columna del canal usa borde grueso izquierdo con color de la cuota
                         if (primerColumnDelCanal) {
                             cell.setCellStyle(estiloHeaderCuotaBorde);
                             primerColumnDelCanal = false;
@@ -2866,7 +2873,9 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.descripcion(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.esCombo(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.esMaquina(), dataStyle);
+                // Si clasifGastro es null, esMaquina debe ser false
+                Boolean esMaquinaExport = producto.clasifGastroNombre() == null ? false : producto.esMaquina();
+                setCellValue(row.createCell(cellIndex++), esMaquinaExport, dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.imagenUrl(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.stock(), dataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.activo(), dataStyle);
@@ -2953,6 +2962,9 @@ public class ExcelServiceImpl implements ExcelService {
                 sheet.autoSizeColumn(i);
             }
 
+            // Fijar las 2 primeras filas (super header + headers)
+            sheet.createFreezePane(0, 2);
+
             workbook.write(outputStream);
             log.info("Exportación de precios completada exitosamente");
             return outputStream.toByteArray();
@@ -2967,10 +2979,10 @@ public class ExcelServiceImpl implements ExcelService {
         style.setFont(font);
         style.setFillForegroundColor(colorIndex);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THICK);
+        style.setBorderTop(BorderStyle.THICK);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THICK);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         return style;
@@ -2987,6 +2999,22 @@ public class ExcelServiceImpl implements ExcelService {
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderLeft(bordeGruesoIzq ? BorderStyle.THICK : BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloHeaderConBordeDerecho(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THICK);
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         return style;
@@ -3326,6 +3354,9 @@ public class ExcelServiceImpl implements ExcelService {
                 sheet.autoSizeColumn(i);
             }
 
+            // Fijar la primera fila (header)
+            sheet.createFreezePane(0, 1);
+
             workbook.write(outputStream);
             log.info("Exportación de catálogo completada exitosamente");
             return new ExportCatalogoResultDTO(outputStream.toByteArray(), nombreBase);
@@ -3421,6 +3452,9 @@ public class ExcelServiceImpl implements ExcelService {
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
+
+            // Fijar la primera fila (header)
+            sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
             log.info("Exportación para Mercado Libre completada: {} filas exportadas, {} advertencias",
@@ -3518,6 +3552,9 @@ public class ExcelServiceImpl implements ExcelService {
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
+
+            // Fijar la primera fila (header)
+            sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
             log.info("Exportación para Tienda Nube completada: {} filas exportadas, {} advertencias",

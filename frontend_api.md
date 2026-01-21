@@ -133,7 +133,7 @@ Donde los conceptos de gasto modifican diferentes partes de la fórmula según s
 |-------|-------------|
 | `margen_minorista` | % ganancia para canales minoristas |
 | `margen_mayorista` | % ganancia para canales mayoristas |
-| `margen_fijo_*` | Ganancia fija en $ (opcional, tiene prioridad) |
+| `margen_fijo_*` | Ganancia fija en $ (opcional) |
 
 Cada producto puede tener UN registro de márgenes. El canal determina cuál usar según tenga el concepto `MARGEN_MINORISTA` o `MARGEN_MAYORISTA`.
 
@@ -148,6 +148,29 @@ Cada producto puede tener UN registro de márgenes. El canal determina cuál usa
 - KT HOGAR (Tienda Nube Hogar)
 - KT GASTRO (Tienda Nube Gastronómico)
 - MAYORISTA
+
+**Canales con canal base (herencia de precios):**
+
+Cuando un canal tiene `canal_base_id` configurado y el concepto `SOBRE_PVP_BASE` asignado, el precio se calcula en base al PVP del canal padre en lugar de usar el costo del producto.
+
+```
+Canal hijo (KT GASTRO)          Canal padre (ML)
+      │                              │
+      │  ◄─── toma PVP ────────────  │
+      │                              │
+      ▼                              ▼
+PVP_HIJO = PVP_PADRE × (1 + SOBRE_PVP_BASE% / 100)
+```
+
+**Ejemplo:**
+- Canal "ML" (padre): PVP = $10,000
+- Canal "KT GASTRO" (hijo): tiene `canal_base_id = ML` y concepto `SOBRE_PVP_BASE` con porcentaje -12%
+- Resultado: PVP de KT GASTRO = $10,000 × (1 - 12/100) = $8,800
+
+**Notas importantes:**
+- El canal padre debe calcularse primero (el sistema lo hace automáticamente en el orden correcto)
+- Si `SOBRE_PVP_BASE` tiene porcentaje positivo, incrementa el precio; si es negativo, lo decrementa
+- Esto es útil para canales que derivan su precio de otro (ej: tienda propia vs marketplace)
 
 #### 4. `conceptos_gastos` - Conceptos de Costo/Gasto
 | Campo | Descripción |
@@ -176,6 +199,40 @@ Cada producto puede tener UN registro de márgenes. El canal determina cuál usa
 | `PROMOCION` | Flag: aplicar promociones | |
 | `SOBRE_PVP_BASE` | Calcula sobre PVP del canal base | |
 
+**Detalle de cómo se aplican los conceptos:**
+
+```
+FÓRMULA GENERAL SIMPLIFICADA:
+
+PVP = (COSTO_AJUSTADO × (1 + MARGEN/100) × FACTOR_IMP) / (1 - COMISIONES_PVP/100)
+
+Donde:
+- COSTO_AJUSTADO = costo × (1 + Σ COSTO%) × (1 + PROVEEDOR_FIN%)
+- MARGEN = margen_base + Σ MARGEN_PTS ± (margen_base × MARGEN_PROP%)
+- FACTOR_IMP = (1 + IVA%) × (1 + Σ IMP%)
+- COMISIONES_PVP = Σ conceptos con PVP
+```
+
+| Tipo | Efecto | Fórmula |
+|------|--------|---------|
+| `COSTO` | Incrementa costo base | `costo × (1 + %/100)` |
+| `PVP` | Comisión sobre precio final | Divide: `PVP / (1 - %/100)` |
+| `IMP` | Agrega al factor de impuestos | `factor_imp += %/100` |
+| `MARGEN_PTS` | Suma/resta puntos al margen | `margen += %` |
+| `MARGEN_PROP` | Modifica margen proporcionalmente | `margen × (1 + %/100)` |
+| `RECARGO_CUPON` | Divisor adicional | `PVP / (1 - %/100)` |
+| `DESCUENTO` | Descuento sobre PVP | `PVP × (1 - %/100)` |
+| `INFLACION` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
+| `ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
+
+**Conceptos tipo FLAG (el % se ignora, solo importa si está asignado):**
+- `IVA`: Habilita aplicar el IVA del producto
+- `MARGEN_MINORISTA`: Usa el margen minorista del producto
+- `MARGEN_MAYORISTA`: Usa el margen mayorista del producto
+- `PROMOCION`: Habilita promociones asignadas al producto-canal
+- `SOBRE_PVP_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
+- `PROVEEDOR_FIN`: Usa el % financiación del proveedor del producto
+
 #### 5. `canal_concepto` - Conceptos Asignados a Canales
 Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 
@@ -198,6 +255,44 @@ Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 | 1 | 0 | 1 cuota sin interés |
 | 3 | 10 | 3 cuotas |
 | 6 | 20 | 6 cuotas |
+
+#### 6.1. `canal_concepto_regla` - Reglas Condicionales de Conceptos
+Permite incluir o excluir un concepto del cálculo según atributos del producto.
+
+| Campo | Descripción |
+|-------|-------------|
+| `canal_id` | Canal donde aplica la regla |
+| `concepto_id` | Concepto afectado por la regla |
+| `tipo_regla` | INCLUIR o EXCLUIR |
+| `tipo_id` | Filtro por tipo de producto (opcional) |
+| `clasif_gastro_id` | Filtro por clasificación gastro (opcional) |
+| `clasif_gral_id` | Filtro por clasificación general (opcional) |
+| `marca_id` | Filtro por marca (opcional) |
+| `es_maquina` | Filtro si es máquina (opcional) |
+
+**Tipos de regla:**
+| Tipo | Comportamiento |
+|------|----------------|
+| `INCLUIR` | El concepto SOLO aplica si el producto cumple la condición |
+| `EXCLUIR` | El concepto NO aplica si el producto cumple la condición |
+
+**Ejemplo 1 - EXCLUIR:**
+```
+Canal: ML
+Concepto: EMBALAJE (aplica_sobre: COSTO, 2%)
+Regla: EXCLUIR si es_maquina = true
+```
+Resultado: Las máquinas no pagan embalaje en ML, los demás productos sí.
+
+**Ejemplo 2 - INCLUIR:**
+```
+Canal: KT GASTRO
+Concepto: DESC_GASTRO (aplica_sobre: DESCUENTO, -5%)
+Regla: INCLUIR si clasif_gastro_id = 3 (Cafeteras)
+```
+Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos no.
+
+**Nota:** Si un concepto tiene múltiples reglas, se evalúan todas. El concepto aplica si pasa todas las condiciones.
 
 #### 7. `producto_canal_precios` - Precios Calculados
 | Campo | Descripción |
@@ -230,6 +325,20 @@ Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 | `tipo` | MULTIPLICADOR, DESCUENTO_PORC, DIVISOR, PRECIO_FIJO |
 | `valor` | Valor según el tipo |
 
+**Tipos de promoción y cómo afectan el PVP:**
+
+| Tipo | Fórmula | Ejemplo | Resultado |
+|------|---------|---------|-----------|
+| `MULTIPLICADOR` | PVP × valor | PVP=$1000, valor=1.1 | $1,100 (+10%) |
+| `DESCUENTO_PORC` | PVP / (1 - valor/100) | PVP=$1000, valor=30 | $1,428.57 (+42.8%) |
+| `DIVISOR` | PVP / valor | PVP=$1000, valor=0.9 | $1,111.11 (+11.1%) |
+| `PRECIO_FIJO` | valor | PVP=$1000, valor=500 | $500 (fijo) |
+
+**Notas:**
+- Las promociones se asignan a producto+canal específico mediante `producto_canal_promocion`
+- Solo aplican si el canal tiene el concepto `PROMOCION` asignado
+- `DESCUENTO_PORC` usa la fórmula del Excel original: divide por (1-porcentaje), lo que **incrementa** el precio
+
 #### 10. `mlas` - Datos de Mercado Libre
 | Campo | Descripción |
 |-------|-------------|
@@ -251,6 +360,26 @@ Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 | `catalogos` | Catálogos/listas de precios |
 | `clientes` | Clientes especiales |
 | `proveedores` | Proveedores con % financiación |
+
+#### `catalogos` - Detalle
+| Campo | Descripción |
+|-------|-------------|
+| `catalogo` | Nombre del catálogo |
+| `exportar_con_iva` | Si el precio exportado incluye IVA (default: true) |
+| `recargo_porcentaje` | Recargo % a aplicar sobre el PVP al exportar (default: 0) |
+
+**Uso de catálogos:**
+- Los productos se asignan a catálogos mediante la relación `producto_catalogo` (many-to-many)
+- Al exportar un catálogo (`/api/excel/exportar-catalogo`), se aplica el recargo configurado
+- Los catálogos pueden tener reglas de descuento asociadas (`reglas_descuento.catalogo_id`)
+- Útil para generar listas de precios para distintos clientes/canales con márgenes diferentes
+
+**Ejemplo:**
+```
+Catálogo "LISTA MAYORISTA":
+  - exportarConIva: false (precios sin IVA)
+  - recargoPorcentaje: 5 (agrega 5% al PVP)
+```
 
 ---
 
@@ -1291,16 +1420,18 @@ Todos siguen el patrón CRUD estándar:
 ```http
 GET /api/excel/exportar-precios
 GET /api/excel/exportar-precios?formato=completo    # default
-GET /api/excel/exportar-precios?formato=mercadolibre
-GET /api/excel/exportar-precios?formato=nube
+GET /api/excel/exportar-precios?formato=mercadolibre&cuotas=0
+GET /api/excel/exportar-precios?formato=nube&cuotas=0
 ```
 **Query params:**
 - `formato` (optional, default=completo): Formato de exportación (completo, mercadolibre, nube)
 - Para formato `completo`: acepta todos los params de `ProductoFilter`
-- Para formato `mercadolibre` y `nube`: solo acepta `cuotas`
+- Para formato `mercadolibre` y `nube`: requiere `cuotas` (-1=transferencia, 0=contado, >0=cuotas)
 
 **Response:** Archivo Excel (application/octet-stream)
-- Formatos `mercadolibre` y `nube` incluyen header `X-Advertencias` si hay advertencias
+- Headers fijos (freeze panes): los headers permanecen visibles al hacer scroll
+- Formato `completo`: super headers con bordes gruesos, canales separados visualmente con bordes
+- Formatos `mercadolibre` y `nube` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
 
 #### Exportar catálogo a Excel
 ```http

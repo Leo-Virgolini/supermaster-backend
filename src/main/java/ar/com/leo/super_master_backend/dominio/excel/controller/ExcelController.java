@@ -200,11 +200,17 @@ public class ExcelController {
                                 "path", "/api/excel/exportar-precios"));
             }
 
-            // Formatos específicos (mercadolibre, nube) tienen su propia lógica
-            if (formato.equals("mercadolibre")) {
-                return exportarFormatoMercadoLibre(cuotas);
-            }
-            if (formato.equals("nube")) {
+            // Formatos específicos (mercadolibre, nube) requieren el parámetro cuotas
+            if (formato.equals("mercadolibre") || formato.equals("nube")) {
+                if (cuotas == null) {
+                    return ResponseEntity.badRequest()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(Map.of("message", "El parámetro 'cuotas' es requerido para el formato '" + formato + "'. Valores: -1 (transferencia), 0 (contado), o número de cuotas (3, 6, 12, etc.)",
+                                    "path", "/api/excel/exportar-precios?formato=" + formato));
+                }
+                if (formato.equals("mercadolibre")) {
+                    return exportarFormatoMercadoLibre(cuotas);
+                }
                 return exportarFormatoNube(cuotas);
             }
 
@@ -357,10 +363,13 @@ public class ExcelController {
             headers.setContentDispositionFormData("attachment", filename);
             headers.setContentLength(result.archivo().length);
 
-            // Agregar advertencias en header si existen
+            // Agregar resumen de advertencias en header (evitar headers muy grandes)
             if (result.tieneAdvertencias()) {
-                headers.add("X-Advertencias", String.join(" | ", result.advertencias()));
-                headers.add("Access-Control-Expose-Headers", "X-Advertencias");
+                // Solo enviar cantidad en header para evitar HeadersTooLargeException
+                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
+                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
+                // Loguear detalles completos en servidor
+                log.warn("Advertencias en exportación: {}", result.advertencias());
             }
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
@@ -398,10 +407,13 @@ public class ExcelController {
             headers.setContentDispositionFormData("attachment", filename);
             headers.setContentLength(result.archivo().length);
 
-            // Agregar advertencias en header si existen
+            // Agregar resumen de advertencias en header (evitar headers muy grandes)
             if (result.tieneAdvertencias()) {
-                headers.add("X-Advertencias", String.join(" | ", result.advertencias()));
-                headers.add("Access-Control-Expose-Headers", "X-Advertencias");
+                // Solo enviar cantidad en header para evitar HeadersTooLargeException
+                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
+                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
+                // Loguear detalles completos en servidor
+                log.warn("Advertencias en exportación: {}", result.advertencias());
             }
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
