@@ -2324,7 +2324,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         totalRecalculados++;
 
                         if (batchParaGuardar.size() >= BATCH_SIZE) {
-                            log.info("Guardando batch de {} precios en BD (Pasada 1)", batchParaGuardar.size());
                             productoCanalPrecioRepository.saveAll(batchParaGuardar);
                             batchParaGuardar.clear();
                         }
@@ -2422,7 +2421,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         totalRecalculados++;
 
                         if (batchParaGuardar.size() >= BATCH_SIZE) {
-                            log.info("Guardando batch de {} precios en BD (Pasada 2)", batchParaGuardar.size());
                             productoCanalPrecioRepository.saveAll(batchParaGuardar);
                             batchParaGuardar.clear();
                         }
