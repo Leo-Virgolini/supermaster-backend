@@ -112,7 +112,8 @@ public interface ProductoMapper {
                                     pcp.getCostosVenta(),
                                     pcp.getIngresoNetoVendedor(),
                                     pcp.getGanancia(),
-                                    pcp.getMargenPorcentaje(),
+                                    pcp.getMargenSobreIngresoNeto(),
+                                    pcp.getMargenSobrePvp(),
                                     pcp.getMarkupPorcentaje(),
                                     pcp.getFechaUltimoCalculo()
                             ))

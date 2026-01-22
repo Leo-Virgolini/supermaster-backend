@@ -134,7 +134,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         pcp.setCostosVenta(dto.costosVenta());
         pcp.setIngresoNetoVendedor(dto.ingresoNetoVendedor());
         pcp.setGanancia(dto.ganancia());
-        pcp.setMargenPorcentaje(dto.margenPorcentaje());
+        pcp.setMargenSobreIngresoNeto(dto.margenSobreIngresoNeto());
+        pcp.setMargenSobrePvp(dto.margenSobrePvp());
         pcp.setMarkupPorcentaje(dto.markupPorcentaje());
         pcp.setFechaUltimoCalculo(LocalDateTime.now());
 
@@ -536,11 +537,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal ganancia = ingresoNetoVendedor.subtract(costoProductoMetrica)
                 .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-        // margenPorcentajeFinal = (ganancia / ingresoNetoVendedor) × 100
-        BigDecimal margenPorcentajeFinal = BigDecimal.ZERO;
+        // margenSobreIngresoNeto = (ganancia / ingresoNetoVendedor) × 100
+        BigDecimal margenSobreIngresoNeto = BigDecimal.ZERO;
         if (ingresoNetoVendedor.compareTo(BigDecimal.ZERO) > 0) {
-            margenPorcentajeFinal = ganancia.multiply(CIEN)
+            margenSobreIngresoNeto = ganancia.multiply(CIEN)
                     .divide(ingresoNetoVendedor, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        }
+
+        // margenSobrePvp = (ganancia / pvp) × 100
+        BigDecimal margenSobrePvp = BigDecimal.ZERO;
+        if (pvpSinPromocion.compareTo(BigDecimal.ZERO) > 0) {
+            margenSobrePvp = ganancia.multiply(CIEN)
+                    .divide(pvpSinPromocion, PRECISION_RESULTADO, RoundingMode.HALF_UP);
         }
 
         // markupPorcentaje = (ganancia / costoProductoMetrica) × 100
@@ -560,7 +568,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costosVenta,
                 ingresoNetoVendedor,
                 ganancia,
-                margenPorcentajeFinal,
+                margenSobreIngresoNeto,
+                margenSobrePvp,
                 markupPorcentaje,
                 LocalDateTime.now());
     }
@@ -1203,11 +1212,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal ganancia = ingresoNetoVendedor.subtract(costoProducto)
                 .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-        // Calcular margenPorcentaje: (ganancia / ingresoNetoVendedor) × 100
-        BigDecimal margenPorcentaje = BigDecimal.ZERO;
+        // Calcular margenSobreIngresoNeto: (ganancia / ingresoNetoVendedor) × 100
+        BigDecimal margenSobreIngresoNeto = BigDecimal.ZERO;
         if (ingresoNetoVendedor.compareTo(BigDecimal.ZERO) > 0) {
-            margenPorcentaje = ganancia.multiply(CIEN)
+            margenSobreIngresoNeto = ganancia.multiply(CIEN)
                     .divide(ingresoNetoVendedor, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        }
+
+        // Calcular margenSobrePvp: (ganancia / pvp) × 100
+        BigDecimal margenSobrePvp = BigDecimal.ZERO;
+        if (pvp.compareTo(BigDecimal.ZERO) > 0) {
+            margenSobrePvp = ganancia.multiply(CIEN)
+                    .divide(pvp, PRECISION_RESULTADO, RoundingMode.HALF_UP);
         }
 
         // Calcular markupPorcentaje: (ganancia / costoProducto) × 100
@@ -1227,7 +1243,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costosVenta,
                 ingresoNetoVendedor,
                 ganancia,
-                margenPorcentaje,
+                margenSobreIngresoNeto,
+                margenSobrePvp,
                 markupPorcentaje,
                 LocalDateTime.now());
     }
@@ -1985,7 +2002,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         p.costosVenta(),
                         p.ingresoNetoVendedor(),
                         p.ganancia(),
-                        p.margenPorcentaje(),
+                        p.margenSobreIngresoNeto(),
+                        p.margenSobrePvp(),
                         p.markupPorcentaje(),
                         p.fechaUltimoCalculo()
                 ))
@@ -2034,7 +2052,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 precioCalculado.costosVenta(),
                 precioCalculado.ingresoNetoVendedor(),
                 precioCalculado.ganancia(),
-                precioCalculado.margenPorcentaje(),
+                precioCalculado.margenSobreIngresoNeto(),
+                precioCalculado.margenSobrePvp(),
                 precioCalculado.markupPorcentaje(),
                 precioCalculado.fechaUltimoCalculo()
         );
@@ -2296,7 +2315,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         pcp.setCostosVenta(precioCalculado.costosVenta());
                         pcp.setIngresoNetoVendedor(precioCalculado.ingresoNetoVendedor());
                         pcp.setGanancia(precioCalculado.ganancia());
-                        pcp.setMargenPorcentaje(precioCalculado.margenPorcentaje());
+                        pcp.setMargenSobreIngresoNeto(precioCalculado.margenSobreIngresoNeto());
+                        pcp.setMargenSobrePvp(precioCalculado.margenSobrePvp());
                         pcp.setMarkupPorcentaje(precioCalculado.markupPorcentaje());
                         pcp.setFechaUltimoCalculo(LocalDateTime.now());
 
@@ -2393,7 +2413,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         pcp.setCostosVenta(precioCalculado.costosVenta());
                         pcp.setIngresoNetoVendedor(precioCalculado.ingresoNetoVendedor());
                         pcp.setGanancia(precioCalculado.ganancia());
-                        pcp.setMargenPorcentaje(precioCalculado.margenPorcentaje());
+                        pcp.setMargenSobreIngresoNeto(precioCalculado.margenSobreIngresoNeto());
+                        pcp.setMargenSobrePvp(precioCalculado.margenSobrePvp());
                         pcp.setMarkupPorcentaje(precioCalculado.markupPorcentaje());
                         pcp.setFechaUltimoCalculo(LocalDateTime.now());
 

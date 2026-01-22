@@ -85,10 +85,18 @@ public class ProductoCanalPrecio {
     private BigDecimal ganancia;
 
     /**
-     * Margen porcentaje = (ganancia / ingresoNetoVendedor) × 100
+     * Margen sobre ingreso neto = (ganancia / ingresoNetoVendedor) × 100
+     * Muestra qué % del ingreso neto es ganancia (rentabilidad real después de gastos)
      */
-    @Column(name = "margen_porcentaje", precision = 6, scale = 2)
-    private BigDecimal margenPorcentaje;
+    @Column(name = "margen_sobre_ingreso_neto", precision = 6, scale = 2)
+    private BigDecimal margenSobreIngresoNeto;
+
+    /**
+     * Margen sobre PVP = (ganancia / pvp) × 100
+     * Muestra qué % del precio de venta es ganancia (comparable con mercado)
+     */
+    @Column(name = "margen_sobre_pvp", precision = 6, scale = 2)
+    private BigDecimal margenSobrePvp;
 
     /**
      * Markup porcentaje = (ganancia / costoProducto) × 100

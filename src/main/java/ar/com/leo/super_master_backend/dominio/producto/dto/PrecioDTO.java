@@ -16,7 +16,8 @@ public record PrecioDTO(
         BigDecimal costosVenta,
         BigDecimal ingresoNetoVendedor,
         BigDecimal ganancia,
-        BigDecimal margenPorcentaje,
+        BigDecimal margenSobreIngresoNeto,
+        BigDecimal margenSobrePvp,
         BigDecimal markupPorcentaje,
         LocalDateTime fechaUltimoCalculo
 ) {

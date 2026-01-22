@@ -2667,7 +2667,7 @@ public class ExcelServiceImpl implements ExcelService {
 
     // Campos de precio por cada canal/cuota
     private static final String[] CAMPOS_PRECIO = {
-            "PVP", "PVP_INFLADO", "COSTO_PRODUCTO", "COSTOS_VENTA", "INGRESO_NETO", "GANANCIA", "MARGEN_PCT", "MARKUP_PCT", "FECHA_CALCULO"
+            "PVP", "PVP_INFLADO", "COSTO_PRODUCTO", "COSTOS_VENTA", "INGRESO_NETO", "GANANCIA", "MARGEN_INGRESO", "MARGEN_PVP", "MARKUP_PCT", "FECHA_CALCULO"
     };
 
     // Colores para distinguir canales
@@ -3059,9 +3059,10 @@ public class ExcelServiceImpl implements ExcelService {
                                     case 3 -> setCellValue(cell, precio.costosVenta(), stylePrecioToUse);
                                     case 4 -> setCellValue(cell, precio.ingresoNetoVendedor(), stylePrecioToUse);
                                     case 5 -> setCellValue(cell, precio.ganancia(), stylePrecioToUse);
-                                    case 6 -> setCellValue(cell, precio.margenPorcentaje(), styleToUse);
-                                    case 7 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
-                                    case 8 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
+                                    case 6 -> setCellValue(cell, precio.margenSobreIngresoNeto(), styleToUse);
+                                    case 7 -> setCellValue(cell, precio.margenSobrePvp(), styleToUse);
+                                    case 8 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
+                                    case 9 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
                                 }
                             } else {
                                 cell.setBlank();

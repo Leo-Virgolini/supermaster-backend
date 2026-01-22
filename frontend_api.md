@@ -135,7 +135,7 @@ Donde los conceptos de gasto modifican diferentes partes de la fórmula según s
 | `margen_mayorista` | % ganancia para canales mayoristas |
 | `margen_fijo_*` | Ganancia fija en $ (opcional) |
 
-Cada producto puede tener UN registro de márgenes. El canal determina cuál usar según tenga el concepto `MARGEN_MINORISTA` o `MARGEN_MAYORISTA`.
+Cada producto puede tener UN registro de márgenes. El canal determina cuál usar según tenga el concepto `FLAG_USAR_MARGEN_MINORISTA` o `FLAG_USAR_MARGEN_MAYORISTA`.
 
 #### 3. `canales` - Canales de Venta
 | Campo | Descripción |
@@ -239,8 +239,8 @@ Donde:
 Tabla intermedia que relaciona qué conceptos aplican a cada canal.
 
 **Ejemplo:**
-- Canal "ML" tiene: GTML, IIBB, IVA, MARGEN_MINORISTA
-- Canal "MAYORISTA" tiene: IVA, MARGEN_MAYORISTA
+- Canal "ML" tiene: GTML, IIBB, FLAG_APLICAR_IVA, FLAG_USAR_MARGEN_MINORISTA
+- Canal "MAYORISTA" tiene: FLAG_APLICAR_IVA, FLAG_USAR_MARGEN_MAYORISTA
 
 #### 6. `canal_concepto_cuota` - Opciones de Cuotas por Canal
 | Campo | Descripción |
@@ -305,10 +305,11 @@ Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos n
 | `costos_venta` | Σ conceptos con AplicaSobre: COMISION_SOBRE_PVP, DESCUENTO_PORCENTUAL, RECARGO_CUPON, FLAG_INCLUIR_ENVIO (incluye embalaje, comisiones, cuotas) |
 | `ingreso_neto_vendedor` | PVP - IVA - impuestos - costosVenta |
 | `ganancia` | Ingreso neto - costo producto |
-| `margen_porcentaje` | (ganancia / ingreso neto) × 100 |
+| `margen_sobre_ingreso_neto` | (ganancia / ingreso neto) × 100 - Rentabilidad real después de gastos |
+| `margen_sobre_pvp` | (ganancia / pvp) × 100 - Margen tradicional sobre precio de venta |
 | `markup_porcentaje` | (ganancia / costo) × 100 |
 
-**Importante:** Todas las métricas (`costos_venta`, `ingreso_neto_vendedor`, `ganancia`, `margen_porcentaje`, `markup_porcentaje`) se calculan sobre el **`pvp`**, NO sobre `pvp_inflado`. El campo `pvp_inflado` es solo para mostrar un precio "tachado" en la UI (ej: ~~$12,000~~ $10,000).
+**Importante:** Todas las métricas (`costos_venta`, `ingreso_neto_vendedor`, `ganancia`, `margen_sobre_ingreso_neto`, `margen_sobre_pvp`, `markup_porcentaje`) se calculan sobre el **`pvp`**, NO sobre `pvp_inflado`. El campo `pvp_inflado` es solo para mostrar un precio "tachado" en la UI (ej: ~~$12,000~~ $10,000).
 
 **Clave única:** (producto, canal, cuotas)
 
@@ -626,7 +627,8 @@ interface Precio {
   costosVenta: number;             // Σ conceptos PVP + DESCUENTO + RECARGO_CUPON + ENVIO + cuotas
   ingresoNetoVendedor: number;     // PVP - IVA - impuestos - costosVenta
   ganancia: number;                // ingresoNetoVendedor - costoProducto
-  margenPorcentaje: number;        // (ganancia / ingresoNetoVendedor) × 100
+  margenSobreIngresoNeto: number;  // (ganancia / ingresoNetoVendedor) × 100 - Rentabilidad real
+  margenSobrePvp: number;          // (ganancia / pvp) × 100 - Margen tradicional
   markupPorcentaje: number;        // (ganancia / costoProducto) × 100
   fechaUltimoCalculo: string;
 }
@@ -1225,7 +1227,8 @@ interface ProductoCanalPrecio {
   costosVenta: number;
   ingresoNetoVendedor: number;
   ganancia: number;
-  margenPorcentaje: number;
+  margenSobreIngresoNeto: number;  // (ganancia / ingresoNetoVendedor) × 100
+  margenSobrePvp: number;          // (ganancia / pvp) × 100
   markupPorcentaje: number;
   fechaUltimoCalculo: string;
 }
@@ -1344,7 +1347,8 @@ interface CalculoResultadoDTO {
           "costosVenta": 1833.39,
           "ingresoNetoVendedor": 6807.46,
           "ganancia": 2307.46,
-          "margenPorcentaje": 33.90,
+          "margenSobreIngresoNeto": 33.90,
+          "margenSobrePvp": 26.70,
           "markupPorcentaje": 51.28,
           "fechaUltimoCalculo": "2026-01-15T17:00:00"
         }
