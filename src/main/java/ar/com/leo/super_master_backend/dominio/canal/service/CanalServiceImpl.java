@@ -72,8 +72,22 @@ public class CanalServiceImpl implements CanalService {
         Canal entity = canalRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
+        // Guardar canalBase anterior para detectar cambios
+        Integer canalBaseIdAnterior = entity.getCanalBase() != null
+                ? entity.getCanalBase().getId()
+                : null;
+
         canalMapper.updateEntityFromDTO(dto, entity);
         canalRepository.save(entity);
+
+        // Detectar cambio en canalBase y recalcular si es necesario
+        Integer canalBaseIdNuevo = entity.getCanalBase() != null
+                ? entity.getCanalBase().getId()
+                : null;
+
+        if (!java.util.Objects.equals(canalBaseIdAnterior, canalBaseIdNuevo)) {
+            recalculoFacade.recalcularPorCambioCanalBase(id);
+        }
 
         return canalMapper.toDTO(entity);
     }

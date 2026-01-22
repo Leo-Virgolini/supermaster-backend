@@ -145,6 +145,17 @@ public class RecalculoPrecioFacade {
     }
 
     /**
+     * Recalcula cuando cambia el canalBase de un canal.
+     * Alcance: Todos los productos del canal cuyo canalBase cambió.
+     */
+    @Transactional
+    public void recalcularPorCambioCanalBase(Integer idCanal) {
+        log.info("Recalculando precios por cambio en canalBase del canal: {}", idCanal);
+
+        recalcularTodosProductosDelCanal(idCanal);
+    }
+
+    /**
      * Recalcula todos los productos de un canal.
      * Usado internamente y cuando cambian configuraciones del canal.
      */

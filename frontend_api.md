@@ -151,7 +151,7 @@ Cada producto puede tener UN registro de márgenes. El canal determina cuál usa
 
 **Canales con canal base (herencia de precios):**
 
-Cuando un canal tiene `canal_base_id` configurado y el concepto `SOBRE_PVP_BASE` asignado, el precio se calcula en base al PVP del canal padre en lugar de usar el costo del producto.
+Cuando un canal tiene `canal_base_id` configurado y el concepto `CALCULO_SOBRE_CANAL_BASE` asignado, el precio se calcula en base al PVP del canal padre en lugar de usar el costo del producto.
 
 ```
 Canal hijo (KT GASTRO)          Canal padre (ML)
@@ -159,17 +159,17 @@ Canal hijo (KT GASTRO)          Canal padre (ML)
       │  ◄─── toma PVP ────────────  │
       │                              │
       ▼                              ▼
-PVP_HIJO = PVP_PADRE × (1 + SOBRE_PVP_BASE% / 100)
+PVP_HIJO = PVP_PADRE × (1 + CALCULO_SOBRE_CANAL_BASE% / 100)
 ```
 
 **Ejemplo:**
 - Canal "ML" (padre): PVP = $10,000
-- Canal "KT GASTRO" (hijo): tiene `canal_base_id = ML` y concepto `SOBRE_PVP_BASE` con porcentaje -12%
+- Canal "KT GASTRO" (hijo): tiene `canal_base_id = ML` y concepto `CALCULO_SOBRE_CANAL_BASE` con porcentaje -12%
 - Resultado: PVP de KT GASTRO = $10,000 × (1 - 12/100) = $8,800
 
 **Notas importantes:**
 - El canal padre debe calcularse primero (el sistema lo hace automáticamente en el orden correcto)
-- Si `SOBRE_PVP_BASE` tiene porcentaje positivo, incrementa el precio; si es negativo, lo decrementa
+- Si `CALCULO_SOBRE_CANAL_BASE` tiene porcentaje positivo, incrementa el precio; si es negativo, lo decrementa
 - Esto es útil para canales que derivan su precio de otro (ej: tienda propia vs marketplace)
 
 #### 4. `conceptos_gastos` - Conceptos de Costo/Gasto
@@ -224,16 +224,16 @@ Donde:
 | `AJUSTE_MARGEN_PROPORCIONAL` | Modifica margen proporcionalmente | `margen × (1 + %/100)` |
 | `RECARGO_CUPON` | Divisor adicional | `PVP / (1 - %/100)` |
 | `DESCUENTO_PORCENTUAL` | Descuento sobre PVP | `PVP × (1 - %/100)` |
-| `INFLACION` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
-| `ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
+| `INFLACION_DIVISOR` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
+| `FLAG_INCLUIR_ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
 
 **Conceptos tipo FLAG (el % se ignora, solo importa si está asignado):**
-- `IVA`: Habilita aplicar el IVA del producto
-- `MARGEN_MINORISTA`: Usa el margen minorista del producto
-- `MARGEN_MAYORISTA`: Usa el margen mayorista del producto
-- `PROMOCION`: Habilita promociones asignadas al producto-canal
-- `SOBRE_PVP_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
-- `PROVEEDOR_FIN`: Usa el % financiación del proveedor del producto
+- `FLAG_APLICAR_IVA`: Habilita aplicar el IVA del producto
+- `FLAG_USAR_MARGEN_MINORISTA`: Usa el margen minorista del producto
+- `FLAG_USAR_MARGEN_MAYORISTA`: Usa el margen mayorista del producto
+- `FLAG_APLICAR_PROMOCIONES`: Habilita promociones asignadas al producto-canal
+- `CALCULO_SOBRE_CANAL_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
+- `FLAG_FINANCIACION_PROVEEDOR`: Usa el % financiación del proveedor del producto
 
 #### 5. `canal_concepto` - Conceptos Asignados a Canales
 Tabla intermedia que relaciona qué conceptos aplican a cada canal.
@@ -1453,7 +1453,7 @@ DELETE /api/conceptos-gastos/{id}      # Eliminar
 {
   "concepto": "IIBB",
   "porcentaje": 3.5,
-  "aplicaSobre": "IMP",
+  "aplicaSobre": "IMPUESTO_ADICIONAL",
   "descripcion": "Ingresos Brutos"
 }
 ```
@@ -1872,10 +1872,12 @@ interface ProductoResumenDTO {
 
    | Dato modificado | Alcance del recálculo |
    |-----------------|----------------------|
-   | Producto (costo, IVA) | Ese producto en todos sus canales |
+   | Producto (costo, IVA, clasifGastro) | Ese producto en todos sus canales |
    | ProductoMargen (márgenes) | Ese producto en todos sus canales |
    | ConceptoGasto (porcentaje o aplicaSobre) | Todos los productos de canales que usan ese concepto |
+   | CanalConcepto (asignar/quitar concepto) | Todos los productos del canal |
    | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
+   | Canal (canalBase) | Todos los productos del canal cuyo canalBase cambió |
    | Proveedor (porcentaje financiación) | Todos los productos de ese proveedor |
    | ReglaDescuento | Todos los productos del canal de la regla |
    | Promoción (asignar/desasignar) | Ese producto en ese canal |
@@ -1901,7 +1903,7 @@ interface ProductoResumenDTO {
 
 5. **Decimales:** Se manejan con 2 decimales de precisión para precios y porcentajes.
 
-6. **Conceptos flag:** Algunos conceptos (`IVA`, `MARGEN_MINORISTA`, `MARGEN_MAYORISTA`, `PROMOCION`) actúan como flags. Solo importa si están asignados al canal o no, el porcentaje se ignora.
+6. **Conceptos flag:** Algunos conceptos (`FLAG_APLICAR_IVA`, `FLAG_USAR_MARGEN_MINORISTA`, `FLAG_USAR_MARGEN_MAYORISTA`, `FLAG_APLICAR_PROMOCIONES`, `FLAG_FINANCIACION_PROVEEDOR`, `FLAG_INCLUIR_ENVIO`) actúan como flags. Solo importa si están asignados al canal o no, el porcentaje se ignora.
 
 7. **Cuotas:** El sistema de cuotas usa:
    - `cuotas = -1` → Transferencia (generalmente con descuento)
