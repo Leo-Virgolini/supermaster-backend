@@ -330,7 +330,7 @@ public class ProductoServiceImpl implements ProductoService {
         }
 
         // 6) Aplicar ordenamiento especial si se solicita (detectar desde Pageable.sort)
-        aplicarOrdenamientoEspecial(dtos, pageable.getSort(), filter.sortCanalId(), preciosPorProducto);
+        aplicarOrdenamientoEspecial(dtos, pageable.getSort(), filter.canalId(), filter.cuotas(), preciosPorProducto);
 
         // 7) Retornar nueva Page con el mismo metadata
         return new PageImpl<>(dtos, pageable, productosPage.getTotalElements());
@@ -339,7 +339,11 @@ public class ProductoServiceImpl implements ProductoService {
     /**
      * Lista de campos que requieren ordenamiento especial (en memoria).
      */
-    private static final Set<String> CAMPOS_SORT_ESPECIAL = Set.of("pvp", "mla", "esmaquina", "costo");
+    private static final Set<String> CAMPOS_SORT_ESPECIAL = Set.of(
+            "pvp", "pvpinflado", "costoproducto", "costosventa", "ingresonetovendedor",
+            "ganancia", "margensobreingreso", "margensobrepvp", "markup",
+            "mla", "esmaquina", "costo"
+    );
 
     /**
      * Aplica ordenamiento especial si el sort del Pageable contiene un campo especial.
@@ -347,7 +351,8 @@ public class ProductoServiceImpl implements ProductoService {
     private void aplicarOrdenamientoEspecial(
             List<ProductoConPreciosDTO> dtos,
             Sort sort,
-            Integer sortCanalId,
+            Integer canalId,
+            Integer cuotas,
             Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto) {
 
         if (sort == null || sort.isUnsorted()) {
@@ -358,7 +363,7 @@ public class ProductoServiceImpl implements ProductoService {
         for (Sort.Order order : sort) {
             String campo = order.getProperty().toLowerCase();
             if (CAMPOS_SORT_ESPECIAL.contains(campo)) {
-                Comparator<ProductoConPreciosDTO> comparator = getComparator(campo, sortCanalId, preciosPorProducto);
+                Comparator<ProductoConPreciosDTO> comparator = getComparator(campo, canalId, cuotas, preciosPorProducto);
                 if (comparator != null) {
                     boolean asc = order.isAscending();
                     dtos.sort(asc ? comparator : comparator.reversed());
@@ -370,10 +375,12 @@ public class ProductoServiceImpl implements ProductoService {
 
     /**
      * Obtiene un comparador basado en el campo de ordenamiento.
+     * Para campos de precio: usa los filtros canalId/cuotas, o MAX de todos si no se especifican.
      */
     private Comparator<ProductoConPreciosDTO> getComparator(
             String sortBy,
-            Integer sortCanalId,
+            Integer canalId,
+            Integer cuotas,
             Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto) {
 
         return switch (sortBy.toLowerCase()) {
@@ -389,30 +396,58 @@ public class ProductoServiceImpl implements ProductoService {
                     ProductoConPreciosDTO::esMaquina,
                     Comparator.nullsLast(Comparator.naturalOrder())
             );
-            case "pvp" -> {
-                if (sortCanalId == null) {
-                    // Sin canal especificado no se puede ordenar por PVP
-                    yield null;
-                }
-                // Ordenar por PVP del canal específico (cuotas=0 o primera cuota disponible)
-                yield Comparator.comparing(
-                        (ProductoConPreciosDTO dto) -> {
-                            List<ProductoCanalPrecio> precios = preciosPorProducto.get(dto.id());
-                            if (precios == null) return null;
-                            // Primero buscar cuotas=0, si no existe usar la primera cuota disponible
-                            return precios.stream()
-                                    .filter(p -> p.getCanal().getId().equals(sortCanalId))
-                                    .sorted(Comparator.comparing(ProductoCanalPrecio::getCuotas,
-                                            Comparator.nullsLast(Comparator.naturalOrder())))
-                                    .map(ProductoCanalPrecio::getPvp)
-                                    .findFirst()
-                                    .orElse(null);
-                        },
-                        Comparator.nullsLast(Comparator.naturalOrder())
-                );
-            }
+            case "pvp" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getPvp);
+            case "pvpinflado" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getPvpInflado);
+            case "costoproducto" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getCostoProducto);
+            case "costosventa" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getCostosVenta);
+            case "ingresonetovendedor" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getIngresoNetoVendedor);
+            case "ganancia" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getGanancia);
+            case "margensobreingreso" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMargenSobreIngresoNeto);
+            case "margensobrepvp" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMargenSobrePvp);
+            case "markup" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMarkupPorcentaje);
             default -> null;
         };
+    }
+
+    /**
+     * Crea un comparador para un campo de precio.
+     * Si canalId/cuotas se especifican, filtra por ellos.
+     * Si no, usa el valor MAX de todos los canales/cuotas.
+     */
+    private Comparator<ProductoConPreciosDTO> crearComparadorPrecio(
+            Integer canalId,
+            Integer cuotas,
+            Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto,
+            java.util.function.Function<ProductoCanalPrecio, BigDecimal> extractor) {
+
+        return Comparator.comparing(
+                (ProductoConPreciosDTO dto) -> {
+                    List<ProductoCanalPrecio> precios = preciosPorProducto.get(dto.id());
+                    if (precios == null || precios.isEmpty()) return null;
+
+                    // Filtrar por canal si se especifica
+                    if (canalId != null) {
+                        precios = precios.stream()
+                                .filter(p -> p.getCanal().getId().equals(canalId))
+                                .toList();
+                    }
+
+                    // Filtrar por cuotas si se especifica
+                    if (cuotas != null) {
+                        precios = precios.stream()
+                                .filter(p -> cuotas.equals(p.getCuotas()))
+                                .toList();
+                    }
+
+                    // Obtener el MAX del campo especificado
+                    return precios.stream()
+                            .map(extractor)
+                            .filter(v -> v != null)
+                            .max(Comparator.naturalOrder())
+                            .orElse(null);
+                },
+                Comparator.nullsLast(Comparator.naturalOrder())
+        );
     }
 
     // ============================
@@ -530,7 +565,7 @@ public class ProductoServiceImpl implements ProductoService {
         }
 
         // Aplicar ordenamiento especial si se solicita
-        aplicarOrdenamientoEspecial(dtos, sort, filter.sortCanalId(), preciosPorProducto);
+        aplicarOrdenamientoEspecial(dtos, sort, filter.canalId(), filter.cuotas(), preciosPorProducto);
 
         return dtos;
     }

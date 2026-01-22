@@ -60,13 +60,10 @@ public record ProductoFilter(
         List<Integer> clienteIds,
         List<Integer> mlaIds,
 
-        // 10) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
-        Integer sortCanalId, // canal para ordenar por PVP
-
-        // 11) FILTRAR PRECIOS POR CANAL
+        // 10) FILTRAR PRECIOS POR CANAL (también usado para ordenamiento)
         Integer canalId,      // si se especifica, solo devuelve precios de ese canal
 
-        // 12) FILTRAR PRECIOS POR CUOTAS
+        // 11) FILTRAR PRECIOS POR CUOTAS (también usado para ordenamiento)
         Integer cuotas        // si se especifica, solo devuelve precios con esa cantidad de cuotas
 ) {
 }

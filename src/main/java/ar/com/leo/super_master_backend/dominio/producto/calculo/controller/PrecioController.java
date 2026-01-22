@@ -102,17 +102,12 @@ public class PrecioController {
             @RequestParam(required = false) List<Integer> mlaIds,
 
             // =======================
-            // 8) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
-            // =======================
-            @RequestParam(required = false) Integer sortCanalId,
-
-            // =======================
-            // 9) FILTRAR PRECIOS POR CANAL
+            // 8) FILTRAR PRECIOS POR CANAL (también usado para ordenamiento)
             // =======================
             @RequestParam(required = false) Integer canalId,
 
             // =======================
-            // 10) FILTRAR PRECIOS POR CUOTAS
+            // 9) FILTRAR PRECIOS POR CUOTAS (también usado para ordenamiento)
             // =======================
             @RequestParam(required = false) Integer cuotas,
 
@@ -154,7 +149,6 @@ public class PrecioController {
                 catalogoIds,
                 clienteIds,
                 mlaIds,
-                sortCanalId,
                 canalId,
                 cuotas
         );

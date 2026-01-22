@@ -688,15 +688,14 @@ interface ProductoFilter {
   clienteIds?: number[];
   mlaIds?: number[];
 
-  // Ordenamiento especial (usar con sort de Spring)
-  // Para campos especiales (pvp, mla, esMaquina, costo): sort=pvp,asc
-  sortCanalId?: number;   // canal para ordenar por PVP (requerido si sort=pvp)
-
-  // Filtrar precios por canal específico
+  // Filtrar precios por canal (también usado para ordenamiento por campos de precio)
   canalId?: number;
 
-  // Filtrar precios por cuotas
+  // Filtrar precios por cuotas (también usado para ordenamiento por campos de precio)
   cuotas?: number;
+
+  // Ordenamiento especial: campos de precio (pvp, costoProducto, ganancia, etc.)
+  // usan canalId/cuotas para filtrar, o MAX de todos si no se especifican
 }
 ```
 
@@ -1864,12 +1863,21 @@ interface ProductoResumenDTO {
    GET /api/precios?canalIds=1,2,3&aptoIds=1,2
    ```
 
-3. **Ordenamiento especial:** Campos como `pvp`, `mla`, `esMaquina` y `costo` usan el parámetro `sort` estándar de Spring:
+3. **Ordenamiento especial:** Campos calculados de precio y otros campos especiales usan el parámetro `sort` estándar de Spring:
+
+   **Campos de precio** (usan los filtros `canalId`/`cuotas`, o MAX de todos si no se especifican):
+   - `pvp`, `pvpInflado`, `costoProducto`, `costosVenta`
+   - `ingresoNetoVendedor`, `ganancia`
+   - `margenSobreIngreso`, `margenSobrePvp`, `markup`
+
+   **Otros campos:** `mla`, `esMaquina`, `costo`
+
    ```
-   GET /api/precios?sort=pvp,asc&sortCanalId=1   # Requiere sortCanalId para pvp
+   GET /api/precios?sort=ganancia,desc                       # MAX ganancia de todos los canales
+   GET /api/precios?sort=pvp,asc&canalId=1                   # PVP del canal 1
+   GET /api/precios?sort=margenSobrePvp,desc&canalId=2&cuotas=0  # Margen del canal 2, contado
    GET /api/precios?sort=mla,desc
    GET /api/precios?sort=costo,asc
-   GET /api/precios?sort=esMaquina,desc
    ```
 
 4. **Fechas:** Enviar en formato ISO:

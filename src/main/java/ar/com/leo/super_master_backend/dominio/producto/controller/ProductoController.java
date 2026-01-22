@@ -95,11 +95,6 @@ public class ProductoController {
             @RequestParam(required = false) List<Integer> clienteIds,
             @RequestParam(required = false) List<Integer> mlaIds,
 
-            // =======================
-            // 8) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
-            // =======================
-            @RequestParam(required = false) Integer sortCanalId,
-
             Pageable pageable
     ) {
 
@@ -138,7 +133,6 @@ public class ProductoController {
                 catalogoIds,
                 clienteIds,
                 mlaIds,
-                sortCanalId,
                 null,  // canalId (no aplica, no devuelve precios)
                 null   // cuotas (no aplica, no devuelve precios)
         );

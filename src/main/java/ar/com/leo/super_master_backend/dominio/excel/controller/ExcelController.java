@@ -181,16 +181,13 @@ public class ExcelController {
             @RequestParam(required = false) List<Integer> clienteIds,
             @RequestParam(required = false) List<Integer> mlaIds,
 
-            // 8) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
-            @RequestParam(required = false) Integer sortCanalId,
-
-            // 9) SORT (Spring lo resuelve automáticamente desde ?sort=campo,asc)
+            // 8) SORT (Spring lo resuelve automáticamente desde ?sort=campo,asc)
             Sort sort,
 
-            // 10) FILTRAR PRECIOS POR CANAL
+            // 9) FILTRAR PRECIOS POR CANAL (también usado para ordenamiento)
             @RequestParam(required = false) Integer canalId,
 
-            // 11) FILTRAR PRECIOS POR CUOTAS
+            // 10) FILTRAR PRECIOS POR CUOTAS (también usado para ordenamiento)
             @RequestParam(required = false) Integer cuotas
     ) {
         try {
@@ -252,7 +249,6 @@ public class ExcelController {
                     catalogoIds,
                     clienteIds,
                     mlaIds,
-                    sortCanalId,
                     canalId,
                     cuotas
             );
