@@ -9,7 +9,7 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import org.mapstruct.Mapper;
@@ -82,8 +82,8 @@ public interface CanalConceptoReglaMapper {
     }
 
     @Named("conceptoFromId")
-    default ConceptoGasto conceptoFromId(Integer id) {
-        return id != null ? new ConceptoGasto(id) : null;
+    default ConceptoCalculo conceptoFromId(Integer id) {
+        return id != null ? new ConceptoCalculo(id) : null;
     }
 
     @Named("tipoFromId")

@@ -1,8 +1,8 @@
-package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.entity;
 
 /**
  * Enum que representa los valores posibles para el campo aplica_sobre
- * en la tabla conceptos_gastos.
+ * en la tabla conceptos_calculo.
  *
  * Los valores están agrupados por etapa del cálculo de precio.
  * El nombre de cada valor indica su función y en qué etapa se aplica.

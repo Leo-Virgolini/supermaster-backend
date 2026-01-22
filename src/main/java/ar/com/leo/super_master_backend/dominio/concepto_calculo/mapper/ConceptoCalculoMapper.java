@@ -1,36 +1,36 @@
-package ar.com.leo.super_master_backend.dominio.concepto_gasto.mapper;
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.mapper;
 
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoCreateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
 
 @Mapper(config = GlobalMapperConfig.class)
-public interface ConceptoGastoMapper {
+public interface ConceptoCalculoMapper {
 
     // =============================
     // ENTITY → DTO
     // =============================
     @Mapping(source = "aplicaSobre", target = "aplicaSobre", qualifiedByName = "enumToString")
-    ConceptoGastoDTO toDTO(ConceptoGasto entity);
+    ConceptoCalculoDTO toDTO(ConceptoCalculo entity);
 
     // =============================
     // CREATE DTO → ENTITY
     // =============================
     @Mapping(source = "aplicaSobre", target = "aplicaSobre", qualifiedByName = "stringToEnum")
-    ConceptoGasto toEntity(ConceptoGastoCreateDTO dto);
+    ConceptoCalculo toEntity(ConceptoCalculoCreateDTO dto);
 
     // =============================
     // UPDATE DTO → ENTITY (PATCH)
     // =============================
     @Mapping(source = "aplicaSobre", target = "aplicaSobre", qualifiedByName = "stringToEnum")
-    void updateEntityFromDTO(ConceptoGastoUpdateDTO dto, @MappingTarget ConceptoGasto entity);
+    void updateEntityFromDTO(ConceptoCalculoUpdateDTO dto, @MappingTarget ConceptoCalculo entity);
 
     // =============================
     // MÉTODOS DE CONVERSIÓN

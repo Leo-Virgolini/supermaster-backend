@@ -4,7 +4,7 @@ import ar.com.leo.super_master_backend.dominio.canal.dto.CanalConceptoDTO;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -28,6 +28,6 @@ public interface CanalConceptoMapper {
     @Mapping(target = "id.idCanal", source = "canalId")
     @Mapping(target = "id.idConcepto", source = "conceptoId")
     @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
-    @Mapping(target = "concepto", expression = "java(new ConceptoGasto(dto.conceptoId()))")
+    @Mapping(target = "concepto", expression = "java(new ConceptoCalculo(dto.conceptoId()))")
     CanalConcepto toEntity(CanalConceptoDTO dto);
 }

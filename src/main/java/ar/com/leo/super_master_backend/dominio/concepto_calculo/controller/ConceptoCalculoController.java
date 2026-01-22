@@ -1,9 +1,9 @@
-package ar.com.leo.super_master_backend.dominio.concepto_gasto.controller;
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.controller;
 
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.service.ConceptoGastoService;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoCreateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.service.ConceptoCalculoService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -17,24 +17,24 @@ import java.net.URI;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/conceptos-gastos")
-public class ConceptoGastoController {
+@RequestMapping("/api/conceptos-calculo")
+public class ConceptoCalculoController {
 
-    private final ConceptoGastoService service;
+    private final ConceptoCalculoService service;
 
     @GetMapping
-    public ResponseEntity<Page<ConceptoGastoDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
+    public ResponseEntity<Page<ConceptoCalculoDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
         return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ConceptoGastoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+    public ResponseEntity<ConceptoCalculoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
-    public ResponseEntity<ConceptoGastoDTO> crear(@Valid @RequestBody ConceptoGastoCreateDTO dto) {
-        ConceptoGastoDTO creado = service.crear(dto);
+    public ResponseEntity<ConceptoCalculoDTO> crear(@Valid @RequestBody ConceptoCalculoCreateDTO dto) {
+        ConceptoCalculoDTO creado = service.crear(dto);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -44,9 +44,9 @@ public class ConceptoGastoController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ConceptoGastoDTO> actualizar(
+    public ResponseEntity<ConceptoCalculoDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
-            @Valid @RequestBody ConceptoGastoUpdateDTO dto
+            @Valid @RequestBody ConceptoCalculoUpdateDTO dto
     ) {
         return ResponseEntity.ok(service.actualizar(id, dto));
     }

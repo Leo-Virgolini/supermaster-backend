@@ -16,11 +16,11 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.service.ClasifGastr
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.dto.ClasifGastroUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.service.ConceptoGastoService;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.repository.ConceptoCalculoRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.service.ConceptoCalculoService;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
@@ -67,7 +67,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Triggers probados:
  * 1. Producto (costo, iva)
  * 2. ProductoMargen (márgenes)
- * 3. ConceptoGasto (porcentaje)
+ * 3. ConceptoCalculo (porcentaje)
  * 4. CanalConcepto (asignar/quitar concepto)
  * 5. CanalConceptoCuota (porcentaje cuotas)
  * 6. Canal (canalBase)
@@ -92,7 +92,7 @@ class RecalculoAutomaticoIntegrationTest {
     private CanalRepository canalRepository;
 
     @Autowired
-    private ConceptoGastoRepository conceptoGastoRepository;
+    private ConceptoCalculoRepository conceptoGastoRepository;
 
     @Autowired
     private CanalConceptoRepository canalConceptoRepository;
@@ -134,7 +134,7 @@ class RecalculoAutomaticoIntegrationTest {
     private ProductoMargenService productoMargenService;
 
     @Autowired
-    private ConceptoGastoService conceptoGastoService;
+    private ConceptoCalculoService conceptoGastoService;
 
     @Autowired
     private CanalConceptoService canalConceptoService;
@@ -160,8 +160,8 @@ class RecalculoAutomaticoIntegrationTest {
     // Entidades de prueba
     private Producto producto;
     private Canal canal;
-    private ConceptoGasto conceptoMargen;
-    private ConceptoGasto conceptoComision;
+    private ConceptoCalculo conceptoMargen;
+    private ConceptoCalculo conceptoComision;
     private ProductoMargen productoMargen;
 
     private static final String TEST_PREFIX = "ZTEST_";
@@ -199,14 +199,14 @@ class RecalculoAutomaticoIntegrationTest {
         canal = canalRepository.save(canal);
 
         // Crear concepto de margen minorista (FLAG)
-        conceptoMargen = new ConceptoGasto();
+        conceptoMargen = new ConceptoCalculo();
         conceptoMargen.setConcepto(TEST_PREFIX + "MARGEN_MIN");
         conceptoMargen.setPorcentaje(BigDecimal.ZERO);
         conceptoMargen.setAplicaSobre(AplicaSobre.FLAG_USAR_MARGEN_MINORISTA);
         conceptoMargen = conceptoGastoRepository.save(conceptoMargen);
 
         // Crear concepto de comisión sobre PVP
-        conceptoComision = new ConceptoGasto();
+        conceptoComision = new ConceptoCalculo();
         conceptoComision.setConcepto(TEST_PREFIX + "COMISION");
         conceptoComision.setPorcentaje(new BigDecimal("10"));
         conceptoComision.setAplicaSobre(AplicaSobre.COMISION_SOBRE_PVP);
@@ -308,7 +308,7 @@ class RecalculoAutomaticoIntegrationTest {
     @DisplayName("2. Recálculo automático al cambiar IVA del Producto")
     void testRecalculoPorCambioIvaProducto() {
         // Primero necesitamos agregar el concepto FLAG_APLICAR_IVA
-        ConceptoGasto conceptoIva = new ConceptoGasto();
+        ConceptoCalculo conceptoIva = new ConceptoCalculo();
         conceptoIva.setConcepto(TEST_PREFIX + "IVA");
         conceptoIva.setPorcentaje(BigDecimal.ZERO);
         conceptoIva.setAplicaSobre(AplicaSobre.FLAG_APLICAR_IVA);
@@ -368,17 +368,17 @@ class RecalculoAutomaticoIntegrationTest {
     }
 
     // ===========================================
-    // TEST 4: Cambio en ConceptoGasto (porcentaje)
+    // TEST 4: Cambio en ConceptoCalculo (porcentaje)
     // ===========================================
     @Test
     @Order(4)
-    @DisplayName("4. Recálculo automático al cambiar porcentaje de ConceptoGasto")
-    void testRecalculoPorCambioConceptoGasto() {
+    @DisplayName("4. Recálculo automático al cambiar porcentaje de ConceptoCalculo")
+    void testRecalculoPorCambioConceptoCalculo() {
         BigDecimal pvpInicial = obtenerPvpActual();
 
         // Modificar porcentaje del concepto de comisión
         conceptoGastoService.actualizar(conceptoComision.getId(),
-                new ConceptoGastoUpdateDTO(
+                new ConceptoCalculoUpdateDTO(
                         null,
                         new BigDecimal("20"), // aumentar comisión de 10% a 20%
                         null,
@@ -403,7 +403,7 @@ class RecalculoAutomaticoIntegrationTest {
         BigDecimal pvpInicial = obtenerPvpActual();
 
         // Crear y asignar nuevo concepto de gasto sobre costo
-        ConceptoGasto conceptoEmbalaje = new ConceptoGasto();
+        ConceptoCalculo conceptoEmbalaje = new ConceptoCalculo();
         conceptoEmbalaje.setConcepto(TEST_PREFIX + "EMBALAJE");
         conceptoEmbalaje.setPorcentaje(new BigDecimal("5"));
         conceptoEmbalaje.setAplicaSobre(AplicaSobre.GASTO_SOBRE_COSTO);
@@ -556,7 +556,7 @@ class RecalculoAutomaticoIntegrationTest {
         canalHijo = canalRepository.save(canalHijo);
 
         // Crear concepto CALCULO_SOBRE_CANAL_BASE
-        ConceptoGasto conceptoSobreBase = new ConceptoGasto();
+        ConceptoCalculo conceptoSobreBase = new ConceptoCalculo();
         conceptoSobreBase.setConcepto(TEST_PREFIX + "SOBRE_BASE");
         conceptoSobreBase.setPorcentaje(new BigDecimal("-10")); // 10% menos que el padre
         conceptoSobreBase.setAplicaSobre(AplicaSobre.CALCULO_SOBRE_CANAL_BASE);
@@ -628,7 +628,7 @@ class RecalculoAutomaticoIntegrationTest {
         producto = productoRepository.save(producto);
 
         // Crear concepto FLAG_FINANCIACION_PROVEEDOR
-        ConceptoGasto conceptoFinanciacion = new ConceptoGasto();
+        ConceptoCalculo conceptoFinanciacion = new ConceptoCalculo();
         conceptoFinanciacion.setConcepto(TEST_PREFIX + "FIN_PROV");
         conceptoFinanciacion.setPorcentaje(BigDecimal.ZERO);
         conceptoFinanciacion.setAplicaSobre(AplicaSobre.FLAG_FINANCIACION_PROVEEDOR);
@@ -707,7 +707,7 @@ class RecalculoAutomaticoIntegrationTest {
         producto = productoRepository.save(producto);
 
         // Crear concepto FLAG_INCLUIR_ENVIO
-        ConceptoGasto conceptoEnvio = new ConceptoGasto();
+        ConceptoCalculo conceptoEnvio = new ConceptoCalculo();
         conceptoEnvio.setConcepto(TEST_PREFIX + "ENVIO");
         conceptoEnvio.setPorcentaje(BigDecimal.ZERO);
         conceptoEnvio.setAplicaSobre(AplicaSobre.FLAG_INCLUIR_ENVIO);

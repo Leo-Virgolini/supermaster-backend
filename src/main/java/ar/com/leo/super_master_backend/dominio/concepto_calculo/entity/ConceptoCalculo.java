@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.dominio.concepto_gasto.entity;
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.entity;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoRegla;
@@ -18,8 +18,8 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "conceptos_gastos", schema = "supermaster")
-public class ConceptoGasto {
+@Table(name = "conceptos_calculo", schema = "supermaster")
+public class ConceptoCalculo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,7 +59,7 @@ public class ConceptoGasto {
     @OneToMany(mappedBy = "concepto")
     private Set<CanalConceptoRegla> canalConceptoReglas = new LinkedHashSet<>();
 
-    public ConceptoGasto(Integer id) {
+    public ConceptoCalculo(Integer id) {
         this.id = id;
     }
 

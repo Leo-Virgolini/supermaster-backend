@@ -8,8 +8,8 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRep
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoResultDTO;
@@ -77,7 +77,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         Producto producto = obtenerProducto(idProducto);
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoGasto> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
         List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
 
         // Si el canal tiene canalBase o usa SOBRE_PVP_BASE, no requiere ProductoCanal
@@ -99,7 +99,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         Producto producto = obtenerProducto(idProducto);
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoGasto> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
         List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
 
         // Si el canal tiene canalBase o usa SOBRE_PVP_BASE, no requiere ProductoCanal
@@ -1565,7 +1565,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * asignado al canal padre (ej: NUBE), también aplica a todos sus canales
      * hijos (ej: KT HOGAR, KT GASTRO) Nota: Las cuotas ahora se manejan a
      * través de canal_concepto_cuota, no a través del campo cuotas en
-     * conceptos_gastos
+     * conceptos_calculo
      * <p>
      * REGLAS DE CANAL_CONCEPTO_REGLA: - Si tipo_regla = INCLUIR: el concepto
      * SOLO aplica si el producto cumple TODAS las condiciones - Si tipo_regla =
@@ -1613,7 +1613,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      *                     canal_concepto_regla
      * @return Lista de conceptos de gasto que aplican según los filtros
      */
-    private List<ConceptoGasto> obtenerConceptosAplicables(Integer idCanal, Integer numeroCuotas,
+    private List<ConceptoCalculo> obtenerConceptosAplicables(Integer idCanal, Integer numeroCuotas,
                                                            Producto producto) {
         // Obtener el canal actual para acceder a su canal padre (canalBase)
         Canal canalActual = canalRepository.findById(idCanal).orElse(null);
@@ -1725,16 +1725,16 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Convierte una lista de ConceptoGasto a CanalConcepto para mantener
+     * Convierte una lista de ConceptoCalculo a CanalConcepto para mantener
      * compatibilidad con el método calcularPrecioInterno que espera
      * List<CanalConcepto>.
      *
-     * @param conceptos Lista de ConceptoGasto
+     * @param conceptos Lista de ConceptoCalculo
      * @param idCanal   ID del canal para establecer en los objetos CanalConcepto
      *                  temporales
      * @return Lista de CanalConcepto (objetos temporales para compatibilidad)
      */
-    private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoGasto> conceptos, Integer idCanal) {
+    private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoCalculo> conceptos, Integer idCanal) {
         // Obtener las relaciones canal_concepto para estos conceptos y el canal
         List<CanalConcepto> relacionesExistentes = canalConceptoRepository.findByCanalId(idCanal);
         Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
@@ -1767,7 +1767,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      *
      * @param conceptos   Lista de CanalConcepto
      * @param aplicaSobre Tipo de aplicación sobre el cual filtrar
-     * @return Lista de nombres de conceptos (campo concepto de ConceptoGasto)
+     * @return Lista de nombres de conceptos (campo concepto de ConceptoCalculo)
      */
     private List<String> obtenerNombresConceptos(List<CanalConcepto> conceptos, AplicaSobre aplicaSobre) {
         return conceptos.stream()
@@ -1934,7 +1934,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Obtener todos los conceptos que aplican al canal según los filtros
         // Sistema unificado: todos los conceptos se obtienen dinámicamente desde canal_concepto
         // y se filtran por reglas de canal_concepto_regla según el producto
-        List<ConceptoGasto> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
 
         List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
 
@@ -2287,7 +2287,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
                 List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
                 List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
-                List<ConceptoGasto> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
+                List<ConceptoCalculo> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
                 List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
 
                 for (Integer cuotas : cuotasDelCanal) {
@@ -2390,7 +2390,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
                 List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
                 List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
-                List<ConceptoGasto> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
+                List<ConceptoCalculo> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
                 List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
 
                 for (Integer cuotas : cuotasDelCanal) {
@@ -2482,7 +2482,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     /**
      * Filtra conceptos según las reglas del canal (versión optimizada sin consultas).
      */
-    private List<ConceptoGasto> filtrarConceptosPorReglas(
+    private List<ConceptoCalculo> filtrarConceptosPorReglas(
             List<CanalConcepto> conceptosCanal,
             List<CanalConceptoRegla> reglasCanal,
             Producto producto) {
@@ -2513,7 +2513,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * Convierte conceptos a CanalConcepto usando datos ya cargados (sin consultas).
      */
     private List<CanalConcepto> convertirConceptosACanalConceptoOptimizado(
-            List<ConceptoGasto> conceptos,
+            List<ConceptoCalculo> conceptos,
             List<CanalConcepto> relacionesExistentes) {
 
         Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
@@ -2560,7 +2560,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal total = BigDecimal.ZERO;
 
         for (CanalConcepto cc : conceptos) {
-            ConceptoGasto concepto = cc.getConcepto();
+            ConceptoCalculo concepto = cc.getConcepto();
             if (concepto == null) continue;
 
             // Verificar si es costo de venta por AplicaSobre

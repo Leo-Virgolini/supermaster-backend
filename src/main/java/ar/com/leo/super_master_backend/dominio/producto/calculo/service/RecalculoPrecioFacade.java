@@ -61,12 +61,12 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula cuando cambia un ConceptoGasto (porcentaje, aplicaSobre).
+     * Recalcula cuando cambia un ConceptoCalculo (porcentaje, aplicaSobre).
      * Alcance: Todos los productos de todos los canales que usan ese concepto.
      */
     @Transactional
-    public void recalcularPorCambioConceptoGasto(Integer idConcepto) {
-        log.info("Recalculando precios por cambio en concepto de gasto: {}", idConcepto);
+    public void recalcularPorCambioConceptoCalculo(Integer idConcepto) {
+        log.info("Recalculando precios por cambio en concepto de cálculo: {}", idConcepto);
 
         canalConceptoRepository.findByConceptoId(idConcepto)
                 .stream()

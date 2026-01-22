@@ -1,0 +1,22 @@
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.dto;
+
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+
+public record ConceptoCalculoUpdateDTO(
+        @Size(max = 45, message = "El nombre del concepto no puede exceder 45 caracteres")
+        String concepto,
+        @DecimalMin(value = "-100.0", inclusive = true, message = "El porcentaje debe ser mayor o igual a -100")
+        @DecimalMax(value = "100.0", inclusive = true, message = "El porcentaje debe ser menor o igual a 100")
+        BigDecimal porcentaje,
+        @Pattern(regexp = "GASTO_SOBRE_COSTO|FLAG_FINANCIACION_PROVEEDOR|AJUSTE_MARGEN_PUNTOS|AJUSTE_MARGEN_PROPORCIONAL|FLAG_USAR_MARGEN_MINORISTA|FLAG_USAR_MARGEN_MAYORISTA|GASTO_POST_GANANCIA|FLAG_APLICAR_IVA|IMPUESTO_ADICIONAL|GASTO_POST_IMPUESTOS|FLAG_INCLUIR_ENVIO|COMISION_SOBRE_PVP|CALCULO_SOBRE_CANAL_BASE|RECARGO_CUPON|DESCUENTO_PORCENTUAL|INFLACION_DIVISOR|FLAG_APLICAR_PROMOCIONES",
+                message = "aplicaSobre debe ser uno de los valores válidos del enum AplicaSobre")
+        String aplicaSobre,
+        @Size(max = 255, message = "La descripción no puede exceder 255 caracteres")
+        String descripcion
+) {
+}

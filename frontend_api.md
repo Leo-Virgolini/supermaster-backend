@@ -16,7 +16,7 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Productos](#productos)
    - [Precios](#precios)
    - [Canales](#canales)
-   - [Conceptos de Gasto](#conceptos-de-gasto)
+   - [Conceptos de Cálculo](#conceptos-de-cálculo)
    - [Reglas de Descuento](#reglas-de-descuento)
    - [Promociones](#promociones)
    - [Catálogos y Clientes](#catálogos-y-clientes)
@@ -31,7 +31,7 @@ Este backend gestiona un sistema de **cálculo de precios multicanal** para prod
 
 1. **Productos** tienen un costo base e IVA
 2. **Canales** representan diferentes puntos de venta (ej: Mercado Libre, Tienda Nube, Mayorista, etc.)
-3. Cada canal tiene **conceptos de gasto** asociados que afectan el cálculo del precio
+3. Cada canal tiene **conceptos de cálculo** asociados que afectan el cálculo del precio
 4. Los precios se calculan automáticamente aplicando márgenes, impuestos, comisiones y descuentos
 5. Cada canal puede tener diferentes **opciones de cuotas** con recargos o descuentos
 
@@ -51,7 +51,7 @@ Este backend gestiona un sistema de **cálculo de precios multicanal** para prod
 PVP = (COSTO × (1 + MARGEN/100) × FACTOR_IMP) / (1 - COMISIONES/100)
 ```
 
-Donde los conceptos de gasto modifican diferentes partes de la fórmula según su `aplicaSobre`.
+Donde los conceptos de cálculo modifican diferentes partes de la fórmula según su `aplicaSobre`.
 
 ---
 
@@ -172,7 +172,7 @@ PVP_HIJO = PVP_PADRE × (1 + CALCULO_SOBRE_CANAL_BASE% / 100)
 - Si `CALCULO_SOBRE_CANAL_BASE` tiene porcentaje positivo, incrementa el precio; si es negativo, lo decrementa
 - Esto es útil para canales que derivan su precio de otro (ej: tienda propia vs marketplace)
 
-#### 4. `conceptos_gastos` - Conceptos de Costo/Gasto
+#### 4. `conceptos_calculo` - Conceptos de Cálculo
 | Campo | Descripción |
 |-------|-------------|
 | `concepto` | Nombre (ej: "GTML", "IIBB", "IVA") |
@@ -429,7 +429,7 @@ La mayoría de los endpoints de listado soportan un parámetro `search` para fil
 **Endpoints que soportan `search`:**
 - `/api/productos` - busca en descripción, SKU, título web
 - `/api/canales` - busca en nombre del canal
-- `/api/conceptos-gasto` - busca en concepto y descripción
+- `/api/conceptos-calculo` - busca en concepto y descripción
 - `/api/catalogos` - busca en nombre
 - `/api/clientes` - busca en nombre
 - `/api/proveedores` - busca en nombre
@@ -719,10 +719,10 @@ interface CanalUpdate {
 }
 ```
 
-### Concepto de Gasto
+### Concepto de Cálculo
 
 ```typescript
-interface ConceptoGasto {
+interface ConceptoCalculo {
   id: number;
   concepto: string;
   porcentaje: number;           // -100 a 100 (negativos para MARGEN_PTS/MARGEN_PROP)
@@ -730,14 +730,14 @@ interface ConceptoGasto {
   descripcion: string | null;
 }
 
-interface ConceptoGastoCreate {
+interface ConceptoCalculoCreate {
   concepto: string;             // @NotBlank, max 45
   porcentaje: number;           // @NotNull, -100 a 100
   aplicaSobre: AplicaSobre;     // @NotBlank
   descripcion?: string;         // max 255
 }
 
-interface ConceptoGastoUpdate {
+interface ConceptoCalculoUpdate {
   concepto?: string;            // max 45
   porcentaje?: number;          // -100 a 100
   aplicaSobre?: AplicaSobre;
@@ -1412,14 +1412,14 @@ DELETE /api/canal-concepto-reglas/{id}                    # Eliminar
 
 ---
 
-### Conceptos de Gasto
+### Conceptos de Cálculo
 
 ```http
-GET    /api/conceptos-gastos           # Listar (paginado)
-POST   /api/conceptos-gastos           # Crear
-GET    /api/conceptos-gastos/{id}      # Obtener
-PUT    /api/conceptos-gastos/{id}      # Actualizar
-DELETE /api/conceptos-gastos/{id}      # Eliminar
+GET    /api/conceptos-calculo           # Listar (paginado)
+POST   /api/conceptos-calculo           # Crear
+GET    /api/conceptos-calculo/{id}      # Obtener
+PUT    /api/conceptos-calculo/{id}      # Actualizar
+DELETE /api/conceptos-calculo/{id}      # Eliminar
 ```
 
 **Crear concepto:**
@@ -1741,7 +1741,7 @@ Al eliminar estas entidades, **se eliminan automáticamente** sus registros rela
 | **Producto** | ProductoApto, ProductoCatalogo, ProductoCliente, ProductoCanalPrecio, ProductoCanalPromocion, ProductoMargen |
 | **Catálogo** | ProductoCatalogo (relaciones con productos), ReglaDescuento |
 | **Canal** | ProductoCanalPrecio, ProductoCanalPromocion, CanalConceptoCuota, CanalConceptoRegla, ReglaDescuento |
-| **ConceptoGasto** | CanalConcepto, CanalConceptoRegla |
+| **ConceptoCalculo** | CanalConcepto, CanalConceptoRegla |
 | **Apto** | ProductoApto (relaciones con productos) |
 | **Cliente** | ProductoCliente (relaciones con productos) |
 
@@ -1848,7 +1848,7 @@ interface ProductoResumenDTO {
    |-----------------|----------------------|
    | Producto (costo, IVA, clasifGastro) | Ese producto en todos sus canales |
    | ProductoMargen (márgenes) | Ese producto en todos sus canales |
-   | ConceptoGasto (porcentaje o aplicaSobre) | Todos los productos de canales que usan ese concepto |
+   | ConceptoCalculo (porcentaje o aplicaSobre) | Todos los productos de canales que usan ese concepto |
    | CanalConcepto (asignar/quitar concepto) | Todos los productos del canal |
    | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
    | Canal (canalBase) | Todos los productos del canal cuyo canalBase cambió |

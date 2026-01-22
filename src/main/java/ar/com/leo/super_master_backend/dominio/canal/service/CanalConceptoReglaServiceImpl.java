@@ -9,7 +9,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoReg
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.repository.ConceptoCalculoRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
 import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
@@ -27,7 +27,7 @@ public class CanalConceptoReglaServiceImpl implements CanalConceptoReglaService 
 
     private final CanalConceptoReglaRepository repository;
     private final CanalRepository canalRepository;
-    private final ConceptoGastoRepository conceptoGastoRepository;
+    private final ConceptoCalculoRepository conceptoCalculoRepository;
     private final TipoRepository tipoRepository;
     private final ClasifGastroRepository clasifGastroRepository;
     private final ClasifGralRepository clasifGralRepository;
@@ -58,7 +58,7 @@ public class CanalConceptoReglaServiceImpl implements CanalConceptoReglaService 
         }
 
         // Validar que el concepto existe
-        if (!conceptoGastoRepository.existsById(dto.conceptoId())) {
+        if (!conceptoCalculoRepository.existsById(dto.conceptoId())) {
             throw new NotFoundException("Concepto no encontrado");
         }
 
@@ -91,7 +91,7 @@ public class CanalConceptoReglaServiceImpl implements CanalConceptoReglaService 
         if (dto.canalId() != null && !canalRepository.existsById(dto.canalId())) {
             throw new NotFoundException("Canal no encontrado");
         }
-        if (dto.conceptoId() != null && !conceptoGastoRepository.existsById(dto.conceptoId())) {
+        if (dto.conceptoId() != null && !conceptoCalculoRepository.existsById(dto.conceptoId())) {
             throw new NotFoundException("Concepto no encontrado");
         }
         if (dto.tipoId() != null && !tipoRepository.existsById(dto.tipoId())) {

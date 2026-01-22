@@ -2,7 +2,7 @@ package ar.com.leo.super_master_backend.dominio.canal.entity;
 
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import jakarta.persistence.*;
@@ -40,7 +40,7 @@ public class CanalConceptoRegla {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_concepto", nullable = false)
-    private ConceptoGasto concepto;
+    private ConceptoCalculo concepto;
 
     // =========================
     // TIPO DE REGLA

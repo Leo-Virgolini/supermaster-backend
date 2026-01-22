@@ -13,8 +13,8 @@ import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalConceptoMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.repository.ConceptoCalculoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
 
@@ -24,7 +24,7 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
 
     private final CanalConceptoRepository canalConceptoRepository;
     private final CanalRepository canalRepository;
-    private final ConceptoGastoRepository conceptoRepository;
+    private final ConceptoCalculoRepository conceptoRepository;
     private final RecalculoPrecioFacade recalculoFacade;
     private final CanalConceptoMapper canalConceptoMapper;
 
@@ -53,7 +53,7 @@ public class CanalConceptoServiceImpl implements CanalConceptoService {
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
         // 2) validar concepto
-        ConceptoGasto concepto = conceptoRepository.findById(conceptoId)
+        ConceptoCalculo concepto = conceptoRepository.findById(conceptoId)
                 .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
 
         // 3) crear relación

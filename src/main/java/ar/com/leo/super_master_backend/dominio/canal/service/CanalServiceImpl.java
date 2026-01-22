@@ -16,7 +16,7 @@ import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.mapper.CanalMapper;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSobre;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;

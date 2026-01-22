@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.dominio.concepto_gasto.service;
+package ar.com.leo.super_master_backend.dominio.concepto_calculo.service;
 
 import java.math.BigDecimal;
 
@@ -8,26 +8,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoCreateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.dto.ConceptoGastoUpdateDTO;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.mapper.ConceptoGastoMapper;
-import ar.com.leo.super_master_backend.dominio.concepto_gasto.repository.ConceptoGastoRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoCreateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.dto.ConceptoCalculoUpdateDTO;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.ConceptoCalculo;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.mapper.ConceptoCalculoMapper;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.repository.ConceptoCalculoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class ConceptoGastoServiceImpl implements ConceptoGastoService {
+public class ConceptoCalculoServiceImpl implements ConceptoCalculoService {
 
-    private final ConceptoGastoRepository conceptoRepository;
+    private final ConceptoCalculoRepository conceptoRepository;
     private final RecalculoPrecioFacade recalculoFacade;
-    private final ConceptoGastoMapper mapper;
+    private final ConceptoCalculoMapper mapper;
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ConceptoGastoDTO> listar(String search, Pageable pageable) {
+    public Page<ConceptoCalculoDTO> listar(String search, Pageable pageable) {
         if (search != null && !search.isBlank()) {
             return conceptoRepository.findByConceptoContainingIgnoreCaseOrDescripcionContainingIgnoreCase(search, search, pageable)
                     .map(mapper::toDTO);
@@ -38,7 +38,7 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
 
     @Override
     @Transactional(readOnly = true)
-    public ConceptoGastoDTO obtener(Integer id) {
+    public ConceptoCalculoDTO obtener(Integer id) {
         return conceptoRepository.findById(id)
                 .map(mapper::toDTO)
                 .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
@@ -46,17 +46,17 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
 
     @Override
     @Transactional
-    public ConceptoGastoDTO crear(ConceptoGastoCreateDTO dto) {
-        ConceptoGasto entity = mapper.toEntity(dto);
+    public ConceptoCalculoDTO crear(ConceptoCalculoCreateDTO dto) {
+        ConceptoCalculo entity = mapper.toEntity(dto);
         conceptoRepository.save(entity);
         return mapper.toDTO(entity);
     }
 
     @Override
     @Transactional
-    public ConceptoGastoDTO actualizar(Integer id, ConceptoGastoUpdateDTO dto) {
+    public ConceptoCalculoDTO actualizar(Integer id, ConceptoCalculoUpdateDTO dto) {
 
-        ConceptoGasto entity = conceptoRepository.findById(id)
+        ConceptoCalculo entity = conceptoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Concepto no encontrado"));
 
         BigDecimal porcentajeAnterior = entity.getPorcentaje();
@@ -70,7 +70,7 @@ public class ConceptoGastoServiceImpl implements ConceptoGastoService {
         boolean cambioAplicaSobre = dto.aplicaSobre() != null && !dto.aplicaSobre().equals(aplicaSobreAnterior);
 
         if (cambioPorcentaje || cambioAplicaSobre) {
-            recalculoFacade.recalcularPorCambioConceptoGasto(id);
+            recalculoFacade.recalcularPorCambioConceptoCalculo(id);
         }
 
         return mapper.toDTO(entity);
