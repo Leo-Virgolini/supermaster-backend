@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import ar.com.leo.super_master_backend.dominio.tipo.mapper.TipoMapper;
 import ar.com.leo.super_master_backend.dominio.tipo.repository.TipoRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class TipoServiceImpl implements TipoService {
 
     private final TipoRepository repo;
     private final TipoMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class TipoServiceImpl implements TipoService {
             throw new NotFoundException("Tipo no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer tipoId) {
+        if (!repo.existsById(tipoId)) {
+            throw new NotFoundException("Tipo no encontrado");
+        }
+        return productoRepository.findByTipoId(tipoId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }

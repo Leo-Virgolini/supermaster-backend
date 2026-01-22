@@ -4,6 +4,7 @@ import ar.com.leo.super_master_backend.dominio.apto.dto.AptoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.apto.dto.AptoDTO;
 import ar.com.leo.super_master_backend.dominio.apto.dto.AptoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.apto.service.AptoService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -55,6 +57,12 @@ public class AptoController {
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/productos")
+    public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        return ResponseEntity.ok(service.listarProductos(id));
     }
 
 }

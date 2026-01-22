@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 
 @RestController
 @RequiredArgsConstructor
@@ -54,5 +56,11 @@ public class MlaController {
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         mlaService.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/productos")
+    public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        return ResponseEntity.ok(mlaService.listarProductos(id));
     }
 }

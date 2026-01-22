@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import ar.com.leo.super_master_backend.dominio.material.mapper.MaterialMapper;
 import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class MaterialServiceImpl implements MaterialService {
 
     private final MaterialRepository repo;
     private final MaterialMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class MaterialServiceImpl implements MaterialService {
             throw new NotFoundException("Material no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer materialId) {
+        if (!repo.existsById(materialId)) {
+            throw new NotFoundException("Material no encontrado");
+        }
+        return productoRepository.findByMaterialId(materialId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }

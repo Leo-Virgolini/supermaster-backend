@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.mapper.MarcaMapper;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class MarcaServiceImpl implements MarcaService {
 
     private final MarcaRepository repo;
     private final MarcaMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class MarcaServiceImpl implements MarcaService {
             throw new NotFoundException("Marca no encontrada");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer marcaId) {
+        if (!repo.existsById(marcaId)) {
+            throw new NotFoundException("Marca no encontrada");
+        }
+        return productoRepository.findByMarcaId(marcaId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }

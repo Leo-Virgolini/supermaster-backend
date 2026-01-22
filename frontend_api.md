@@ -1743,6 +1743,120 @@ try {
 
 ---
 
+## Comportamiento de Eliminación (ON DELETE)
+
+Al eliminar entidades, el comportamiento varía según las relaciones configuradas:
+
+### Entidades que se eliminan en cascada (CASCADE)
+
+Al eliminar estas entidades, **se eliminan automáticamente** sus registros relacionados:
+
+| Al eliminar... | Se eliminan automáticamente... |
+|----------------|-------------------------------|
+| **Producto** | ProductoCatalogo, ProductoCanalPrecio, ProductoCanalPromocion, ProductoMargen |
+| **Catálogo** | ProductoCatalogo (relaciones con productos) |
+| **Canal** | ProductoCanalPrecio, ProductoCanalPromocion, CanalConceptoCuota, CanalConceptoRegla, ReglaDescuento |
+| **ConceptoGasto** | CanalConceptoRegla |
+
+### Entidades que setean NULL (SET_NULL)
+
+Al eliminar estas entidades, los registros relacionados **mantienen su FK en NULL**:
+
+| Al eliminar... | Se setea NULL en... |
+|----------------|---------------------|
+| **Marca** (padre) | Submarcas (padre_id) |
+| **Tipo** (padre) | Subtipos (padre_id) |
+| **ClasifGral** (padre) | Subclasificaciones (padre_id) |
+| **ClasifGastro** (padre) | Subclasificaciones (padre_id) |
+| **Canal** (base) | Canales hijos (canal_base_id) |
+| **Catálogo** | ReglaDescuento (catalogo_id) |
+| **ClasifGral** | ReglaDescuento, CanalConceptoRegla |
+| **ClasifGastro** | ReglaDescuento, CanalConceptoRegla |
+| **Tipo** | CanalConceptoRegla (tipo_id) |
+| **Marca** | CanalConceptoRegla (marca_id) |
+
+### ⚠️ Entidades que BLOQUEAN la eliminación (RESTRICT)
+
+**No se puede eliminar** estas entidades si tienen registros relacionados:
+
+| Entidad | Bloqueada por | Mensaje de error |
+|---------|---------------|------------------|
+| **Apto** | ProductoApto | "No se puede eliminar porque tiene registros relacionados en: Producto apto" |
+| **Cliente** | ProductoCliente | "No se puede eliminar porque tiene registros relacionados en: Producto cliente" |
+| **Marca** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Origen** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Tipo** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **ClasifGral** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **ClasifGastro** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Proveedor** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Material** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Mla** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
+| **Canal** | CanalConcepto | "No se puede eliminar porque tiene registros relacionados en: Canal concepto" |
+| **ConceptoGasto** | CanalConcepto | "No se puede eliminar porque tiene registros relacionados en: Canal concepto" |
+| **Promocion** | ProductoCanalPromocion | "No se puede eliminar porque tiene registros relacionados en: Producto canal promocion" |
+
+### Formato de error 409 (Conflict)
+
+```typescript
+interface ErrorResponse {
+  success: false;
+  message: string;  // "No se puede eliminar porque tiene registros relacionados en: Producto apto"
+  path: string;     // "/api/aptos/5"
+  timestamp: string;
+}
+```
+
+### Recomendación para el Frontend
+
+Antes de eliminar entidades que pueden estar bloqueadas, considerar:
+
+1. **Mostrar confirmación** indicando qué se eliminará en cascada
+2. **Verificar relaciones** usando los endpoints GET inversos:
+   - `GET /api/catalogos/{id}/productos` - ver productos del catálogo
+   - `GET /api/aptos/{id}/productos` - ver productos con ese apto
+   - `GET /api/clientes/{id}/productos` - ver productos del cliente
+   - `GET /api/marcas/{id}/productos` - ver productos de la marca
+   - `GET /api/origenes/{id}/productos` - ver productos del origen
+   - `GET /api/tipos/{id}/productos` - ver productos del tipo
+   - `GET /api/clasif-gral/{id}/productos` - ver productos de la clasificación general
+   - `GET /api/clasif-gastro/{id}/productos` - ver productos de la clasificación gastro
+   - `GET /api/proveedores/{id}/productos` - ver productos del proveedor
+   - `GET /api/materiales/{id}/productos` - ver productos del material
+   - `GET /api/mlas/{id}/productos` - ver productos del MLA
+3. **Manejar el error 409** mostrando el mensaje descriptivo al usuario
+
+### Endpoints GET inversos (Productos por entidad)
+
+Todos estos endpoints devuelven `List<ProductoResumenDTO>`:
+
+```typescript
+interface ProductoResumenDTO {
+  id: number;
+  sku: string;
+  descripcion: string;
+}
+```
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/catalogos/{id}/productos` | Productos asignados al catálogo |
+| `GET /api/aptos/{id}/productos` | Productos con el apto |
+| `GET /api/clientes/{id}/productos` | Productos asignados al cliente |
+| `GET /api/marcas/{id}/productos` | Productos de la marca |
+| `GET /api/origenes/{id}/productos` | Productos del origen |
+| `GET /api/tipos/{id}/productos` | Productos del tipo |
+| `GET /api/clasif-gral/{id}/productos` | Productos de la clasificación general |
+| `GET /api/clasif-gastro/{id}/productos` | Productos de la clasificación gastro |
+| `GET /api/proveedores/{id}/productos` | Productos del proveedor |
+| `GET /api/materiales/{id}/productos` | Productos del material |
+| `GET /api/mlas/{id}/productos` | Productos del MLA |
+
+**Respuestas:**
+- `200 OK` + lista de productos (puede estar vacía)
+- `404 Not Found` si la entidad no existe
+
+---
+
 ## Notas para el Frontend
 
 1. **Recálculo automático:** El backend recalcula automáticamente los precios cuando se modifican:

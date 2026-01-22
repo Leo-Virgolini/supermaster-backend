@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.apto.entity.Apto;
 import ar.com.leo.super_master_backend.dominio.apto.mapper.AptoMapper;
 import ar.com.leo.super_master_backend.dominio.apto.repository.AptoRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoAptoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class AptoServiceImpl implements AptoService {
 
     private final AptoRepository repo;
     private final AptoMapper mapper;
+    private final ProductoAptoRepository productoAptoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -65,6 +72,18 @@ public class AptoServiceImpl implements AptoService {
             throw new NotFoundException("Apto no encontrado con id: " + id);
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer aptoId) {
+        if (!repo.existsById(aptoId)) {
+            throw new NotFoundException("Apto no encontrado con id: " + aptoId);
+        }
+        return productoAptoRepository.findByAptoId(aptoId)
+                .stream()
+                .map(pa -> productoMapper.toResumenDTO(pa.getProducto()))
+                .toList();
     }
 
 }

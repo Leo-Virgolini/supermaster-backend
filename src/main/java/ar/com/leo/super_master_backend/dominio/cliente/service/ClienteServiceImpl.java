@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.cliente.entity.Cliente;
 import ar.com.leo.super_master_backend.dominio.cliente.mapper.ClienteMapper;
 import ar.com.leo.super_master_backend.dominio.cliente.repository.ClienteRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoClienteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class ClienteServiceImpl implements ClienteService {
 
     private final ClienteRepository repo;
     private final ClienteMapper mapper;
+    private final ProductoClienteRepository productoClienteRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class ClienteServiceImpl implements ClienteService {
             throw new NotFoundException("Cliente no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer clienteId) {
+        if (!repo.existsById(clienteId)) {
+            throw new NotFoundException("Cliente no encontrado");
+        }
+        return productoClienteRepository.findByClienteId(clienteId)
+                .stream()
+                .map(pc -> productoMapper.toResumenDTO(pc.getProducto()))
+                .toList();
     }
 
 }

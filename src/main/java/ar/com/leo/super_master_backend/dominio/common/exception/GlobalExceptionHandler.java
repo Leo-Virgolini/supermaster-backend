@@ -39,14 +39,122 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
         String mensaje = "Error de integridad de datos";
-        if (ex.getMessage() != null && ex.getMessage().contains("Duplicate entry")) {
-            mensaje = "Ya existe un registro con estos datos";
-        } else if (ex.getMessage() != null && ex.getMessage().contains("foreign key constraint")) {
-            mensaje = "No se puede eliminar porque tiene registros relacionados";
+        String rootMessage = getRootCauseMessage(ex);
+
+        if (rootMessage.contains("Duplicate entry")) {
+            String detalle = extraerDetalleDuplicado(rootMessage);
+            mensaje = detalle != null
+                    ? "Ya existe un registro con " + detalle
+                    : "Ya existe un registro con estos datos";
+        } else if (rootMessage.contains("foreign key constraint") || rootMessage.contains("FOREIGN KEY") || rootMessage.contains("Cannot delete or update")) {
+            String tablaRelacionada = extraerTablaRelacionada(rootMessage);
+            if (tablaRelacionada != null) {
+                mensaje = "No se puede eliminar porque tiene registros relacionados en: " + tablaRelacionada;
+            } else {
+                System.err.println("[DEBUG FK] No se pudo extraer tabla del mensaje: " + rootMessage);
+                mensaje = "No se puede eliminar porque tiene registros relacionados";
+            }
+        } else if (rootMessage.contains("cannot be null")) {
+            String campo = extraerCampoNull(rootMessage);
+            mensaje = campo != null
+                    ? "El campo '" + campo + "' es requerido y está vacío"
+                    : "Un campo requerido está vacío";
         }
+
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(mensaje, request.getDescription(false)));
+    }
+
+    private String getRootCauseMessage(Throwable ex) {
+        Throwable cause = ex;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage() != null ? cause.getMessage() : "";
+    }
+
+    private String extraerTablaRelacionada(String message) {
+        // Patrón MySQL: (`schema`.`tabla`, CONSTRAINT ...
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("`[^`]+`\\.`([^`]+)`.*CONSTRAINT");
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            return formatearNombreTabla(matcher.group(1));
+        }
+        // Patrón alternativo MySQL: constraint fails (`schema`.`tabla`,
+        pattern = java.util.regex.Pattern.compile("fails\\s*\\(`[^`]+`\\.`([^`]+)`");
+        matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            return formatearNombreTabla(matcher.group(1));
+        }
+        // Patrón sin schema: (`tabla`, CONSTRAINT
+        pattern = java.util.regex.Pattern.compile("\\(`([^`]+)`,\\s*CONSTRAINT");
+        matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            return formatearNombreTabla(matcher.group(1));
+        }
+        // Patrón H2/PostgreSQL: tabla referencing
+        pattern = java.util.regex.Pattern.compile("table\\s+[\"']?([\\w_]+)[\"']?");
+        matcher = pattern.matcher(message.toLowerCase());
+        if (matcher.find()) {
+            return formatearNombreTabla(matcher.group(1));
+        }
+        // Patrón genérico: FOREIGN KEY ... REFERENCES `tabla`
+        pattern = java.util.regex.Pattern.compile("REFERENCES\\s+`([^`]+)`");
+        matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            return formatearNombreTabla(matcher.group(1));
+        }
+        return null;
+    }
+
+    private String extraerDetalleDuplicado(String message) {
+        // Patrón: Duplicate entry 'valor' for key 'nombre_key'
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("Duplicate entry '([^']+)' for key '([^']+)'");
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            String valor = matcher.group(1);
+            String key = matcher.group(2);
+            // Limpiar nombre de key (quitar prefijos como tabla.UK_xxx)
+            if (key.contains(".")) {
+                key = key.substring(key.lastIndexOf(".") + 1);
+            }
+            return String.format("este valor: '%s'", valor);
+        }
+        return null;
+    }
+
+    private String extraerCampoNull(String message) {
+        // Patrón MySQL: Column 'nombre_campo' cannot be null
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("Column '([^']+)' cannot be null");
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            return formatearNombreCampo(matcher.group(1));
+        }
+        // Patrón Hibernate: propertyName.campo
+        pattern = java.util.regex.Pattern.compile("property(?:Name)?[^:]*:\\s*([\\w.]+)");
+        matcher = pattern.matcher(message);
+        if (matcher.find()) {
+            String campo = matcher.group(1);
+            if (campo.contains(".")) {
+                campo = campo.substring(campo.lastIndexOf(".") + 1);
+            }
+            return formatearNombreCampo(campo);
+        }
+        return null;
+    }
+
+    private String formatearNombreCampo(String campo) {
+        // Convierte id_producto -> id producto, nombreCampo -> nombre campo
+        return campo.replace("_", " ")
+                .replaceAll("([a-z])([A-Z])", "$1 $2")
+                .toLowerCase();
+    }
+
+    private String formatearNombreTabla(String tabla) {
+        // Convierte producto_catalogo -> Producto catalogo
+        return tabla.replace("_", " ")
+                .substring(0, 1).toUpperCase() + tabla.replace("_", " ").substring(1);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

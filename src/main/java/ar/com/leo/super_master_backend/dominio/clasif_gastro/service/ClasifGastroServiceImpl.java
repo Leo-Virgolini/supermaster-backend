@@ -8,12 +8,16 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.mapper.ClasifGastro
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -23,6 +27,8 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
     private final ClasifGastroRepository repo;
     private final ClasifGastroMapper mapper;
     private final RecalculoPrecioFacade recalculoFacade;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -77,5 +83,17 @@ public class ClasifGastroServiceImpl implements ClasifGastroService {
             throw new NotFoundException("Clasificación Gastro no encontrada");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer clasifGastroId) {
+        if (!repo.existsById(clasifGastroId)) {
+            throw new NotFoundException("Clasificación Gastro no encontrada");
+        }
+        return productoRepository.findByClasifGastroId(clasifGastroId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 }

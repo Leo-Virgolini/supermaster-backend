@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
 import ar.com.leo.super_master_backend.dominio.catalogo.mapper.CatalogoMapper;
 import ar.com.leo.super_master_backend.dominio.catalogo.repository.CatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class CatalogoServiceImpl implements CatalogoService {
 
     private final CatalogoRepository repo;
     private final CatalogoMapper mapper;
+    private final ProductoCatalogoRepository productoCatalogoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,6 +75,18 @@ public class CatalogoServiceImpl implements CatalogoService {
             throw new NotFoundException("Catálogo no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer catalogoId) {
+        if (!repo.existsById(catalogoId)) {
+            throw new NotFoundException("Catálogo no encontrado");
+        }
+        return productoCatalogoRepository.findByCatalogoId(catalogoId)
+                .stream()
+                .map(pc -> productoMapper.toResumenDTO(pc.getProducto()))
+                .toList();
     }
 
 }

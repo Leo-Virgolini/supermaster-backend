@@ -3,6 +3,9 @@ package ar.com.leo.super_master_backend.dominio.producto.mla.service;
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.mapper.MlaMapper;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -23,6 +27,8 @@ public class MlaServiceImpl implements MlaService {
     private final MlaRepository repo;
     private final MlaMapper mapper;
     private final RecalculoPrecioFacade recalculoFacade;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -90,5 +96,17 @@ public class MlaServiceImpl implements MlaService {
             throw new NotFoundException("MLA no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer mlaId) {
+        if (!repo.existsById(mlaId)) {
+            throw new NotFoundException("MLA no encontrado");
+        }
+        return productoRepository.findByMlaId(mlaId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 }

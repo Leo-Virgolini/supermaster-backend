@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.dto.CatalogoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.catalogo.service.CatalogoService;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -71,6 +73,15 @@ public class CatalogoController {
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ===============================
+    // LISTAR PRODUCTOS DEL CATÁLOGO
+    // ===============================
+    @GetMapping("/{id}/productos")
+    public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
+            @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
+        return ResponseEntity.ok(service.listarProductos(id));
     }
 
 }

@@ -40,4 +40,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer>, Jp
 
     List<Producto> findByMlaId(Integer idMla);
 
+    List<Producto> findByMaterialId(Integer idMaterial);
+
 }

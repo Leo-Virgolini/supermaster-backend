@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.mapper.OrigenMapper;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class OrigenServiceImpl implements OrigenService {
 
     private final OrigenRepository repo;
     private final OrigenMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class OrigenServiceImpl implements OrigenService {
             throw new NotFoundException("Origen no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer origenId) {
+        if (!repo.existsById(origenId)) {
+            throw new NotFoundException("Origen no encontrado");
+        }
+        return productoRepository.findByOrigenId(origenId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }

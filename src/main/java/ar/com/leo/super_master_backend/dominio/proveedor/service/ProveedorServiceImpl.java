@@ -1,6 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.proveedor.service;
 
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorCreateDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorDTO;
 import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorUpdateDTO;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -24,6 +28,8 @@ public class ProveedorServiceImpl implements ProveedorService {
     private final ProveedorRepository repo;
     private final ProveedorMapper mapper;
     private final RecalculoPrecioFacade recalculoFacade;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -84,6 +90,18 @@ public class ProveedorServiceImpl implements ProveedorService {
             throw new NotFoundException("Proveedor no encontrado");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer proveedorId) {
+        if (!repo.existsById(proveedorId)) {
+            throw new NotFoundException("Proveedor no encontrado");
+        }
+        return productoRepository.findByProveedorId(proveedorId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }

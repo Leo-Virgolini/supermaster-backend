@@ -7,11 +7,16 @@ import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.mapper.ClasifGralMapper;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class ClasifGralServiceImpl implements ClasifGralService {
 
     private final ClasifGralRepository repo;
     private final ClasifGralMapper mapper;
+    private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +74,18 @@ public class ClasifGralServiceImpl implements ClasifGralService {
             throw new NotFoundException("Clasificación General no encontrada");
         }
         repo.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductoResumenDTO> listarProductos(Integer clasifGralId) {
+        if (!repo.existsById(clasifGralId)) {
+            throw new NotFoundException("Clasificación General no encontrada");
+        }
+        return productoRepository.findByClasifGralId(clasifGralId)
+                .stream()
+                .map(productoMapper::toResumenDTO)
+                .toList();
     }
 
 }
