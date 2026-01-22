@@ -183,21 +183,23 @@ PVP_HIJO = PVP_PADRE × (1 + SOBRE_PVP_BASE% / 100)
 
 | Valor | Descripción | Ejemplo |
 |-------|-------------|---------|
-| `COSTO` | Se suma al costo base | Embalaje +2% |
-| `PVP` | Se aplica sobre precio final | Comisión ML -13% |
-| `IMP` | Se suma a impuestos | IIBB +3.5% |
-| `MARGEN_PTS` | Ajusta margen en puntos | +5 puntos al margen |
-| `MARGEN_PROP` | Ajusta margen proporcional | -12% del margen |
-| `RECARGO_CUPON` | Divisor sobre PVP | Cupones +5% |
-| `DESCUENTO` | Descuento final | Promo -10% |
-| `ENVIO` | Usa precio de envío del MLA | Envío gratis |
-| `INFLACION` | Divisor de inflación | Inflación +8% |
-| `PROVEEDOR_FIN` | Usa % financiación del proveedor | |
-| `IVA` | Flag: aplicar IVA del producto | |
-| `MARGEN_MINORISTA` | Flag: usar margen minorista | |
-| `MARGEN_MAYORISTA` | Flag: usar margen mayorista | |
-| `PROMOCION` | Flag: aplicar promociones | |
-| `SOBRE_PVP_BASE` | Calcula sobre PVP del canal base | |
+| `GASTO_SOBRE_COSTO` | Gasto que multiplica costo base | Embalaje +2% |
+| `FLAG_FINANCIACION_PROVEEDOR` | Flag: usa % financiación del proveedor | |
+| `AJUSTE_MARGEN_PUNTOS` | Suma/resta puntos al margen | +5 puntos al margen |
+| `AJUSTE_MARGEN_PROPORCIONAL` | Modifica margen proporcionalmente | -12% del margen |
+| `FLAG_USAR_MARGEN_MINORISTA` | Flag: usar margen minorista | |
+| `FLAG_USAR_MARGEN_MAYORISTA` | Flag: usar margen mayorista | |
+| `GASTO_POST_GANANCIA` | Gasto después de ganancia, antes de IMP | |
+| `FLAG_APLICAR_IVA` | Flag: aplicar IVA del producto | |
+| `IMPUESTO_ADICIONAL` | Se suma a factor de impuestos | IIBB +3.5% |
+| `GASTO_POST_IMPUESTOS` | Gasto después de aplicar impuestos | |
+| `FLAG_INCLUIR_ENVIO` | Flag: incluir precio envío del MLA | Envío gratis |
+| `COMISION_SOBRE_PVP` | Comisión como divisor sobre PVP | Comisión ML -13% |
+| `CALCULO_SOBRE_CANAL_BASE` | Calcula sobre PVP del canal base | |
+| `RECARGO_CUPON` | Divisor adicional sobre PVP | Cupones +5% |
+| `DESCUENTO_PORCENTUAL` | Descuento final sobre PVP | Promo -10% |
+| `INFLACION_DIVISOR` | Divisor de inflación | Inflación +8% |
+| `FLAG_APLICAR_PROMOCIONES` | Flag: aplicar promociones | |
 
 **Detalle de cómo se aplican los conceptos:**
 
@@ -207,21 +209,21 @@ FÓRMULA GENERAL SIMPLIFICADA:
 PVP = (COSTO_AJUSTADO × (1 + MARGEN/100) × FACTOR_IMP) / (1 - COMISIONES_PVP/100)
 
 Donde:
-- COSTO_AJUSTADO = costo × (1 + Σ COSTO%) × (1 + PROVEEDOR_FIN%)
-- MARGEN = margen_base + Σ MARGEN_PTS ± (margen_base × MARGEN_PROP%)
-- FACTOR_IMP = (1 + IVA%) × (1 + Σ IMP%)
-- COMISIONES_PVP = Σ conceptos con PVP
+- COSTO_AJUSTADO = costo × (1 + Σ GASTO_SOBRE_COSTO%) × (1 + FLAG_FINANCIACION_PROVEEDOR%)
+- MARGEN = margen_base + Σ AJUSTE_MARGEN_PUNTOS ± (margen_base × AJUSTE_MARGEN_PROPORCIONAL%)
+- FACTOR_IMP = (1 + FLAG_APLICAR_IVA%) × (1 + Σ IMPUESTO_ADICIONAL%)
+- COMISIONES_PVP = Σ conceptos con COMISION_SOBRE_PVP
 ```
 
 | Tipo | Efecto | Fórmula |
 |------|--------|---------|
-| `COSTO` | Incrementa costo base | `costo × (1 + %/100)` |
-| `PVP` | Comisión sobre precio final | Divide: `PVP / (1 - %/100)` |
-| `IMP` | Agrega al factor de impuestos | `factor_imp += %/100` |
-| `MARGEN_PTS` | Suma/resta puntos al margen | `margen += %` |
-| `MARGEN_PROP` | Modifica margen proporcionalmente | `margen × (1 + %/100)` |
+| `GASTO_SOBRE_COSTO` | Incrementa costo base | `costo × (1 + %/100)` |
+| `COMISION_SOBRE_PVP` | Comisión sobre precio final | Divide: `PVP / (1 - %/100)` |
+| `IMPUESTO_ADICIONAL` | Agrega al factor de impuestos | `factor_imp += %/100` |
+| `AJUSTE_MARGEN_PUNTOS` | Suma/resta puntos al margen | `margen += %` |
+| `AJUSTE_MARGEN_PROPORCIONAL` | Modifica margen proporcionalmente | `margen × (1 + %/100)` |
 | `RECARGO_CUPON` | Divisor adicional | `PVP / (1 - %/100)` |
-| `DESCUENTO` | Descuento sobre PVP | `PVP × (1 - %/100)` |
+| `DESCUENTO_PORCENTUAL` | Descuento sobre PVP | `PVP × (1 - %/100)` |
 | `INFLACION` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
 | `ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
 
@@ -279,7 +281,7 @@ Permite incluir o excluir un concepto del cálculo según atributos del producto
 **Ejemplo 1 - EXCLUIR:**
 ```
 Canal: ML
-Concepto: EMBALAJE (aplica_sobre: COSTO, 2%)
+Concepto: EMBALAJE (aplica_sobre: GASTO_SOBRE_COSTO, 2%)
 Regla: EXCLUIR si es_maquina = true
 ```
 Resultado: Las máquinas no pagan embalaje en ML, los demás productos sí.
@@ -287,7 +289,7 @@ Resultado: Las máquinas no pagan embalaje en ML, los demás productos sí.
 **Ejemplo 2 - INCLUIR:**
 ```
 Canal: KT GASTRO
-Concepto: DESC_GASTRO (aplica_sobre: DESCUENTO, -5%)
+Concepto: DESC_GASTRO (aplica_sobre: DESCUENTO_PORCENTUAL, -5%)
 Regla: INCLUIR si clasif_gastro_id = 3 (Cafeteras)
 ```
 Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos no.
@@ -300,7 +302,7 @@ Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos n
 | `pvp` | Precio de venta al público (precio real de venta) |
 | `pvp_inflado` | PVP con inflación (solo para mostrar tachado en UI) |
 | `costo_producto` | Costo base × (1 + financiación proveedor) |
-| `costos_venta` | Σ conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO (incluye embalaje, comisiones, cuotas) |
+| `costos_venta` | Σ conceptos con AplicaSobre: COMISION_SOBRE_PVP, DESCUENTO_PORCENTUAL, RECARGO_CUPON, FLAG_INCLUIR_ENVIO (incluye embalaje, comisiones, cuotas) |
 | `ingreso_neto_vendedor` | PVP - IVA - impuestos - costosVenta |
 | `ganancia` | Ingreso neto - costo producto |
 | `margen_porcentaje` | (ganancia / ingreso neto) × 100 |
@@ -742,25 +744,34 @@ interface ConceptoGastoUpdate {
 }
 
 type AplicaSobre =
-  | 'COSTO'              // Se suma al costo base
-  | 'PVP'                // Se aplica sobre el PVP
-  | 'COSTO_IVA'          // Después de IVA
-  | 'MARGEN_PTS'         // Modifica margen en puntos (+ aumenta, - reduce)
-  | 'MARGEN_PROP'        // Modifica margen proporcionalmente (+ aumenta, - reduce)
-  | 'IMP'                // Se suma al factor de impuestos
-  | 'RECARGO_CUPON'      // Divisor adicional sobre PVP
-  | 'DESCUENTO'          // Descuento final sobre PVP
-  | 'ENVIO'              // Usa precio_envio de MLA
-  | 'INFLACION'          // Divisor de inflación
-  | 'PROVEEDOR_FIN'      // % financiación del proveedor
-  | 'COSTO_GANANCIA'     // Después de ganancia, antes de IMP
-  | 'IVA'                // Habilita IVA para el canal (flag)
-  | 'SOBRE_PVP_BASE'     // Calcula sobre PVP del canal base
-  | 'MARGEN_MINORISTA'   // Canal usa margen minorista (flag)
-  | 'MARGEN_MAYORISTA'   // Canal usa margen mayorista (flag)
-  | 'PROMOCION';         // Habilita promociones (flag)
+  // ===== ETAPA: COSTO =====
+  | 'GASTO_SOBRE_COSTO'           // Gasto que multiplica el costo base
+  | 'FLAG_FINANCIACION_PROVEEDOR' // Flag: usa proveedor.porcentaje
 
-// NOTA: MARGEN_PTS y MARGEN_PROP usan el signo del porcentaje:
+  // ===== ETAPA: MARGEN =====
+  | 'AJUSTE_MARGEN_PUNTOS'        // Suma puntos al margen (+ aumenta, - reduce)
+  | 'AJUSTE_MARGEN_PROPORCIONAL'  // Multiplica el margen (+ aumenta, - reduce)
+  | 'FLAG_USAR_MARGEN_MINORISTA'  // Flag: usa margenMinorista
+  | 'FLAG_USAR_MARGEN_MAYORISTA'  // Flag: usa margenMayorista
+  | 'GASTO_POST_GANANCIA'         // Gasto después de calcular ganancia
+
+  // ===== ETAPA: IMPUESTOS =====
+  | 'FLAG_APLICAR_IVA'            // Flag: aplica IVA del producto
+  | 'IMPUESTO_ADICIONAL'          // Impuesto que suma al factor IMP
+  | 'GASTO_POST_IMPUESTOS'        // Gasto después de impuestos
+
+  // ===== ETAPA: PRECIO =====
+  | 'FLAG_INCLUIR_ENVIO'          // Flag: incluye mla.precioEnvio
+  | 'COMISION_SOBRE_PVP'          // Comisión que divide el PVP
+  | 'CALCULO_SOBRE_CANAL_BASE'    // Calcula sobre PVP del canal base
+
+  // ===== ETAPA: POST_PRECIO =====
+  | 'RECARGO_CUPON'               // Recargo como divisor sobre PVP
+  | 'DESCUENTO_PORCENTUAL'        // Descuento que reduce PVP
+  | 'INFLACION_DIVISOR'           // Inflación como divisor
+  | 'FLAG_APLICAR_PROMOCIONES';   // Flag: habilita promociones
+
+// NOTA: AJUSTE_MARGEN_PUNTOS y AJUSTE_MARGEN_PROPORCIONAL usan el signo del porcentaje:
 //   - Porcentaje positivo (+25): aumenta el margen
 //   - Porcentaje negativo (-20): reduce el margen
 ```

@@ -66,7 +66,7 @@ public class ProductoCanalPrecio {
     private BigDecimal costoProducto;
 
     /**
-     * Costos de venta = Σ conceptos donde AplicaSobre IN (PVP, DESCUENTO, RECARGO_CUPON, ENVIO)
+     * Costos de venta = Σ conceptos donde AplicaSobre IN (COMISION_SOBRE_PVP, DESCUENTO_PORCENTUAL, RECARGO_CUPON, FLAG_INCLUIR_ENVIO)
      * EXCEPTO "EMBALAJE" + porcentajeCuotas
      */
     @Column(name = "costos_venta", precision = 12, scale = 2)

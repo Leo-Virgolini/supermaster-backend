@@ -103,13 +103,13 @@ public class CanalServiceImpl implements CanalService {
         List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
         boolean esMayorista = conceptosCanal.stream()
                 .anyMatch(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA);
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_USAR_MARGEN_MAYORISTA);
         boolean esMinorista = conceptosCanal.stream()
                 .anyMatch(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA);
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_USAR_MARGEN_MINORISTA);
 
         if (!esMayorista && !esMinorista) {
-            throw new NotFoundException("El canal no tiene configurado concepto MARGEN_MINORISTA ni MARGEN_MAYORISTA");
+            throw new NotFoundException("El canal no tiene configurado concepto FLAG_USAR_MARGEN_MINORISTA ni FLAG_USAR_MARGEN_MAYORISTA");
         }
 
         // 1) Obtener todos los productos que tienen precios calculados para este canal

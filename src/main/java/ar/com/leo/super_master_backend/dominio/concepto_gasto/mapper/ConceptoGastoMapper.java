@@ -43,12 +43,12 @@ public interface ConceptoGastoMapper {
     @Named("stringToEnum")
     default AplicaSobre stringToEnum(String aplicaSobre) {
         if (aplicaSobre == null || aplicaSobre.isBlank()) {
-            return AplicaSobre.PVP; // Valor por defecto
+            return AplicaSobre.COMISION_SOBRE_PVP; // Valor por defecto
         }
         try {
             return AplicaSobre.valueOf(aplicaSobre.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return AplicaSobre.PVP; // Valor por defecto si no es válido
+            return AplicaSobre.COMISION_SOBRE_PVP; // Valor por defecto si no es válido
         }
     }
 }
