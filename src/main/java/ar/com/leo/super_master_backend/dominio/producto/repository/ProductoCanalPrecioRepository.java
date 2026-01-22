@@ -34,4 +34,13 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
     @Query("SELECT DISTINCT p.canal.id FROM ProductoCanalPrecio p WHERE p.producto.id = :productoId")
     List<Integer> findDistinctCanalIdsByProductoId(@Param("productoId") Integer productoId);
 
+    /**
+     * Obtiene precios por canal con FETCH JOIN del producto para evitar N+1.
+     * Usado en recálculos masivos donde se itera sobre los precios.
+     */
+    @Query("SELECT DISTINCT p FROM ProductoCanalPrecio p " +
+           "LEFT JOIN FETCH p.producto " +
+           "WHERE p.canal.id = :canalId")
+    List<ProductoCanalPrecio> findByCanalIdWithProductoFetch(@Param("canalId") Integer canalId);
+
 }

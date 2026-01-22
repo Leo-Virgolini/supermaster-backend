@@ -727,14 +727,14 @@ interface ConceptoGasto {
 }
 
 interface ConceptoGastoCreate {
-  concepto: string;             // @NotNull, max 100
+  concepto: string;             // @NotBlank, max 45
   porcentaje: number;           // @NotNull, -100 a 100
-  aplicaSobre: AplicaSobre;     // @NotNull
+  aplicaSobre: AplicaSobre;     // @NotBlank
   descripcion?: string;         // max 255
 }
 
 interface ConceptoGastoUpdate {
-  concepto?: string;            // max 100
+  concepto?: string;            // max 45
   porcentaje?: number;          // -100 a 100
   aplicaSobre?: AplicaSobre;
   descripcion?: string;         // max 255
@@ -789,11 +789,47 @@ interface CanalConceptoCuota {
 }
 
 interface CanalConceptoCuotaCreate {
-  canalId: number;
-  cuotas: number;         // -1 = transferencia, 0 = contado, >0 = cuotas
-  porcentaje: number;     // -100 a 100
-  descripcion?: string;
+  canalId: number;        // @NotNull, @Positive
+  cuotas: number;         // @NotNull: -1 = transferencia, 0 = contado, >0 = cuotas
+  porcentaje: number;     // @NotNull, -100 a 100
+  descripcion?: string;   // max 255
 }
+
+### Canal Concepto Regla
+
+```typescript
+interface CanalConceptoRegla {
+  id: number;
+  canalId: number;
+  conceptoId: number;
+  tipoRegla: 'INCLUIR' | 'EXCLUIR';
+  tipoId: number | null;
+  clasifGastroId: number | null;
+  clasifGralId: number | null;
+  marcaId: number | null;
+  esMaquina: boolean | null;
+}
+
+interface CanalConceptoReglaCreate {
+  canalId: number;              // @NotNull, @Positive
+  conceptoId: number;           // @NotNull, @Positive
+  tipoRegla: 'INCLUIR' | 'EXCLUIR';  // @NotBlank
+  tipoId?: number;              // @Positive
+  clasifGastroId?: number;      // @Positive
+  clasifGralId?: number;        // @Positive
+  marcaId?: number;             // @Positive
+  esMaquina?: boolean;
+}
+
+interface CanalConceptoReglaUpdate {
+  tipoRegla?: 'INCLUIR' | 'EXCLUIR';
+  tipoId?: number;              // @Positive
+  clasifGastroId?: number;      // @Positive
+  clasifGralId?: number;        // @Positive
+  marcaId?: number;             // @Positive
+  esMaquina?: boolean;
+}
+```
 ```
 
 ### Regla de Descuento
@@ -805,11 +841,34 @@ interface ReglaDescuento {
   catalogoId: number | null;
   clasifGralId: number | null;
   clasifGastroId: number | null;
-  montoMinimo: number | null;
+  montoMinimo: number;
   descuentoPorcentaje: number;
   prioridad: number;
   activo: boolean;
   descripcion: string | null;
+}
+
+interface ReglaDescuentoCreate {
+  canalId: number;              // @NotNull, @Positive
+  catalogoId?: number;          // @Positive
+  clasifGralId?: number;        // @Positive
+  clasifGastroId?: number;      // @Positive
+  montoMinimo: number;          // @NotNull, >= 0
+  descuentoPorcentaje: number;  // @NotNull, 0-100
+  prioridad?: number;           // default 1
+  activo?: boolean;             // default true
+  descripcion?: string;         // max 200
+}
+
+interface ReglaDescuentoUpdate {
+  catalogoId?: number;          // @Positive
+  clasifGralId?: number;        // @Positive
+  clasifGastroId?: number;      // @Positive
+  montoMinimo?: number;         // >= 0
+  descuentoPorcentaje?: number; // 0-100
+  prioridad?: number;
+  activo?: boolean;
+  descripcion?: string;         // max 200
 }
 ```
 
@@ -821,6 +880,18 @@ interface Promocion {
   codigo: string;
   tipo: TipoPromocion;
   valor: number;
+}
+
+interface PromocionCreate {
+  codigo: string;               // @NotBlank, max 20
+  tipo: TipoPromocion;          // @NotNull
+  valor: number;                // @NotNull, >= 0
+}
+
+interface PromocionUpdate {
+  codigo?: string;              // max 20
+  tipo?: TipoPromocion;
+  valor?: number;               // >= 0
 }
 
 type TipoPromocion = 'MULTIPLICADOR' | 'DESCUENTO_PORC' | 'DIVISOR' | 'PRECIO_FIJO';
@@ -1420,10 +1491,12 @@ DELETE /api/promociones/{id}               # Eliminar
 ```json
 {
   "codigo": "VERANO25",
-  "tipo": "PORCENTAJE",
+  "tipo": "DESCUENTO_PORC",
   "valor": 10.0
 }
 ```
+
+**Tipos válidos:** `MULTIPLICADOR`, `DESCUENTO_PORC`, `DIVISOR`, `PRECIO_FIJO`
 
 ---
 

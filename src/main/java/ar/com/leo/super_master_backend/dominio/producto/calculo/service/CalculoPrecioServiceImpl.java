@@ -221,6 +221,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal iva = producto.getIva();
 
         // ============================================
+        // OPTIMIZACIÓN: Agrupar conceptos por AplicaSobre en un solo pase
+        // Antes: 11+ iteraciones sobre la lista conceptos (O(n×11))
+        // Después: 1 iteración con groupingBy (O(n))
+        // ============================================
+        Map<AplicaSobre, List<CanalConcepto>> conceptosPorTipo = conceptos.stream()
+                .filter(cc -> cc.getConcepto() != null && cc.getConcepto().getAplicaSobre() != null)
+                .collect(Collectors.groupingBy(cc -> cc.getConcepto().getAplicaSobre()));
+
+        // ============================================
         // PASO 1: COSTO BASE
         // ============================================
         BigDecimal costoBase = costo;
@@ -228,9 +237,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 2: Gastos sobre COSTO
         // ============================================
-        List<CanalConcepto> gastosSobreCosto = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO)
-                .collect(Collectors.toList());
+        List<CanalConcepto> gastosSobreCosto = conceptosPorTipo.getOrDefault(AplicaSobre.COSTO, List.of());
         BigDecimal gastosSobreCostoTotal = calcularGastosPorcentaje(gastosSobreCosto);
         BigDecimal costoConGastos = costoBase.multiply(
                 BigDecimal.ONE.add(gastosSobreCostoTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)));
@@ -238,10 +245,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 2.5: PROVEEDOR_FIN (financiación del proveedor)
         // ============================================
-        List<CanalConcepto> conceptosProveedorFin = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.PROVEEDOR_FIN)
-                .collect(Collectors.toList());
+        List<CanalConcepto> conceptosProveedorFin = conceptosPorTipo.getOrDefault(AplicaSobre.PROVEEDOR_FIN, List.of());
 
         BigDecimal porcentajeFin = BigDecimal.ZERO;
         if (!conceptosProveedorFin.isEmpty()) {
@@ -264,17 +268,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoMargen, conceptos);
 
         // Obtener MARGEN_PTS: suma de todos los porcentajes (positivos aumentan, negativos reducen)
-        List<CanalConcepto> conceptosMargenPts = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_PTS)
-                .collect(Collectors.toList());
+        List<CanalConcepto> conceptosMargenPts = conceptosPorTipo.getOrDefault(AplicaSobre.MARGEN_PTS, List.of());
         BigDecimal ajusteMargenPts = calcularGastosPorcentaje(conceptosMargenPts);
 
         // Obtener MARGEN_PROP: suma de todos los porcentajes (positivos aumentan, negativos reducen)
-        List<CanalConcepto> conceptosMargenProp = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_PROP)
-                .collect(Collectors.toList());
+        List<CanalConcepto> conceptosMargenProp = conceptosPorTipo.getOrDefault(AplicaSobre.MARGEN_PROP, List.of());
         BigDecimal ajusteMargenProp = calcularGastosPorcentaje(conceptosMargenProp);
 
         // Calcular ganancia ajustada: GAN.MIN.ML + MARGEN_PTS
@@ -298,10 +296,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 4.5: COSTO_GANANCIA (conceptos después de ganancia, antes de IMP)
         // ============================================
-        List<CanalConcepto> gastosSobreCostoGanancia = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_GANANCIA)
-                .collect(Collectors.toList());
+        List<CanalConcepto> gastosSobreCostoGanancia = conceptosPorTipo.getOrDefault(AplicaSobre.COSTO_GANANCIA, List.of());
         BigDecimal gastosSobreCostoGananciaTotal = calcularGastosPorcentaje(gastosSobreCostoGanancia);
         if (gastosSobreCostoGananciaTotal.compareTo(BigDecimal.ZERO) > 0) {
             // Aplicar: COSTO_CON_GANANCIA * (1 + concepto/100)
@@ -314,10 +309,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         BigDecimal costoConGananciaYEnvio = costoConGanancia;
         BigDecimal precioEnvio = BigDecimal.ZERO;
-        List<CanalConcepto> conceptosEnvio = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.ENVIO)
-                .collect(Collectors.toList());
+        List<CanalConcepto> conceptosEnvio = conceptosPorTipo.getOrDefault(AplicaSobre.ENVIO, List.of());
 
         if (!conceptosEnvio.isEmpty()) {
             // Buscar precio_envio del MLA asociado al producto
@@ -341,19 +333,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // PASO 7: Calcular factor de impuestos (IMP)
         // ============================================
         // El IVA del producto solo se aplica si existe un concepto con aplicaSobre=IVA para el canal
-        boolean aplicaIva = conceptos.stream()
-                .anyMatch(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.IVA);
+        boolean aplicaIva = conceptosPorTipo.containsKey(AplicaSobre.IVA);
         BigDecimal ivaAplicar = aplicaIva ? iva : BigDecimal.ZERO;
 
         // Las promociones solo se aplican si existe un concepto con aplicaSobre=PROMOCION para el canal
-        boolean usaPromociones = conceptos.stream()
-                .anyMatch(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.PROMOCION);
+        boolean usaPromociones = conceptosPorTipo.containsKey(AplicaSobre.PROMOCION);
 
-        List<CanalConcepto> gastosSobreImp = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMP)
-                .collect(Collectors.toList());
+        List<CanalConcepto> gastosSobreImp = conceptosPorTipo.getOrDefault(AplicaSobre.IMP, List.of());
         BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
         BigDecimal imp = BigDecimal.ONE
                 .add(ivaAplicar.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP))
@@ -367,9 +353,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 9: Gastos sobre COSTO_IVA
         // ============================================
-        List<CanalConcepto> gastosSobreCostoIva = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COSTO_IVA)
-                .collect(Collectors.toList());
+        List<CanalConcepto> gastosSobreCostoIva = conceptosPorTipo.getOrDefault(AplicaSobre.COSTO_IVA, List.of());
         BigDecimal gastosSobreCostoIvaTotal = calcularGastosPorcentaje(gastosSobreCostoIva);
         if (gastosSobreCostoIvaTotal.compareTo(BigDecimal.ZERO) > 0) {
             costoConImpuestos = costoConImpuestos.multiply(
@@ -385,9 +369,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         BigDecimal porcentajeCuota = BigDecimal.ZERO;
 
         // Obtener gastos PVP
-        List<CanalConcepto> gastosSobrePVP = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.PVP)
-                .collect(Collectors.toList());
+        List<CanalConcepto> gastosSobrePVP = conceptosPorTipo.getOrDefault(AplicaSobre.PVP, List.of());
         gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
 
         // Obtener porcentaje de cuotas si aplica (ahora siempre aplica si hay cuotas)
@@ -449,10 +431,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 11: RECARGO_CUPON y DESCUENTO (conceptos)
         // ============================================
-        // Obtener RECARGO_CUPON
-        List<CanalConcepto> conceptosRecargoCupon = conceptos.stream()
-                .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.RECARGO_CUPON)
-                .collect(Collectors.toList());
+        // Obtener RECARGO_CUPON (usando mapa pre-agrupado)
+        List<CanalConcepto> conceptosRecargoCupon = conceptosPorTipo.getOrDefault(AplicaSobre.RECARGO_CUPON, List.of());
         BigDecimal porcentajeRecargoCupon = calcularGastosPorcentaje(conceptosRecargoCupon);
 
         // Obtener DESCUENTO (conceptos con aplica_sobre='DESCUENTO')
@@ -498,12 +478,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // ============================================
-        // PASO 14: INFLACION (concepto)
+        // PASO 14: INFLACION (concepto) - usando mapa pre-agrupado
         // ============================================
-        List<CanalConcepto> conceptosInflacion = conceptos.stream()
-                .filter(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.INFLACION)
-                .collect(Collectors.toList());
+        List<CanalConcepto> conceptosInflacion = conceptosPorTipo.getOrDefault(AplicaSobre.INFLACION, List.of());
 
         if (!conceptosInflacion.isEmpty()) {
             BigDecimal porcentajeInflacion = calcularGastosPorcentaje(conceptosInflacion);
@@ -1969,11 +1946,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     @Override
     @Transactional
     public CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
-        // Obtener todas las cuotas configuradas para el canal (incluye cuotas=0 para transferencia/contado)
-        List<Integer> cuotasCanal = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+        // OPTIMIZACIÓN: Una sola query en lugar de dos
+        // Antes: findDistinctCuotasByCanalId + findByCanalId (2 queries)
+        // Después: findByCanalId (1 query) y procesar en memoria
+        List<CanalConceptoCuota> todasLasCuotas = canalConceptoCuotaRepository.findByCanalId(idCanal);
 
-        // Obtener descripciones de cada cuota para el canal
-        Map<Integer, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalId(idCanal).stream()
+        // Extraer cuotas únicas y descripciones en un solo pase
+        List<Integer> cuotasCanal = todasLasCuotas.stream()
+                .map(CanalConceptoCuota::getCuotas)
+                .distinct()
+                .toList();
+
+        Map<Integer, String> descripcionesCuotas = todasLasCuotas.stream()
                 .collect(Collectors.toMap(
                         CanalConceptoCuota::getCuotas,
                         c -> c.getDescripcion() != null ? c.getDescripcion() : "",

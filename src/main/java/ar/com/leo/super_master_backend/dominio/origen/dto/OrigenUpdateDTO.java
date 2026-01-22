@@ -3,7 +3,7 @@ package ar.com.leo.super_master_backend.dominio.origen.dto;
 import jakarta.validation.constraints.Size;
 
 public record OrigenUpdateDTO(
-        @Size(max = 45)
+        @Size(max = 45, message = "El nombre del origen no puede exceder 45 caracteres")
         String origen
 ) {
 }

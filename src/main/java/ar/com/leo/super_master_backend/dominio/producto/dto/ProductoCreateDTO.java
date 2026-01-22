@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -9,36 +10,37 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record ProductoCreateDTO(
-        @NotNull
-        @Size(max = 45)
+        @NotBlank(message = "El SKU es obligatorio")
+        @Size(max = 45, message = "El SKU no puede exceder 45 caracteres")
         String sku,
-        @Size(max = 45)
+        @Size(max = 45, message = "El código externo no puede exceder 45 caracteres")
         String codExt,
-        @NotNull
-        @Size(max = 100)
+        @NotBlank(message = "La descripción es obligatoria")
+        @Size(max = 100, message = "La descripción no puede exceder 100 caracteres")
         String descripcion,
-        @NotNull
-        @Size(max = 100)
+        @NotBlank(message = "El título web es obligatorio")
+        @Size(max = 100, message = "El título web no puede exceder 100 caracteres")
         String tituloWeb,
         Boolean esCombo,
         @Positive(message = "UXB debe ser mayor a 0")
         Integer uxb,
-        @Size(max = 500)
+        @Size(max = 500, message = "La URL de imagen no puede exceder 500 caracteres")
         String imagenUrl,
         @PositiveOrZero(message = "El stock debe ser mayor o igual a 0")
         Integer stock,
         Boolean activo,
 
+        @Positive(message = "El ID de marca debe ser positivo")
         Integer marcaId,
-        @NotNull
+        @NotNull(message = "El ID de origen es obligatorio")
         @Positive(message = "El ID de origen debe ser positivo")
         Integer origenId,
-        @NotNull
+        @NotNull(message = "El ID de clasificación general es obligatorio")
         @Positive(message = "El ID de clasificación general debe ser positivo")
         Integer clasifGralId,
         @Positive(message = "El ID de clasificación gastro debe ser positivo")
         Integer clasifGastroId,
-        @NotNull
+        @NotNull(message = "El ID de tipo es obligatorio")
         @Positive(message = "El ID de tipo debe ser positivo")
         Integer tipoId,
         @Positive(message = "El ID de proveedor debe ser positivo")
@@ -46,7 +48,7 @@ public record ProductoCreateDTO(
         @Positive(message = "El ID de material debe ser positivo")
         Integer materialId,
 
-        @Size(max = 45)
+        @Size(max = 45, message = "La capacidad no puede exceder 45 caracteres")
         String capacidad,
         @PositiveOrZero(message = "El largo debe ser mayor o igual a 0")
         BigDecimal largo,
@@ -54,17 +56,17 @@ public record ProductoCreateDTO(
         BigDecimal ancho,
         @PositiveOrZero(message = "El alto debe ser mayor o igual a 0")
         BigDecimal alto,
-        @Size(max = 45)
+        @Size(max = 45, message = "El diámetro de boca no puede exceder 45 caracteres")
         String diamboca,
-        @Size(max = 45)
+        @Size(max = 45, message = "El diámetro de base no puede exceder 45 caracteres")
         String diambase,
-        @Size(max = 45)
+        @Size(max = 45, message = "El espesor no puede exceder 45 caracteres")
         String espesor,
 
-        @NotNull
+        @NotNull(message = "El costo es obligatorio")
         @PositiveOrZero(message = "El costo debe ser mayor o igual a 0")
         BigDecimal costo,
-        @NotNull
+        @NotNull(message = "El IVA es obligatorio")
         @DecimalMin(value = "0.0", inclusive = true, message = "El IVA debe ser mayor o igual a 0")
         @DecimalMax(value = "100.0", inclusive = true, message = "El IVA debe ser menor o igual a 100")
         BigDecimal iva

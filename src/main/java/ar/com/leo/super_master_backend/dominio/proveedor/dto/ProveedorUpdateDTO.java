@@ -7,11 +7,11 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record ProveedorUpdateDTO(
-        @Size(max = 100)
+        @Size(max = 100, message = "El nombre del proveedor no puede exceder 100 caracteres")
         String proveedor,
-        @Size(max = 50)
+        @Size(max = 50, message = "El apodo no puede exceder 50 caracteres")
         String apodo,
-        @Size(max = 45)
+        @Size(max = 45, message = "El plazo de pago no puede exceder 45 caracteres")
         String plazoPago,
         Boolean entrega,
         @DecimalMin(value = "0.0", inclusive = true, message = "El porcentaje debe ser mayor o igual a 0")

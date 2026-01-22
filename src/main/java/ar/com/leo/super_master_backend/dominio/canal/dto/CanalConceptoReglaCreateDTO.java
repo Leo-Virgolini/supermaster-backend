@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.canal.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
@@ -13,6 +14,7 @@ public record CanalConceptoReglaCreateDTO(
         @Positive(message = "El ID del concepto debe ser positivo")
         Integer conceptoId,
 
+        @NotBlank(message = "El tipo de regla es obligatorio")
         @Pattern(regexp = "INCLUIR|EXCLUIR",
                  message = "tipoRegla debe ser uno de: INCLUIR, EXCLUIR")
         String tipoRegla,

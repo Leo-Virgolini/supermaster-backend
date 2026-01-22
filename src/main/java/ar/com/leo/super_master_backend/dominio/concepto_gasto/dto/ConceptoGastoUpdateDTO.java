@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record ConceptoGastoUpdateDTO(
-        @Size(max = 45)
+        @Size(max = 45, message = "El nombre del concepto no puede exceder 45 caracteres")
         String concepto,
         @DecimalMin(value = "-100.0", inclusive = true, message = "El porcentaje debe ser mayor o igual a -100")
         @DecimalMax(value = "100.0", inclusive = true, message = "El porcentaje debe ser menor o igual a 100")
@@ -16,7 +16,7 @@ public record ConceptoGastoUpdateDTO(
         @Pattern(regexp = "COSTO|PVP|COSTO_IVA|MARGEN_PTS|MARGEN_PROP|IMP|RECARGO_CUPON|DESCUENTO|ENVIO|INFLACION|PROVEEDOR_FIN|COSTO_GANANCIA|IVA|SOBRE_PVP_BASE|MARGEN_MINORISTA|MARGEN_MAYORISTA|PROMOCION",
                 message = "aplicaSobre debe ser uno de: COSTO, PVP, COSTO_IVA, MARGEN_PTS, MARGEN_PROP, IMP, RECARGO_CUPON, DESCUENTO, ENVIO, INFLACION, PROVEEDOR_FIN, COSTO_GANANCIA, IVA, SOBRE_PVP_BASE, MARGEN_MINORISTA, MARGEN_MAYORISTA, PROMOCION")
         String aplicaSobre,
-        @Size(max = 255)
+        @Size(max = 255, message = "La descripción no puede exceder 255 caracteres")
         String descripcion
 ) {
 }

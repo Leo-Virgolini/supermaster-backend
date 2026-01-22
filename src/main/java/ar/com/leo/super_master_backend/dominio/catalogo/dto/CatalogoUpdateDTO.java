@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record CatalogoUpdateDTO(
-        @Size(max = 45)
+        @Size(max = 45, message = "El nombre del catálogo no puede exceder 45 caracteres")
         String catalogo,
         Boolean exportarConIva,
         @DecimalMin(value = "0.0", inclusive = true, message = "El recargo porcentaje debe ser mayor o igual a 0")

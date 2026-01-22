@@ -1,12 +1,14 @@
 package ar.com.leo.super_master_backend.dominio.canal.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CanalCreateDTO(
-        @NotNull
-        @Size(max = 45)
+        @NotBlank(message = "El nombre del canal es obligatorio")
+        @Size(max = 45, message = "El nombre del canal no puede exceder 45 caracteres")
         String canal,
+        @Positive(message = "El ID del canal base debe ser positivo")
         Integer canalBaseId
 ) {
 }

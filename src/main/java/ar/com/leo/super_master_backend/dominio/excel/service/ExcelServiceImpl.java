@@ -57,6 +57,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -81,6 +84,9 @@ record SheetInfo(Sheet sheet, String nombre, int prioridad) {
 public class ExcelServiceImpl implements ExcelService {
 
     private static final ZoneId ZONA_ARG = ZoneId.of("America/Argentina/Buenos_Aires");
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final ProductoRepository productoRepository;
     private final ProveedorRepository proveedorRepository;
@@ -838,8 +844,9 @@ public class ExcelServiceImpl implements ExcelService {
         int totalRows = 0;
         int successRows = 0;
 
-        // Tamaño del batch para optimizar rendimiento (hacer flush cada N productos)
-        int batchSize = 50;
+        // OPTIMIZACIÓN: Tamaño del batch aumentado para coincidir con Hibernate batch_size
+        // Antes: 50, Después: 100 (mejor rendimiento en inserciones masivas)
+        int batchSize = 100;
         int productosEnBatch = 0;
 
         // Procesar datos: para MASTER desde la fila 3 (índice 2), para otras desde la
@@ -918,9 +925,12 @@ public class ExcelServiceImpl implements ExcelService {
                 // Esto permite que Hibernate agrupe múltiples inserts en un solo batch
                 if (productosEnBatch >= batchSize) {
                     productoRepository.flush();
+                    // OPTIMIZACIÓN: Limpiar el contexto de persistencia para liberar memoria
+                    // Esto evita que la sesión de Hibernate acumule entidades y cause OutOfMemory
+                    entityManager.clear();
                     productosEnBatch = 0;
                     if (log.isTraceEnabled()) {
-                        log.trace("Flush realizado después de procesar {} productos", successRows);
+                        log.trace("Flush y clear realizados después de procesar {} productos", successRows);
                     }
                 }
             } catch (UnsupportedOperationException e) {
