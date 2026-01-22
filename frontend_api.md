@@ -1207,35 +1207,6 @@ DELETE /api/productos/{productoId}/clientes/{clienteId}
 
 ---
 
-### Producto - Precio por Canal
-
-#### Obtener precio calculado de un producto en un canal
-```http
-GET /api/productos/{productoId}/canales/{canalId}/precio
-```
-**Response:** `ProductoCanalPrecio`
-
-```typescript
-interface ProductoCanalPrecio {
-  id: number;
-  productoId: number;
-  canalId: number;
-  cuotas: number;
-  pvp: number;
-  pvpInflado: number | null;
-  costoProducto: number;
-  costosVenta: number;
-  ingresoNetoVendedor: number;
-  ganancia: number;
-  margenSobreIngresoNeto: number;  // (ganancia / ingresoNetoVendedor) × 100
-  margenSobrePvp: number;          // (ganancia / pvp) × 100
-  markupPorcentaje: number;
-  fechaUltimoCalculo: string;
-}
-```
-
----
-
 ### Precios
 
 #### Listar productos con precios (para tablas)
