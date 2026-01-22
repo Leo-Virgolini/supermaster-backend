@@ -60,9 +60,7 @@ public record ProductoFilter(
         List<Integer> clienteIds,
         List<Integer> mlaIds,
 
-        // 10) ORDENAMIENTO ESPECIAL
-        String sortBy,       // "pvp", "costo", "mla", "esMaquina"
-        String sortDir,      // "asc", "desc"
+        // 10) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
         Integer sortCanalId, // canal para ordenar por PVP
 
         // 11) FILTRAR PRECIOS POR CANAL

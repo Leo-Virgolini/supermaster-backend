@@ -1,7 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
-import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoResultDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 
 import java.util.List;
@@ -108,7 +109,7 @@ public interface CalculoPrecioService {
      * Calcula y guarda precios de TODOS los productos en TODOS los canales.
      * Operación masiva que puede tomar tiempo considerable.
      *
-     * @return Cantidad total de precios recalculados
+     * @return Resultado con total de precios calculados y productos ignorados
      */
-    int recalcularTodos();
+    RecalculoMasivoResultDTO recalcularTodos();
 }

@@ -102,10 +102,8 @@ public class PrecioController {
             @RequestParam(required = false) List<Integer> mlaIds,
 
             // =======================
-            // 8) ORDENAMIENTO ESPECIAL
+            // 8) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
             // =======================
-            @RequestParam(required = false) String sortBy,
-            @RequestParam(required = false) String sortDir,
             @RequestParam(required = false) Integer sortCanalId,
 
             // =======================
@@ -156,8 +154,6 @@ public class PrecioController {
                 catalogoIds,
                 clienteIds,
                 mlaIds,
-                sortBy,
-                sortDir,
                 sortCanalId,
                 canalId,
                 cuotas
@@ -196,8 +192,8 @@ public class PrecioController {
     ) {
         // Sin parámetros: recalcular todos
         if (productoId == null) {
-            int total = calculoPrecioService.recalcularTodos();
-            return ResponseEntity.ok(CalculoResultadoDTO.masivo(total));
+            var resultado = calculoPrecioService.recalcularTodos();
+            return ResponseEntity.ok(CalculoResultadoDTO.masivo(resultado));
         }
 
         // productoId sin canalId

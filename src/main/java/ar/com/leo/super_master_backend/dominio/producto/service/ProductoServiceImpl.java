@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -328,17 +329,43 @@ public class ProductoServiceImpl implements ProductoService {
                     dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
         }
 
-        // 6) Aplicar ordenamiento especial si se solicita
-        if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
-            boolean asc = !"desc".equalsIgnoreCase(filter.sortDir());
-            Comparator<ProductoConPreciosDTO> comparator = getComparator(filter.sortBy(), filter.sortCanalId(), preciosPorProducto);
-            if (comparator != null) {
-                dtos.sort(asc ? comparator : comparator.reversed());
-            }
-        }
+        // 6) Aplicar ordenamiento especial si se solicita (detectar desde Pageable.sort)
+        aplicarOrdenamientoEspecial(dtos, pageable.getSort(), filter.sortCanalId(), preciosPorProducto);
 
         // 7) Retornar nueva Page con el mismo metadata
         return new PageImpl<>(dtos, pageable, productosPage.getTotalElements());
+    }
+
+    /**
+     * Lista de campos que requieren ordenamiento especial (en memoria).
+     */
+    private static final Set<String> CAMPOS_SORT_ESPECIAL = Set.of("pvp", "mla", "esmaquina", "costo");
+
+    /**
+     * Aplica ordenamiento especial si el sort del Pageable contiene un campo especial.
+     */
+    private void aplicarOrdenamientoEspecial(
+            List<ProductoConPreciosDTO> dtos,
+            Sort sort,
+            Integer sortCanalId,
+            Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto) {
+
+        if (sort == null || sort.isUnsorted()) {
+            return;
+        }
+
+        // Buscar el primer campo de ordenamiento especial
+        for (Sort.Order order : sort) {
+            String campo = order.getProperty().toLowerCase();
+            if (CAMPOS_SORT_ESPECIAL.contains(campo)) {
+                Comparator<ProductoConPreciosDTO> comparator = getComparator(campo, sortCanalId, preciosPorProducto);
+                if (comparator != null) {
+                    boolean asc = order.isAscending();
+                    dtos.sort(asc ? comparator : comparator.reversed());
+                }
+                break; // Solo aplicar el primer campo especial encontrado
+            }
+        }
     }
 
     /**
@@ -393,7 +420,7 @@ public class ProductoServiceImpl implements ProductoService {
     // ============================
     @Override
     @Transactional(readOnly = true)
-    public List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter) {
+    public List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter, Sort sort) {
 
         // Validar que el canal tenga las cuotas especificadas
         validarCanalConCuotas(filter.canalId(), filter.cuotas());
@@ -502,14 +529,8 @@ public class ProductoServiceImpl implements ProductoService {
                     dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
         }
 
-        // Aplicar ordenamiento si se solicita
-        if (filter.sortBy() != null && !filter.sortBy().isBlank()) {
-            boolean asc = !"desc".equalsIgnoreCase(filter.sortDir());
-            Comparator<ProductoConPreciosDTO> comparator = getComparator(filter.sortBy(), filter.sortCanalId(), preciosPorProducto);
-            if (comparator != null) {
-                dtos.sort(asc ? comparator : comparator.reversed());
-            }
-        }
+        // Aplicar ordenamiento especial si se solicita
+        aplicarOrdenamientoEspecial(dtos, sort, filter.sortCanalId(), preciosPorProducto);
 
         return dtos;
     }

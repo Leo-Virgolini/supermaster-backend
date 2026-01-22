@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.*;
+import ar.com.leo.super_master_backend.config.AuditEventListener;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoReglaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
@@ -11,6 +12,7 @@ import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.AplicaSobre
 import ar.com.leo.super_master_backend.dominio.concepto_gasto.entity.ConceptoGasto;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalculoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoResultDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
@@ -201,6 +203,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             throw new BadRequestException("El producto no tiene IVA cargado");
         }
 
+        // Validar que el producto tenga el margen requerido por el canal
+        validarMargenRequerido(productoMargen, conceptos);
 
         // ============================================
         // CASO ESPECIAL: CANAL CON CANAL_BASE
@@ -1470,6 +1474,52 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
+     * Valida que el producto tenga el margen requerido por el canal.
+     * Lanza BadRequestException si el canal requiere un margen que el producto no tiene.
+     */
+    private void validarMargenRequerido(ProductoMargen productoMargen, List<CanalConcepto> conceptos) {
+        for (CanalConcepto cc : conceptos) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMayorista();
+                    if (margen == null || margen.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BadRequestException("El producto no tiene margen mayorista cargado");
+                    }
+                    return;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMinorista();
+                    if (margen == null || margen.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new BadRequestException("El producto no tiene margen minorista cargado");
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifica si el producto tiene el margen requerido por los conceptos del canal.
+     * Retorna true si tiene margen válido, false si no lo tiene.
+     */
+    private boolean tieneMargenRequerido(ProductoMargen productoMargen, List<CanalConcepto> conceptos) {
+        for (CanalConcepto cc : conceptos) {
+            if (cc.getConcepto() != null) {
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MAYORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMayorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+                if (cc.getConcepto().getAplicaSobre() == AplicaSobre.MARGEN_MINORISTA) {
+                    BigDecimal margen = productoMargen.getMargenMinorista();
+                    return margen != null && margen.compareTo(BigDecimal.ZERO) > 0;
+                }
+            }
+        }
+        // Si el canal no requiere margen específico, se considera válido
+        return true;
+    }
+
+    /**
      * Obtiene el margen porcentual según los conceptos del canal.
      * - Si tiene MARGEN_MAYORISTA → usa margenMayorista
      * - Si tiene MARGEN_MINORISTA → usa margenMinorista
@@ -2061,9 +2111,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     // No usar @Transactional porque realentiza considerablemente
     @Override
-    public int recalcularTodos() {
+    public RecalculoMasivoResultDTO recalcularTodos() {
         log.info("Iniciando recálculo masivo optimizado...");
         long inicio = System.currentTimeMillis();
+
+        // Desactivar logging de auditoría para operación masiva
+        AuditEventListener.disable();
+        try {
+            return ejecutarRecalculoMasivo(inicio);
+        } finally {
+            AuditEventListener.enable();
+        }
+    }
+
+    private RecalculoMasivoResultDTO ejecutarRecalculoMasivo(long inicio) {
 
         // =====================================================
         // PASO 1: PRECARGAR TODOS LOS DATOS EN MEMORIA
@@ -2166,6 +2227,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         int totalRecalculados = 0;
         int productosCalculados = 0;
         int errores = 0;
+        int productosSinCosto = 0;
+        int productosSinMargen = 0;
+        Set<Integer> productosYaContadosSinMargen = new HashSet<>();
+        Set<Integer> productosYaContadosConError = new HashSet<>();
+        List<String> skusSinCosto = new ArrayList<>();
+        List<String> skusSinMargen = new ArrayList<>();
+        List<String> skusConErrores = new ArrayList<>();
         List<ProductoCanalPrecio> batchParaGuardar = new ArrayList<>();
         int BATCH_SIZE = 500;
 
@@ -2179,6 +2247,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             // Ignorar productos sin costo
             BigDecimal costo = producto.getCosto();
             if (costo == null || costo.compareTo(BigDecimal.ZERO) <= 0) {
+                productosSinCosto++;
+                skusSinCosto.add(producto.getSku());
                 continue;
             }
 
@@ -2198,6 +2268,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         : productoMargen.getMargenMinorista();
 
                 if (margen == null || margen.compareTo(BigDecimal.ZERO) <= 0) {
+                    // Contar solo una vez por producto
+                    if (!productosYaContadosSinMargen.contains(idProducto)) {
+                        productosYaContadosSinMargen.add(idProducto);
+                        productosSinMargen++;
+                        skusSinMargen.add(producto.getSku());
+                    }
                     continue;
                 }
 
@@ -2244,12 +2320,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         totalRecalculados++;
 
                         if (batchParaGuardar.size() >= BATCH_SIZE) {
+                            log.info("Guardando batch de {} precios en BD (Pasada 1)", batchParaGuardar.size());
                             productoCanalPrecioRepository.saveAll(batchParaGuardar);
                             batchParaGuardar.clear();
                         }
 
                     } catch (Exception e) {
                         errores++;
+                        // Registrar SKU con error solo una vez por producto
+                        if (!productosYaContadosConError.contains(idProducto)) {
+                            productosYaContadosConError.add(idProducto);
+                            skusConErrores.add(producto.getSku());
+                        }
                         if (errores <= 10) {
                             log.warn("Error calculando producto {} en canal base {} cuotas {}: {}",
                                     idProducto, idCanal, cuotas, e.getMessage());
@@ -2269,6 +2351,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Guardar batch pendiente de pasada 1
         if (!batchParaGuardar.isEmpty()) {
+            log.info("Guardando batch final de {} precios en BD (Pasada 1)", batchParaGuardar.size());
             productoCanalPrecioRepository.saveAll(batchParaGuardar);
             batchParaGuardar.clear();
         }
@@ -2334,12 +2417,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         totalRecalculados++;
 
                         if (batchParaGuardar.size() >= BATCH_SIZE) {
+                            log.info("Guardando batch de {} precios en BD (Pasada 2)", batchParaGuardar.size());
                             productoCanalPrecioRepository.saveAll(batchParaGuardar);
                             batchParaGuardar.clear();
                         }
 
                     } catch (Exception e) {
                         errores++;
+                        // Registrar SKU con error solo una vez por producto
+                        if (!productosYaContadosConError.contains(idProducto)) {
+                            productosYaContadosConError.add(idProducto);
+                            skusConErrores.add(producto.getSku());
+                        }
                         if (errores <= 10) {
                             log.warn("Error calculando producto {} en canal dependiente {} cuotas {}: {}",
                                     idProducto, idCanal, cuotas, e.getMessage());
@@ -2362,6 +2451,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Guardar el último batch
         if (!batchParaGuardar.isEmpty()) {
+            log.info("Guardando batch final de {} precios en BD (Pasada 2)", batchParaGuardar.size());
             productoCanalPrecioRepository.saveAll(batchParaGuardar);
         }
 
@@ -2370,10 +2460,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         CACHE_PRECIOS_BASE.remove();
 
         long tiempoTotal = (System.currentTimeMillis() - inicio) / 1000;
-        log.info("Recálculo masivo completado en {}s: {}/{} productos, {} precios calculados, {} errores",
-                tiempoTotal, productosCalculados, totalProductos, totalRecalculados, errores);
+        log.info("Recálculo masivo completado en {}s: {}/{} productos, {} precios calculados, {} errores, {} sin costo, {} sin margen",
+                tiempoTotal, productosCalculados, totalProductos, totalRecalculados, errores, productosSinCosto, productosSinMargen);
 
-        return totalRecalculados;
+        return new RecalculoMasivoResultDTO(
+                totalRecalculados,
+                productosSinCosto,
+                productosSinMargen,
+                errores,
+                skusSinCosto,
+                skusSinMargen,
+                skusConErrores
+        );
     }
 
     /**

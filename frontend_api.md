@@ -683,10 +683,9 @@ interface ProductoFilter {
   clienteIds?: number[];
   mlaIds?: number[];
 
-  // Ordenamiento especial
-  sortBy?: 'pvp' | 'costo' | 'mla' | 'esMaquina';
-  sortDir?: 'asc' | 'desc';
-  sortCanalId?: number;   // canal para ordenar por PVP (requerido si sortBy=pvp)
+  // Ordenamiento especial (usar con sort de Spring)
+  // Para campos especiales (pvp, mla, esMaquina, costo): sort=pvp,asc
+  sortCanalId?: number;   // canal para ordenar por PVP (requerido si sort=pvp)
 
   // Filtrar precios por canal específico
   canalId?: number;
@@ -824,7 +823,7 @@ interface Promocion {
   valor: number;
 }
 
-type TipoPromocion = 'PORCENTAJE' | 'MONTO_FIJO';
+type TipoPromocion = 'MULTIPLICADOR' | 'DESCUENTO_PORC' | 'DIVISOR' | 'PRECIO_FIJO';
 ```
 
 ### Producto-Canal Promoción
@@ -906,11 +905,13 @@ interface Proveedor {
 interface Marca {
   id: number;
   nombre: string;
+  padreId: number | null;  // Marca padre (jerárquica)
 }
 
 interface Tipo {
   id: number;
   nombre: string;
+  padreId: number | null;  // Tipo padre (jerárquico)
 }
 
 interface Origen {
@@ -937,6 +938,7 @@ interface ClasifGastro {
   id: number;
   nombre: string;
   esMaquina: boolean;
+  padreId: number | null;  // Clasificación padre (jerárquica)
 }
 
 interface ClasifGastroCreate {
@@ -951,12 +953,14 @@ interface ClasifGastroUpdate {
 
 interface Catalogo {
   id: number;
-  nombre: string;
+  catalogo: string;                    // Nombre del catálogo
+  exportarConIva: boolean;             // Si exportar con IVA (default: true)
+  recargoPorcentaje: number;           // Recargo % al exportar (default: 0)
 }
 
 interface Cliente {
   id: number;
-  nombre: string;
+  cliente: string;  // Nombre del cliente
 }
 ```
 
@@ -1015,12 +1019,14 @@ DELETE /api/productos/{id}
 ```
 **Response:** `204 No Content`
 
-#### Buscar/filtrar productos (sin precios)
+#### Filtrar productos (con parámetros)
 ```http
-GET /api/productos/buscar
+GET /api/productos?search=texto&marcaId=1&activo=true
 ```
-**Query params:** Todos los de `ProductoFilter` excepto `canalId` y `cuotas`
+**Query params:** `search`, `page`, `size`, `sort` + filtros básicos (marcaId, tipoId, etc.)
 **Response:** `Page<Producto>`
+
+**Nota:** Para filtros avanzados con precios, usar `/api/precios` que soporta todos los parámetros de `ProductoFilter`.
 
 ---
 
@@ -1116,6 +1122,34 @@ DELETE /api/productos/{productoId}/clientes/{clienteId}
 
 ---
 
+### Producto - Precio por Canal
+
+#### Obtener precio calculado de un producto en un canal
+```http
+GET /api/productos/{productoId}/canales/{canalId}/precio
+```
+**Response:** `ProductoCanalPrecio`
+
+```typescript
+interface ProductoCanalPrecio {
+  id: number;
+  productoId: number;
+  canalId: number;
+  cuotas: number;
+  pvp: number;
+  pvpInflado: number | null;
+  costoProducto: number;
+  costosVenta: number;
+  ingresoNetoVendedor: number;
+  ganancia: number;
+  margenPorcentaje: number;
+  markupPorcentaje: number;
+  fechaUltimoCalculo: string;
+}
+```
+
+---
+
 ### Precios
 
 #### Listar productos con precios (para tablas)
@@ -1190,10 +1224,23 @@ POST /api/precios/calcular
 ```typescript
 interface CalculoResultadoDTO {
   totalPreciosCalculados: number;
-  fechaCalculo: string;           // ISO DateTime
-  canales: CanalPrecios[] | null; // null para cálculo masivo
+  fechaCalculo: string;                    // ISO DateTime
+  canales: CanalPrecios[] | null;          // null para cálculo masivo
+  // Campos adicionales para cálculo masivo:
+  productosIgnoradosSinCosto: number | null;
+  productosIgnoradosSinMargen: number | null;
+  errores: number | null;
+  skusSinCosto: string[] | null;
+  skusSinMargen: string[] | null;
+  skusConErrores: string[] | null;
 }
 ```
+
+**Validaciones:**
+- Si el producto no tiene **costo** (null o <= 0): se ignora en cálculo masivo, error 400 en cálculo individual
+- Si el producto no tiene **margen** requerido por el canal: se ignora en cálculo masivo, error 400 en cálculo individual
+  - *"El producto no tiene margen mayorista cargado"*
+  - *"El producto no tiene margen minorista cargado"*
 
 **Ejemplo respuesta (producto + canal):**
 ```json
@@ -1229,7 +1276,13 @@ interface CalculoResultadoDTO {
 {
   "totalPreciosCalculados": 1250,
   "fechaCalculo": "2026-01-15T15:30:00",
-  "canales": null
+  "canales": null,
+  "productosIgnoradosSinCosto": 5,
+  "productosIgnoradosSinMargen": 12,
+  "errores": 2,
+  "skusSinCosto": ["SKU001", "SKU002", "SKU003", "SKU004", "SKU005"],
+  "skusSinMargen": ["SKU100", "SKU101", "SKU102", "..."],
+  "skusConErrores": ["SKU500", "SKU501"]
 }
 ```
 
@@ -1637,9 +1690,12 @@ try {
    GET /api/precios?canalIds=1,2,3&aptoIds=1,2
    ```
 
-3. **Ordenamiento por PVP:** Para ordenar por precio de un canal específico (requiere `sortCanalId`):
+3. **Ordenamiento especial:** Campos como `pvp`, `mla`, `esMaquina` y `costo` usan el parámetro `sort` estándar de Spring:
    ```
-   GET /api/precios?sortBy=pvp&sortDir=asc&sortCanalId=1
+   GET /api/precios?sort=pvp,asc&sortCanalId=1   # Requiere sortCanalId para pvp
+   GET /api/precios?sort=mla,desc
+   GET /api/precios?sort=costo,asc
+   GET /api/precios?sort=esMaquina,desc
    ```
 
 4. **Fechas:** Enviar en formato ISO:

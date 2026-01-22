@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -45,10 +46,11 @@ public interface ExcelService {
      * Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
      *
      * @param filter Filtros a aplicar (texto, marcaId, canalId, etc.)
+     * @param sort Ordenamiento a aplicar (puede ser null)
      * @return Bytes del archivo Excel generado
      * @throws IOException Si hay error generando el archivo
      */
-    byte[] exportarPrecios(ProductoFilter filter) throws IOException;
+    byte[] exportarPrecios(ProductoFilter filter, Sort sort) throws IOException;
 
     /**
      * Construye un sufijo para el nombre del archivo basándose en los filtros aplicados.

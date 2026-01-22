@@ -1,14 +1,16 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.common.util.CuotasUtil;
 import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
 import ar.com.leo.super_master_backend.dominio.catalogo.repository.CatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
+import ar.com.leo.super_master_backend.dominio.common.util.CuotasUtil;
 import ar.com.leo.super_master_backend.dominio.excel.dto.*;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
@@ -16,6 +18,7 @@ import ar.com.leo.super_master_backend.dominio.material.entity.Material;
 import ar.com.leo.super_master_backend.dominio.material.repository.MaterialRepository;
 import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
@@ -31,7 +34,6 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatal
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
-import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
@@ -42,12 +44,14 @@ import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.AreaReference;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.RegionUtil;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFTable;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.hibernate.AssertionFailure;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,6 +93,7 @@ public class ExcelServiceImpl implements ExcelService {
     private final MlaRepository mlaRepository;
     private final CatalogoRepository catalogoRepository;
     private final CanalRepository canalRepository;
+    private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
     private final MaterialRepository materialRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoMargenRepository productoMargenRepository;
@@ -340,9 +345,9 @@ public class ExcelServiceImpl implements ExcelService {
         // Si es una fórmula, evaluarla primero
         if (cell.getCellType() == CellType.FORMULA) {
             try {
-                org.apache.poi.ss.usermodel.FormulaEvaluator evaluator = row.getSheet().getWorkbook()
+                FormulaEvaluator evaluator = row.getSheet().getWorkbook()
                         .getCreationHelper().createFormulaEvaluator();
-                org.apache.poi.ss.usermodel.CellValue cellValue = evaluator.evaluate(cell);
+                CellValue cellValue = evaluator.evaluate(cell);
                 if (cellValue != null && cellValue.getCellType() == CellType.NUMERIC) {
                     // Intentar como fecha
                     try {
@@ -2686,10 +2691,10 @@ public class ExcelServiceImpl implements ExcelService {
     };
 
     @Override
-    public byte[] exportarPrecios(ProductoFilter filter) throws IOException {
+    public byte[] exportarPrecios(ProductoFilter filter, Sort sort) throws IOException {
         log.info("Iniciando exportación de precios a Excel");
 
-        List<ProductoConPreciosDTO> productos = productoService.listarConPreciosSinPaginar(filter);
+        List<ProductoConPreciosDTO> productos = productoService.listarConPreciosSinPaginar(filter, sort);
         log.info("Total de productos a exportar: {}", productos.size());
 
         // Recolectar todos los canales únicos y sus cuotas
@@ -2712,6 +2717,18 @@ public class ExcelServiceImpl implements ExcelService {
         }
 
         canalesCuotas.values().forEach(cuotas -> cuotas.sort(Integer::compareTo));
+
+        // Obtener descripciones de cuotas desde canal_concepto_cuota
+        // Mapa: "canalNombre_cuotas" -> descripcion
+        Map<String, String> descripcionesCuotas = new HashMap<>();
+        List<CanalConceptoCuota> todasCuotas = canalConceptoCuotaRepository.findAll();
+        for (CanalConceptoCuota ccc : todasCuotas) {
+            if (ccc.getCanal() != null && ccc.getDescripcion() != null) {
+                String canalNombre = normalizarNombreCanal(ccc.getCanal().getCanal());
+                String key = canalNombre + "_" + ccc.getCuotas();
+                descripcionesCuotas.put(key, ccc.getDescripcion());
+            }
+        }
 
         // Construir nombre de hoja con filtros aplicados
         String nombreHoja = construirNombreHojaPrecios(filter, canalesCuotas);
@@ -2743,9 +2760,15 @@ public class ExcelServiceImpl implements ExcelService {
             CellStyle superHeaderDatosStyle = crearEstiloSuperHeader(workbook, IndexedColors.GREY_40_PERCENT.getIndex());
             CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle headerDatosBordeDerechoStyle = crearEstiloHeaderConBordeDerecho(workbook, IndexedColors.GREY_25_PERCENT.getIndex());
+
+            // Estilos para filas pares (sin fondo) e impares (con fondo azul claro - TableStyleLight1)
+            short colorFilaAlternada = IndexedColors.GREY_25_PERCENT.getIndex();
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle dataStyleAlt = crearEstiloDataCentradoConFondo(workbook, colorFilaAlternada);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
+            CellStyle precioStyleAlt = crearEstiloPrecioConFondo(workbook, colorFilaAlternada);
             CellStyle precioBordeStyle = crearEstiloPrecioBorde(workbook);
+            CellStyle precioBordeStyleAlt = crearEstiloPrecioBordeConFondo(workbook, colorFilaAlternada);
 
             // Crear estilos por canal (con colores diferentes)
             List<String> nombresCanales = new ArrayList<>(canalesCuotas.keySet());
@@ -2754,6 +2777,8 @@ public class ExcelServiceImpl implements ExcelService {
             Map<String, CellStyle> estilosHeaderBordePorCanal = new HashMap<>();
             Map<String, CellStyle> estilosDataPorCanal = new HashMap<>();
             Map<String, CellStyle> estilosDataBordePorCanal = new HashMap<>();
+            Map<String, CellStyle> estilosDataPorCanalAlt = new HashMap<>();
+            Map<String, CellStyle> estilosDataBordePorCanalAlt = new HashMap<>();
 
             for (int i = 0; i < nombresCanales.size(); i++) {
                 String canal = nombresCanales.get(i);
@@ -2763,12 +2788,14 @@ public class ExcelServiceImpl implements ExcelService {
                 estilosHeaderBordePorCanal.put(canal, crearEstiloHeaderCentrado(workbook, color, true));
                 estilosDataPorCanal.put(canal, crearEstiloDataCentrado(workbook));
                 estilosDataBordePorCanal.put(canal, crearEstiloDataConBordeGruesoCentrado(workbook));
+                estilosDataPorCanalAlt.put(canal, crearEstiloDataCentradoConFondo(workbook, colorFilaAlternada));
+                estilosDataBordePorCanalAlt.put(canal, crearEstiloDataConBordeGruesoCentradoConFondo(workbook, colorFilaAlternada));
             }
 
             // ========== FILA 0: Super headers (DATOS + un header por canal) ==========
             Row superHeaderRow = sheet.createRow(0);
 
-            // Celda "DATOS" (desde columna 0 hasta PVP_MAX)
+            // Celda "DATOS" (desde columna 0 hasta PVP_MAX, ocupando filas 0 y 1)
             Cell cellDatos = superHeaderRow.createCell(0);
             cellDatos.setCellValue("DATOS");
             cellDatos.setCellStyle(superHeaderDatosStyle);
@@ -2776,7 +2803,8 @@ public class ExcelServiceImpl implements ExcelService {
                 Cell c = superHeaderRow.createCell(i);
                 c.setCellStyle(superHeaderDatosStyle);
             }
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, colPvpMax));
+            // Merge de DATOS: filas 0-1, columnas 0-colPvpMax
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, 0, colPvpMax));
 
             // Super headers por cada canal
             int superHeaderColIndex = headersFijos.length;
@@ -2809,26 +2837,88 @@ public class ExcelServiceImpl implements ExcelService {
                 superHeaderColIndex += numColumnasCanal;
             }
 
-            // ========== FILA 1: Headers de columnas ==========
-            Row headerRow = sheet.createRow(1);
-            int colIndex = 0;
+            // ========== FILA 1: Sub-headers con descripción de cuotas ==========
+            Row cuotasHeaderRow = sheet.createRow(1);
 
-            // Headers fijos (DATOS: hasta PVP_MAX) - última columna con borde grueso derecho
-            for (int i = 0; i < headersFijos.length; i++) {
-                Cell cell = headerRow.createCell(colIndex++);
-                cell.setCellValue(headersFijos[i]);
-                // Última columna de DATOS tiene borde grueso derecho
-                if (i == headersFijos.length - 1) {
-                    cell.setCellStyle(headerDatosBordeDerechoStyle);
-                } else {
-                    cell.setCellStyle(headerDatosStyle);
+            // Celdas de DATOS en fila 1 (cubiertas por el merge, pero necesarias para el estilo)
+            for (int i = 0; i <= colPvpMax; i++) {
+                Cell cell = cuotasHeaderRow.createCell(i);
+                cell.setCellStyle(superHeaderDatosStyle);
+            }
+
+            // Sub-headers de cuotas por canal (merge por cada grupo de cuotas)
+            // Lista para guardar los rangos de cuotas de fila 1 y aplicar bordes después
+            List<CellRangeAddress> rangosCuotasFila1 = new ArrayList<>();
+            int cuotasColIndex = headersFijos.length;
+            for (String canalNombre : nombresCanales) {
+                List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+
+                for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
+                    Integer cuotas = cuotasList.get(cuotaIndex);
+                    // Obtener descripción del repositorio, fallback a CuotasUtil si no existe
+                    String key = canalNombre + "_" + cuotas;
+                    String descripcionCuotas = descripcionesCuotas.getOrDefault(key, CuotasUtil.describir(cuotas));
+
+                    // Color diferente para cada cuota
+                    short colorCuota = COLORES_CUOTAS[cuotaIndex % COLORES_CUOTAS.length];
+                    CellStyle estiloCuotaHeader = crearEstiloHeaderCentrado(workbook, colorCuota, false);
+
+                    int colInicioCuota = cuotasColIndex;
+                    int colFinCuota = cuotasColIndex + CAMPOS_PRECIO.length - 1;
+
+                    // Crear celda con descripción de cuotas
+                    Cell cellCuota = cuotasHeaderRow.createCell(colInicioCuota);
+                    cellCuota.setCellValue(descripcionCuotas);
+                    cellCuota.setCellStyle(estiloCuotaHeader);
+
+                    // Crear celdas restantes para el merge
+                    for (int i = colInicioCuota + 1; i <= colFinCuota; i++) {
+                        Cell c = cuotasHeaderRow.createCell(i);
+                        c.setCellStyle(estiloCuotaHeader);
+                    }
+
+                    // Merge de las columnas de esta cuota
+                    CellRangeAddress rangoCuota = new CellRangeAddress(1, 1, colInicioCuota, colFinCuota);
+                    if (colInicioCuota < colFinCuota) {
+                        sheet.addMergedRegion(rangoCuota);
+                    }
+                    rangosCuotasFila1.add(rangoCuota);
+
+                    cuotasColIndex += CAMPOS_PRECIO.length;
                 }
             }
 
-            // Headers dinámicos por canal y cuotas (colores por cuota, borde grueso en primer columna de canal)
+            // Aplicar bordes gruesos a cada rango de cuota en fila 1
+            for (CellRangeAddress rango : rangosCuotasFila1) {
+                RegionUtil.setBorderTop(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderBottom(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderLeft(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderRight(BorderStyle.THICK, rango, sheet);
+            }
+
+            // ========== FILA 2: Headers de columnas ==========
+            Row headerRow = sheet.createRow(2);
+            int colIndex = 0;
+
+            // Headers fijos (DATOS: hasta PVP_MAX)
+            for (int i = 0; i < headersFijos.length; i++) {
+                Cell cell = headerRow.createCell(colIndex++);
+                cell.setCellValue(headersFijos[i]);
+                cell.setCellStyle(headerDatosStyle);
+            }
+
+            // Aplicar bordes gruesos al rango de DATOS en fila 2
+            CellRangeAddress rangoDatosFila2 = new CellRangeAddress(2, 2, 0, headersFijos.length - 1);
+            RegionUtil.setBorderTop(BorderStyle.THICK, rangoDatosFila2, sheet);
+            RegionUtil.setBorderBottom(BorderStyle.THICK, rangoDatosFila2, sheet);
+            RegionUtil.setBorderLeft(BorderStyle.THICK, rangoDatosFila2, sheet);
+            RegionUtil.setBorderRight(BorderStyle.THICK, rangoDatosFila2, sheet);
+
+            // Headers dinámicos por canal y cuotas
+            // Lista para guardar los rangos de cuotas de fila 2 y aplicar bordes después
+            List<CellRangeAddress> rangosCuotasFila2 = new ArrayList<>();
             for (String canalNombre : nombresCanales) {
                 List<Integer> cuotasList = canalesCuotas.get(canalNombre);
-                boolean primerColumnDelCanal = true;
 
                 for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
                     Integer cuotas = cuotasList.get(cuotaIndex);
@@ -2837,70 +2927,84 @@ public class ExcelServiceImpl implements ExcelService {
                     // Color diferente para cada cuota
                     short colorCuota = COLORES_CUOTAS[cuotaIndex % COLORES_CUOTAS.length];
                     CellStyle estiloHeaderCuota = crearEstiloHeaderCentrado(workbook, colorCuota, false);
-                    CellStyle estiloHeaderCuotaBorde = crearEstiloHeaderCentrado(workbook, colorCuota, true);
+
+                    int colInicioCuota = colIndex;
 
                     for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                         String headerName = CAMPOS_PRECIO[i] + "_" + canalNombre + sufijoCuotas;
                         Cell cell = headerRow.createCell(colIndex++);
                         cell.setCellValue(headerName);
-
-                        // Primera columna del canal usa borde grueso izquierdo con color de la cuota
-                        if (primerColumnDelCanal) {
-                            cell.setCellStyle(estiloHeaderCuotaBorde);
-                            primerColumnDelCanal = false;
-                        } else {
-                            cell.setCellStyle(estiloHeaderCuota);
-                        }
+                        cell.setCellStyle(estiloHeaderCuota);
                     }
+
+                    int colFinCuota = colIndex - 1;
+                    rangosCuotasFila2.add(new CellRangeAddress(2, 2, colInicioCuota, colFinCuota));
                 }
             }
 
+            // Aplicar bordes gruesos a cada rango de cuota en fila 2
+            for (CellRangeAddress rango : rangosCuotasFila2) {
+                RegionUtil.setBorderTop(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderBottom(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderLeft(BorderStyle.THICK, rango, sheet);
+                RegionUtil.setBorderRight(BorderStyle.THICK, rango, sheet);
+            }
+
             // ========== FILAS DE DATOS ==========
-            int rowIndex = 2; // Empezamos en fila 2 (después de super header y header)
+            int rowIndex = 3; // Empezamos en fila 3 (después de super header, cuotas header y header)
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            int dataRowNum = 0; // Contador de filas de datos para alternar colores
 
             for (ProductoConPreciosDTO producto : productos) {
                 Row row = sheet.createRow(rowIndex++);
                 int cellIndex = 0;
 
+                // Determinar si es fila par o impar para alternar colores (estilo tabla)
+                boolean esFilaAlternada = (dataRowNum % 2 == 1);
+                dataRowNum++;
+
+                // Seleccionar estilos según si es fila alternada
+                CellStyle currentDataStyle = esFilaAlternada ? dataStyleAlt : dataStyle;
+                CellStyle currentPrecioStyle = esFilaAlternada ? precioStyleAlt : precioStyle;
+
                 // Columnas fijas
-                setCellValue(row.createCell(cellIndex++), producto.id(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.sku(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.mla(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.mlau(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), precioStyle);
-                setCellValue(row.createCell(cellIndex++), producto.codExt(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.descripcion(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.esCombo(), dataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.id(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.sku(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.mla(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.mlau(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), currentPrecioStyle);
+                setCellValue(row.createCell(cellIndex++), producto.codExt(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.descripcion(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.esCombo(), currentDataStyle);
                 // Si clasifGastro es null, esMaquina debe ser false
                 Boolean esMaquinaExport = producto.clasifGastroNombre() == null ? false : producto.esMaquina();
-                setCellValue(row.createCell(cellIndex++), esMaquinaExport, dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.imagenUrl(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.stock(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.activo(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.marcaNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.origenNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.clasifGralNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.clasifGastroNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.tipoNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.proveedorNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.materialNombre(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.uxb(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.capacidad(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.largo(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.ancho(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.alto(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.diamboca(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.diambase(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.espesor(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.costo(), precioStyle);
-                setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), dataStyle, dtf);
-                setCellValue(row.createCell(cellIndex++), producto.iva(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), dataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), dataStyle);
-                setCellValueDate(row.createCell(cellIndex++), producto.fechaCreacion(), dataStyle, dtf);
-                setCellValueDate(row.createCell(cellIndex++), producto.fechaModificacion(), dataStyle, dtf);
+                setCellValue(row.createCell(cellIndex++), esMaquinaExport, currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.imagenUrl(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.stock(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.activo(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.marcaNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.origenNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.clasifGralNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.clasifGastroNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.tipoNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.proveedorNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.materialNombre(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.uxb(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.capacidad(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.largo(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.ancho(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.alto(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.diamboca(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.diambase(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.espesor(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.costo(), currentPrecioStyle);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), currentDataStyle, dtf);
+                setCellValue(row.createCell(cellIndex++), producto.iva(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), currentDataStyle);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaCreacion(), currentDataStyle, dtf);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaModificacion(), currentDataStyle, dtf);
 
                 // Columnas dinámicas por canal/cuotas
                 Map<String, Map<Integer, PrecioDTO>> preciosPorCanal = new HashMap<>();
@@ -2919,10 +3023,11 @@ public class ExcelServiceImpl implements ExcelService {
 
                 for (String canalNombre : nombresCanales) {
                     List<Integer> cuotasList = canalesCuotas.get(canalNombre);
-                    boolean primerColumnDelCanal = true;
 
-                    CellStyle estiloData = estilosDataPorCanal.get(canalNombre);
-                    CellStyle estiloDataBorde = estilosDataBordePorCanal.get(canalNombre);
+                    // Seleccionar estilos según si es fila alternada
+                    CellStyle estiloData = esFilaAlternada ? estilosDataPorCanalAlt.get(canalNombre) : estilosDataPorCanal.get(canalNombre);
+                    CellStyle estiloDataBorde = esFilaAlternada ? estilosDataBordePorCanalAlt.get(canalNombre) : estilosDataBordePorCanal.get(canalNombre);
+                    CellStyle currentPrecioBordeStyle = esFilaAlternada ? precioBordeStyleAlt : precioBordeStyle;
 
                     for (Integer cuotas : cuotasList) {
                         PrecioDTO precio = preciosPorCanal.getOrDefault(canalNombre, new HashMap<>())
@@ -2930,9 +3035,11 @@ public class ExcelServiceImpl implements ExcelService {
 
                         for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                             Cell cell = row.createCell(cellIndex++);
-                            CellStyle styleToUse = primerColumnDelCanal ? estiloDataBorde : estiloData;
-                            // Usar estilo de precio para columnas de valores monetarios (0-3)
-                            CellStyle stylePrecioToUse = primerColumnDelCanal ? precioBordeStyle : precioStyle;
+                            // Primera columna de CADA cuota usa borde grueso izquierdo
+                            boolean primerColumnDeCuota = (i == 0);
+                            CellStyle styleToUse = primerColumnDeCuota ? estiloDataBorde : estiloData;
+                            // Usar estilo de precio para columnas de valores monetarios (0-5)
+                            CellStyle stylePrecioToUse = primerColumnDeCuota ? currentPrecioBordeStyle : currentPrecioStyle;
 
                             if (precio != null) {
                                 switch (i) {
@@ -2950,8 +3057,6 @@ public class ExcelServiceImpl implements ExcelService {
                                 cell.setBlank();
                                 cell.setCellStyle(styleToUse);
                             }
-
-                            primerColumnDelCanal = false;
                         }
                     }
                 }
@@ -2962,8 +3067,8 @@ public class ExcelServiceImpl implements ExcelService {
                 sheet.autoSizeColumn(i);
             }
 
-            // Fijar las 2 primeras filas (super header + headers)
-            sheet.createFreezePane(0, 2);
+            // Fijar las 3 primeras filas (super header + cuotas header + headers)
+            sheet.createFreezePane(0, 3);
 
             workbook.write(outputStream);
             log.info("Exportación de precios completada exitosamente");
@@ -3064,6 +3169,64 @@ public class ExcelServiceImpl implements ExcelService {
      */
     private CellStyle crearEstiloPrecioBorde(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0.00"));
+        return style;
+    }
+
+    // ========== ESTILOS CON FONDO PARA FILAS ALTERNADAS (TableStyleLight1) ==========
+
+    private CellStyle crearEstiloDataCentradoConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloDataConBordeGruesoCentradoConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+
+    private CellStyle crearEstiloPrecioConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("#,##0.00"));
+        return style;
+    }
+
+    private CellStyle crearEstiloPrecioBordeConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THICK);

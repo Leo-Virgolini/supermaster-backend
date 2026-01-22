@@ -8,6 +8,7 @@ import ar.com.leo.super_master_backend.dominio.excel.service.ExcelService;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -180,15 +181,16 @@ public class ExcelController {
             @RequestParam(required = false) List<Integer> clienteIds,
             @RequestParam(required = false) List<Integer> mlaIds,
 
-            // 8) ORDENAMIENTO ESPECIAL
-            @RequestParam(required = false) String sortBy,
-            @RequestParam(required = false) String sortDir,
+            // 8) ORDENAMIENTO ESPECIAL (solo para sort=pvp)
             @RequestParam(required = false) Integer sortCanalId,
 
-            // 9) FILTRAR PRECIOS POR CANAL
+            // 9) SORT (Spring lo resuelve automáticamente desde ?sort=campo,asc)
+            Sort sort,
+
+            // 10) FILTRAR PRECIOS POR CANAL
             @RequestParam(required = false) Integer canalId,
 
-            // 10) FILTRAR PRECIOS POR CUOTAS
+            // 11) FILTRAR PRECIOS POR CUOTAS
             @RequestParam(required = false) Integer cuotas
     ) {
         try {
@@ -250,14 +252,12 @@ public class ExcelController {
                     catalogoIds,
                     clienteIds,
                     mlaIds,
-                    sortBy,
-                    sortDir,
                     sortCanalId,
                     canalId,
                     cuotas
             );
 
-            byte[] excelBytes = excelService.exportarPrecios(filter);
+            byte[] excelBytes = excelService.exportarPrecios(filter, sort);
 
             // Construir nombre de archivo con parámetros de filtro
             String sufijo = excelService.construirSufijoArchivoPrecios(filter);
