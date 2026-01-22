@@ -402,15 +402,14 @@ GET /api/productos?page=0&size=10&sort=descripcion,asc
 
 **Respuesta paginada:**
 ```typescript
-interface Page<T> {
+interface PageResponse<T> {
   content: T[];
-  totalElements: number;
-  totalPages: number;
-  size: number;
-  number: number;        // página actual
-  first: boolean;
-  last: boolean;
-  empty: boolean;
+  page: {
+    size: number;           // elementos por página
+    number: number;         // página actual (0-indexed)
+    totalElements: number;  // total de registros
+    totalPages: number;     // total de páginas
+  };
 }
 ```
 
@@ -1046,7 +1045,7 @@ interface Cliente {
 GET /api/productos
 ```
 **Query params:** `page`, `size`, `sort`
-**Response:** `Page<Producto>`
+**Response:** `PageResponse<Producto>`
 
 #### Obtener producto por ID
 ```http
@@ -1095,7 +1094,7 @@ DELETE /api/productos/{id}
 GET /api/productos?search=texto&marcaId=1&activo=true
 ```
 **Query params:** `search`, `page`, `size`, `sort` + filtros básicos (marcaId, tipoId, etc.)
-**Response:** `Page<Producto>`
+**Response:** `PageResponse<Producto>`
 
 **Nota:** Para filtros avanzados con precios, usar `/api/precios` que soporta todos los parámetros de `ProductoFilter`.
 
@@ -1228,7 +1227,7 @@ interface ProductoCanalPrecio {
 GET /api/precios
 ```
 **Query params:** Todos los de `ProductoFilter` + `page`, `size`, `sort`
-**Response:** `Page<ProductoConPrecios>`
+**Response:** `PageResponse<ProductoConPrecios>`
 
 **Ejemplo con filtros:**
 ```
@@ -1673,7 +1672,7 @@ const params = new URLSearchParams({
 });
 
 const response = await fetch(`http://localhost:8080/api/precios?${params}`);
-const data: Page<ProductoConPrecios> = await response.json();
+const data: PageResponse<ProductoConPrecios> = await response.json();
 ```
 
 ### Crear producto
