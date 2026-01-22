@@ -297,14 +297,16 @@ Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos n
 #### 7. `producto_canal_precios` - Precios Calculados
 | Campo | Descripción |
 |-------|-------------|
-| `pvp` | Precio de venta al público |
-| `pvp_inflado` | PVP con inflación (para mostrar tachado) |
+| `pvp` | Precio de venta al público (precio real de venta) |
+| `pvp_inflado` | PVP con inflación (solo para mostrar tachado en UI) |
 | `costo_producto` | Costo base × (1 + financiación proveedor) |
 | `costos_venta` | Σ conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO (incluye embalaje, comisiones, cuotas) |
 | `ingreso_neto_vendedor` | PVP - IVA - impuestos - costosVenta |
 | `ganancia` | Ingreso neto - costo producto |
 | `margen_porcentaje` | (ganancia / ingreso neto) × 100 |
 | `markup_porcentaje` | (ganancia / costo) × 100 |
+
+**Importante:** Todas las métricas (`costos_venta`, `ingreso_neto_vendedor`, `ganancia`, `margen_porcentaje`, `markup_porcentaje`) se calculan sobre el **`pvp`**, NO sobre `pvp_inflado`. El campo `pvp_inflado` es solo para mostrar un precio "tachado" en la UI (ej: ~~$12,000~~ $10,000).
 
 **Clave única:** (producto, canal, cuotas)
 
