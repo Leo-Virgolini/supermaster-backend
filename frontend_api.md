@@ -1753,10 +1753,12 @@ Al eliminar estas entidades, **se eliminan automáticamente** sus registros rela
 
 | Al eliminar... | Se eliminan automáticamente... |
 |----------------|-------------------------------|
-| **Producto** | ProductoCatalogo, ProductoCanalPrecio, ProductoCanalPromocion, ProductoMargen |
-| **Catálogo** | ProductoCatalogo (relaciones con productos) |
+| **Producto** | ProductoApto, ProductoCatalogo, ProductoCliente, ProductoCanalPrecio, ProductoCanalPromocion, ProductoMargen |
+| **Catálogo** | ProductoCatalogo (relaciones con productos), ReglaDescuento |
 | **Canal** | ProductoCanalPrecio, ProductoCanalPromocion, CanalConceptoCuota, CanalConceptoRegla, ReglaDescuento |
-| **ConceptoGasto** | CanalConceptoRegla |
+| **ConceptoGasto** | CanalConcepto, CanalConceptoRegla |
+| **Apto** | ProductoApto (relaciones con productos) |
+| **Cliente** | ProductoCliente (relaciones con productos) |
 
 ### Entidades que setean NULL (SET_NULL)
 
@@ -1781,8 +1783,6 @@ Al eliminar estas entidades, los registros relacionados **mantienen su FK en NUL
 
 | Entidad | Bloqueada por | Mensaje de error |
 |---------|---------------|------------------|
-| **Apto** | ProductoApto | "No se puede eliminar porque tiene registros relacionados en: Producto apto" |
-| **Cliente** | ProductoCliente | "No se puede eliminar porque tiene registros relacionados en: Producto cliente" |
 | **Marca** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Origen** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Tipo** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
@@ -1791,8 +1791,6 @@ Al eliminar estas entidades, los registros relacionados **mantienen su FK en NUL
 | **Proveedor** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Material** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Mla** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
-| **Canal** | CanalConcepto | "No se puede eliminar porque tiene registros relacionados en: Canal concepto" |
-| **ConceptoGasto** | CanalConcepto | "No se puede eliminar porque tiene registros relacionados en: Canal concepto" |
 | **Promocion** | ProductoCanalPromocion | "No se puede eliminar porque tiene registros relacionados en: Producto canal promocion" |
 
 ### Formato de error 409 (Conflict)
