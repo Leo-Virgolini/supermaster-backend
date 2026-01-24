@@ -5,6 +5,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -193,6 +194,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("Endpoint no encontrado: " + ex.getResourcePath(), request.getDescription(false)));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, WebRequest request) {
+        String metodosPermitidos = ex.getSupportedHttpMethods() != null
+                ? String.join(", ", ex.getSupportedHttpMethods().stream().map(Object::toString).toList())
+                : "desconocido";
+        String mensaje = String.format("Método '%s' no permitido. Métodos soportados: %s",
+                ex.getMethod(), metodosPermitidos);
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ErrorResponse.of(mensaje, request.getDescription(false)));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

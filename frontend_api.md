@@ -22,6 +22,7 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Catálogos y Clientes](#catálogos-y-clientes)
    - [Atributos Maestros](#atributos-maestros)
    - [Excel](#excel-importexport)
+   - [MercadoLibre (ML)](#mercadolibre-ml)
 
 ---
 
@@ -967,6 +968,53 @@ interface Mla {
   mla: string;        // código MLA
   mlau: string | null;
   precioEnvio: number | null;
+  fechaCalculoEnvio: string | null;  // ISO DateTime
+}
+```
+
+### Configuración ML
+
+```typescript
+interface ConfiguracionMl {
+  id: number;
+  umbralEnvioGratis: number;    // $33,000 - límite para envío gratis (API ML)
+
+  // Tiers de costo de envío por rangos de PVP
+  tier1Hasta: number | null;    // $15,000
+  tier1Costo: number | null;    // $1,115
+  tier2Hasta: number | null;    // $25,000
+  tier2Costo: number | null;    // $2,300
+  tier3Costo: number | null;    // $2,810 (tier3Hasta = umbralEnvioGratis)
+}
+
+interface ConfiguracionMlUpdate {
+  umbralEnvioGratis: number;    // @NotNull, @Positive
+  tier1Hasta?: number;          // @Positive
+  tier1Costo?: number;          // @Positive
+  tier2Hasta?: number;          // @Positive
+  tier2Costo?: number;          // @Positive
+  tier3Costo?: number;          // @Positive
+}
+```
+
+### Respuestas de Costo de Envío ML
+
+```typescript
+interface CostoEnvioResponse {
+  mla: string;
+  status: string | null;        // Estado del producto en ML ("active", "paused", etc.)
+  precioConsultado: number | null;  // PVP usado para el cálculo
+  costoEnvioConIva: number;     // Costo de envío original (con IVA 21%)
+  costoEnvioSinIva: number;     // Costo de envío sin IVA (el que se guarda en BD)
+  mensaje: string;              // Descripción del resultado
+}
+
+interface CostoEnvioMasivoResponse {
+  totalMlas: number;
+  exitosos: number;
+  errores: number;
+  omitidos: number;
+  resultados: CostoEnvioResponse[];
 }
 ```
 
@@ -1645,6 +1693,128 @@ interface ImportResult {
 
 ---
 
+### MercadoLibre (ML)
+
+Módulo para integración con MercadoLibre: configuración y cálculo de costos de envío.
+
+#### Configuración
+
+```http
+GET /api/ml/configuracion
+```
+**Response:** `ConfiguracionMl`
+
+```http
+PUT /api/ml/configuracion
+Content-Type: application/json
+
+{
+  "umbralEnvioGratis": 33000,
+  "tier1Hasta": 15000,
+  "tier1Costo": 1115,
+  "tier2Hasta": 25000,
+  "tier2Costo": 2300,
+  "tier3Costo": 2810
+}
+```
+**Response:** `ConfiguracionMl`
+
+#### Calcular Costo de Envío
+
+Calcula y guarda el costo de envío para productos de ML. **Modifica datos** (guarda en BD y recalcula precios).
+
+```http
+POST /api/ml/costo-envio                    # Calcula para TODOS los MLAs
+POST /api/ml/costo-envio?mla=MLA123456789   # Calcula para un MLA específico
+```
+
+**Lógica de cálculo:**
+
+El cálculo es **iterativo** hasta que el costo de envío se estabilice:
+
+1. Calcular PVP con costo de envío actual (inicia en $0)
+2. Determinar costo de envío según el PVP:
+   - **PVP < $15,000** → `tier1Costo` ($1,115)
+   - **$15,000 ≤ PVP < $25,000** → `tier2Costo` ($2,300)
+   - **$25,000 ≤ PVP < $33,000** → `tier3Costo` ($2,810)
+   - **PVP ≥ $33,000** → Consulta API MercadoLibre (envío gratis)
+3. Si el costo cambió, recalcular PVP y repetir
+4. Cuando se estabiliza:
+   - Calcular costo sin IVA: `costoEnvioSinIva = costoEnvioConIva / 1.21`
+   - **Guardar el costo SIN IVA** en la base de datos (`mla.precio_envio`)
+   - Recalcular precios del producto
+
+**Manejo del IVA:**
+
+Los costos de envío (tanto de tiers como de API ML) incluyen 21% de IVA. El sistema:
+- Muestra ambos valores en la respuesta (`costoEnvioConIva` y `costoEnvioSinIva`)
+- **Guarda únicamente el costo sin IVA** en la base de datos
+- El cálculo de precios usa el costo sin IVA
+
+**Response (MLA individual):** `CostoEnvioResponse`
+
+```json
+{
+  "mla": "MLA123456789",
+  "status": "active",
+  "precioConsultado": 35000.00,
+  "costoEnvioConIva": 2810.00,
+  "costoEnvioSinIva": 2322.31,
+  "mensaje": "Costo envío: $2810.00 (sin IVA: $2322.31) - API ML (iteraciones: 2)"
+}
+```
+
+**Response (masivo):** `CostoEnvioMasivoResponse`
+
+```json
+{
+  "totalMlas": 150,
+  "exitosos": 140,
+  "errores": 5,
+  "omitidos": 5,
+  "resultados": [
+    {
+      "mla": "MLA123456789",
+      "status": "active",
+      "precioConsultado": 35000.00,
+      "costoEnvioConIva": 2810.00,
+      "costoEnvioSinIva": 2322.31,
+      "mensaje": "Costo envío: $2810.00 (sin IVA: $2322.31) - Tier (iteraciones: 1)"
+    }
+  ]
+}
+```
+
+**Mensajes posibles:**
+| Mensaje | Significado |
+|---------|-------------|
+| `Costo envío: $X (sin IVA: $Y) - Tier (iteraciones: N)` | Usó tier fijo (PVP < umbral) |
+| `Costo envío: $X (sin IVA: $Y) - API ML (iteraciones: N)` | Consultó API ML (PVP >= umbral) |
+| `MLA no encontrado en la base de datos` | El código MLA no existe |
+| `MLA sin producto asociado` | El MLA no tiene producto vinculado |
+| `Tiers de costo de envío no configurados` | Faltan tiers en configuración |
+| `Error calculando PVP: ...` | Error al calcular precio |
+| `No se pudo calcular el costo de envío` | El cálculo resultó en $0 |
+
+**Ejemplo de uso:**
+```typescript
+// Calcular para un MLA específico
+const response = await fetch(
+  'http://localhost:8080/api/ml/costo-envio?mla=MLA123456789',
+  { method: 'POST' }
+);
+const resultado: CostoEnvioResponse = await response.json();
+
+// Calcular para todos los MLAs
+const responseMasivo = await fetch(
+  'http://localhost:8080/api/ml/costo-envio',
+  { method: 'POST' }
+);
+const resultadoMasivo: CostoEnvioMasivoResponse = await responseMasivo.json();
+```
+
+---
+
 ## Ejemplos de Uso (fetch)
 
 ### Listar productos con precios y filtros
@@ -1857,6 +2027,7 @@ interface ProductoResumenDTO {
    | Promoción (asignar/desasignar) | Ese producto en ese canal |
    | MLA (precioEnvio) | Todos los productos con ese MLA |
    | ClasifGastro (esMaquina) | Todos los productos de esa clasificación en todos sus canales |
+   | **POST /api/ml/costo-envio** | Calcula costo de envío y recalcula precios de productos afectados |
 
 2. **Filtros many-to-many:** Para filtrar por múltiples valores, enviar como array o separados por coma:
    ```
@@ -1896,3 +2067,9 @@ interface ProductoResumenDTO {
    Solo se calculan las opciones configuradas en `canal_concepto_cuota` para cada canal.
 
 8. **Porcentaje en cuotas:** Valores positivos son recargos (ej: +10% para 3 cuotas), valores negativos son descuentos (ej: -15% para transferencia).
+
+9. **Costo de envío ML e IVA:** El endpoint `POST /api/ml/costo-envio` devuelve dos valores:
+   - `costoEnvioConIva`: Costo original (con 21% IVA incluido)
+   - `costoEnvioSinIva`: Costo neto (sin IVA) - **este es el que se guarda en BD**
+
+   El frontend puede mostrar ambos valores según necesidad. El cálculo de precios usa el costo sin IVA.

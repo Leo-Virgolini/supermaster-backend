@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -35,6 +36,9 @@ public class Mla {
 
     @Column(name = "precio_envio", precision = 10, scale = 2)
     private BigDecimal precioEnvio;
+
+    @Column(name = "fecha_calculo_envio")
+    private LocalDateTime fechaCalculoEnvio;
 
     // Relación inversa: un MLA puede estar en varios productos
     @OneToMany(mappedBy = "mla")

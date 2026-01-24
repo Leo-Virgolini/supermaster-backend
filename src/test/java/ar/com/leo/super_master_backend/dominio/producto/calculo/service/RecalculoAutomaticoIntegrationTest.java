@@ -725,7 +725,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar precio de envío (mantener el código MLA original)
         mlaService.actualizar(mla.getId(),
-                new MlaDTO(null, TEST_PREFIX + "MLA123", null, new BigDecimal("1000")));
+                new MlaDTO(null, TEST_PREFIX + "MLA123", null, new BigDecimal("1000"), null));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 

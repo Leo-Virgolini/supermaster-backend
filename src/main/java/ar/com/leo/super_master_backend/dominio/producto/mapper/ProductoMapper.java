@@ -88,6 +88,7 @@ public interface ProductoMapper {
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
         String mlau = mlaEntity != null ? mlaEntity.getMlau() : null;
         BigDecimal precioEnvio = mlaEntity != null ? mlaEntity.getPrecioEnvio() : null;
+        java.time.LocalDateTime fechaCalculoEnvio = mlaEntity != null ? mlaEntity.getFechaCalculoEnvio() : null;
 
         // Obtener márgenes (si existen)
         BigDecimal margenMinorista = productoMargen != null ? productoMargen.getMargenMinorista() : null;
@@ -137,6 +138,7 @@ public interface ProductoMapper {
                 mla,
                 mlau,
                 precioEnvio,
+                fechaCalculoEnvio,
 
                 producto.getCodExt(),
                 producto.getDescripcion(),

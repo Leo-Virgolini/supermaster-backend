@@ -13,6 +13,7 @@ public record ProductoConPreciosDTO(
         String mla,
         String mlau,
         BigDecimal precioEnvio,
+        LocalDateTime fechaCalculoEnvio,
 
         String codExt,
         String descripcion,
