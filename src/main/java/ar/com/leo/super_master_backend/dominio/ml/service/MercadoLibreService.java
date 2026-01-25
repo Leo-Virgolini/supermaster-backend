@@ -297,7 +297,7 @@ public class MercadoLibreService {
         }
 
         String status = productoMl.status;
-        BigDecimal precio = BigDecimal.valueOf(productoMl.price);
+        BigDecimal precio = BigDecimal.valueOf(productoMl.price).setScale(2, RoundingMode.HALF_UP);
 
         // Consultar API de costos de venta
         String url = String.format(
