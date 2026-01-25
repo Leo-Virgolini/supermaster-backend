@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.dominio.ml.controller;
 import ar.com.leo.super_master_backend.dominio.ml.dto.ConfiguracionMlDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.service.ConfiguracionMlService;
 import ar.com.leo.super_master_backend.dominio.ml.service.MercadoLibreService;
 import jakarta.validation.Valid;
@@ -21,8 +22,10 @@ public class MercadoLibreController {
     /**
      * Calcula y guarda el costo de envío para productos de ML.
      *
-     * Si se proporciona el parámetro 'mla', calcula solo para ese producto.
-     * Si no se proporciona 'mla', calcula para todos los MLAs en la base de datos.
+     * Prioridad de parámetros:
+     * 1. Si se proporciona 'mla', calcula solo para ese MLA.
+     * 2. Si se proporciona 'productoId', busca el MLA asociado al producto y calcula.
+     * 3. Si no se proporciona ninguno, calcula para todos los MLAs en la base de datos.
      *
      * Lógica de cálculo:
      * - PVP >= umbral ($33,000): Consulta API ML para obtener costo real de envío gratis
@@ -31,10 +34,13 @@ public class MercadoLibreController {
      * El cálculo es iterativo hasta que el costo de envío se estabilice.
      *
      * @param mla (Opcional) Código MLA del producto (ej: MLA123456789)
+     * @param productoId (Opcional) ID del producto para buscar su MLA asociado
      * @return DTO con el costo de envío calculado o resumen del procesamiento masivo
      */
     @PostMapping("/costo-envio")
-    public ResponseEntity<?> calcularCostoEnvio(@RequestParam(required = false) String mla) {
+    public ResponseEntity<?> calcularCostoEnvio(
+            @RequestParam(required = false) String mla,
+            @RequestParam(required = false) Integer productoId) {
 
         // Si se proporciona MLA, calcular solo para ese producto
         if (mla != null && !mla.isBlank()) {
@@ -42,9 +48,47 @@ public class MercadoLibreController {
             return ResponseEntity.ok(response);
         }
 
-        // Si no se proporciona MLA, calcular para todos
+        // Si se proporciona productoId, buscar su MLA y calcular
+        if (productoId != null) {
+            CostoEnvioResponseDTO response = mercadoLibreService.calcularCostoEnvioPorProducto(productoId);
+            return ResponseEntity.ok(response);
+        }
+
+        // Si no se proporciona ninguno, calcular para todos
         CostoEnvioMasivoResponseDTO response = mercadoLibreService.calcularCostoEnvioTodos();
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre.
+     *
+     * Parámetros (al menos uno requerido):
+     * - 'mla': Código MLA del producto (ej: MLA123456789)
+     * - 'productoId': ID del producto para buscar su MLA asociado
+     *
+     * @param mla (Opcional) Código MLA del producto
+     * @param productoId (Opcional) ID del producto
+     * @return DTO con los costos de venta (comisión, costo fijo, total)
+     */
+    @GetMapping("/costo-venta")
+    public ResponseEntity<CostoVentaResponseDTO> obtenerCostoVenta(
+            @RequestParam(required = false) String mla,
+            @RequestParam(required = false) Integer productoId) {
+
+        // Si se proporciona MLA
+        if (mla != null && !mla.isBlank()) {
+            return ResponseEntity.ok(mercadoLibreService.obtenerCostoVenta(mla));
+        }
+
+        // Si se proporciona productoId
+        if (productoId != null) {
+            return ResponseEntity.ok(mercadoLibreService.obtenerCostoVentaPorProducto(productoId));
+        }
+
+        // Si no se proporciona ninguno, devolver error
+        return ResponseEntity.badRequest().body(
+                new CostoVentaResponseDTO(null, null, null, null, null, null, null,
+                        "Debe proporcionar 'mla' o 'productoId'"));
     }
 
     // =====================================================

@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.ml.HttpRetryHandler;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.dominio.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.dominio.ml.model.Producto;
@@ -14,6 +15,7 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoP
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +50,7 @@ public class MercadoLibreService {
 
     private final ObjectMapper objectMapper;
     private final MlaRepository mlaRepository;
+    private final ProductoRepository productoRepository;
     private final CanalRepository canalRepository;
     private final ConfiguracionMlService configuracionMlService;
     private final CalculoPrecioService calculoPrecioService;
@@ -73,12 +76,14 @@ public class MercadoLibreService {
 
     public MercadoLibreService(ObjectMapper objectMapper,
                                MlaRepository mlaRepository,
+                               ProductoRepository productoRepository,
                                CanalRepository canalRepository,
                                ConfiguracionMlService configuracionMlService,
                                CalculoPrecioService calculoPrecioService,
                                RecalculoPrecioFacade recalculoPrecioFacade) {
         this.objectMapper = objectMapper;
         this.mlaRepository = mlaRepository;
+        this.productoRepository = productoRepository;
         this.canalRepository = canalRepository;
         this.configuracionMlService = configuracionMlService;
         this.calculoPrecioService = calculoPrecioService;
@@ -238,6 +243,155 @@ public class MercadoLibreService {
         }
 
         return new CostoEnvioResponseDTO(mlaCode, status, pvpActual, costoEnvioConIva, costoEnvioSinIva, mensaje);
+    }
+
+    /**
+     * Calcula el costo de envío para un producto a partir de su ID.
+     * Busca el MLA asociado al producto y delega al método principal.
+     *
+     * @param productoId ID del producto
+     * @return DTO con el costo de envío calculado
+     */
+    @Transactional
+    public CostoEnvioResponseDTO calcularCostoEnvioPorProducto(Integer productoId) {
+        Optional<ar.com.leo.super_master_backend.dominio.producto.entity.Producto> productoOpt =
+                productoRepository.findById(productoId);
+
+        if (productoOpt.isEmpty()) {
+            log.warn("ML - Producto con ID {} no encontrado", productoId);
+            return new CostoEnvioResponseDTO(null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                    "Producto no encontrado con ID: " + productoId);
+        }
+
+        ar.com.leo.super_master_backend.dominio.producto.entity.Producto producto = productoOpt.get();
+        Mla mla = producto.getMla();
+
+        if (mla == null) {
+            log.warn("ML - Producto {} no tiene MLA asociado", productoId);
+            return new CostoEnvioResponseDTO(null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                    "El producto no tiene MLA asociado");
+        }
+
+        return self.calcularCostoEnvioGratis(mla.getMla());
+    }
+
+    // =====================================================
+    // COSTO DE VENTA (COMISIONES ML)
+    // =====================================================
+
+    /**
+     * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre.
+     *
+     * @param mlaCode Código MLA del producto
+     * @return DTO con los costos de venta
+     */
+    public CostoVentaResponseDTO obtenerCostoVenta(String mlaCode) {
+        verificarTokens();
+
+        // Obtener producto de ML
+        Producto productoMl = getItemByMLA(mlaCode);
+        if (productoMl == null) {
+            log.warn("ML - No se pudo obtener el producto con MLA: {}", mlaCode);
+            return new CostoVentaResponseDTO(mlaCode, null, null, null, null, null, null,
+                    "No se pudo obtener el producto de MercadoLibre");
+        }
+
+        String status = productoMl.status;
+        BigDecimal precio = BigDecimal.valueOf(productoMl.price);
+
+        // Consultar API de costos de venta
+        String url = String.format(
+                "https://api.mercadolibre.com/sites/%s/listing_prices?" +
+                        "category_id=%s" +
+                        "&price=%s" +
+                        "&currency_id=%s" +
+                        "&logistic_type=%s",
+                productoMl.siteId,
+                productoMl.categoryId,
+                productoMl.price,
+                "ARS",
+                productoMl.shipping.logisticType);
+
+        Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + tokens.accessToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
+
+        if (response == null || response.statusCode() != 200) {
+            log.warn("ML - Error al obtener costos de venta para MLA {}: {}",
+                    mlaCode, response != null ? response.body() : "null");
+            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null,
+                    productoMl.listingTypeId, "Error al consultar costos de venta");
+        }
+
+        try {
+            JsonNode json = objectMapper.readTree(response.body());
+            log.info("ML - Costos de venta para MLA {}: {}", mlaCode, response.body());
+
+            // Buscar el listing_type correspondiente
+            BigDecimal comisionVenta = BigDecimal.ZERO;
+            BigDecimal costoFijo = BigDecimal.ZERO;
+
+            for (JsonNode listing : json) {
+                if (productoMl.listingTypeId.equals(listing.path("listing_type_id").asText())) {
+                    comisionVenta = BigDecimal.valueOf(listing.path("sale_fee_amount").asDouble(0));
+                    // El costo fijo puede estar en different fields según el tipo
+                    costoFijo = BigDecimal.valueOf(listing.path("listing_fee_amount").asDouble(0));
+                    break;
+                }
+            }
+
+            BigDecimal totalCostos = comisionVenta.add(costoFijo);
+
+            return new CostoVentaResponseDTO(
+                    mlaCode,
+                    status,
+                    precio,
+                    comisionVenta,
+                    costoFijo,
+                    totalCostos,
+                    productoMl.listingTypeId,
+                    String.format("Comisión: $%.2f, Costo fijo: $%.2f, Total: $%.2f",
+                            comisionVenta, costoFijo, totalCostos)
+            );
+
+        } catch (Exception e) {
+            log.error("Error parseando respuesta de costos de venta", e);
+            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null,
+                    productoMl.listingTypeId, "Error parseando respuesta: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene los costos de venta de un producto a partir de su ID.
+     *
+     * @param productoId ID del producto
+     * @return DTO con los costos de venta
+     */
+    @Transactional(readOnly = true)
+    public CostoVentaResponseDTO obtenerCostoVentaPorProducto(Integer productoId) {
+        Optional<ar.com.leo.super_master_backend.dominio.producto.entity.Producto> productoOpt =
+                productoRepository.findById(productoId);
+
+        if (productoOpt.isEmpty()) {
+            log.warn("ML - Producto con ID {} no encontrado", productoId);
+            return new CostoVentaResponseDTO(null, null, null, null, null, null, null,
+                    "Producto no encontrado con ID: " + productoId);
+        }
+
+        ar.com.leo.super_master_backend.dominio.producto.entity.Producto producto = productoOpt.get();
+        Mla mla = producto.getMla();
+
+        if (mla == null) {
+            log.warn("ML - Producto {} no tiene MLA asociado", productoId);
+            return new CostoVentaResponseDTO(null, null, null, null, null, null, null,
+                    "El producto no tiene MLA asociado");
+        }
+
+        return obtenerCostoVenta(mla.getMla());
     }
 
     /**

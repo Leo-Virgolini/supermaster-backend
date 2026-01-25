@@ -1016,6 +1016,17 @@ interface CostoEnvioMasivoResponse {
   omitidos: number;
   resultados: CostoEnvioResponse[];
 }
+
+interface CostoVentaResponse {
+  mla: string | null;
+  status: string | null;           // Estado del producto en ML ("active", "paused", etc.)
+  precioConsultado: number | null; // Precio actual del producto en ML
+  comisionVenta: number | null;    // Comisión de venta (sale_fee_amount)
+  costoFijo: number | null;        // Costo fijo de publicación (listing_fee_amount)
+  totalCostos: number | null;      // comisionVenta + costoFijo
+  listingTypeId: string | null;    // Tipo de publicación ("gold_special", etc.)
+  mensaje: string;                 // Descripción del resultado o error
+}
 ```
 
 ### Proveedor
@@ -1724,9 +1735,16 @@ Content-Type: application/json
 Calcula y guarda el costo de envío para productos de ML. **Modifica datos** (guarda en BD y recalcula precios).
 
 ```http
-POST /api/ml/costo-envio                    # Calcula para TODOS los MLAs
-POST /api/ml/costo-envio?mla=MLA123456789   # Calcula para un MLA específico
+POST /api/ml/costo-envio                         # Calcula para TODOS los MLAs
+POST /api/ml/costo-envio?mla=MLA123456789        # Calcula para un MLA específico
+POST /api/ml/costo-envio?productoId=123          # Calcula para el MLA del producto
 ```
+
+**Query params (opcionales, prioridad: mla > productoId > todos):**
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `mla` | string | Código MLA (ej: MLA123456789) |
+| `productoId` | number | ID del producto (busca su MLA asociado) |
 
 **Lógica de cálculo:**
 
@@ -1805,12 +1823,85 @@ const response = await fetch(
 );
 const resultado: CostoEnvioResponse = await response.json();
 
+// Calcular para un producto (busca su MLA)
+const responseProducto = await fetch(
+  'http://localhost:8080/api/ml/costo-envio?productoId=123',
+  { method: 'POST' }
+);
+const resultadoProducto: CostoEnvioResponse = await responseProducto.json();
+
 // Calcular para todos los MLAs
 const responseMasivo = await fetch(
   'http://localhost:8080/api/ml/costo-envio',
   { method: 'POST' }
 );
 const resultadoMasivo: CostoEnvioMasivoResponse = await responseMasivo.json();
+```
+
+#### Obtener Costo de Venta (Comisiones)
+
+Consulta los costos de venta (comisiones ML) de un producto. **Solo lectura** (no guarda en BD).
+
+```http
+GET /api/ml/costo-venta?mla=MLA123456789        # Por código MLA
+GET /api/ml/costo-venta?productoId=123          # Por ID de producto
+```
+
+**Query params (al menos uno requerido):**
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `mla` | string | Código MLA (ej: MLA123456789) |
+| `productoId` | number | ID del producto (busca su MLA asociado) |
+
+**Response:** `CostoVentaResponse`
+
+```json
+{
+  "mla": "MLA123456789",
+  "status": "active",
+  "precioConsultado": 15000.00,
+  "comisionVenta": 1950.00,
+  "costoFijo": 0.00,
+  "totalCostos": 1950.00,
+  "listingTypeId": "gold_special",
+  "mensaje": "Comisión: $1950.00, Costo fijo: $0.00, Total: $1950.00"
+}
+```
+
+**Campos de respuesta:**
+| Campo | Descripción |
+|-------|-------------|
+| `mla` | Código MLA consultado |
+| `status` | Estado del producto en ML ("active", "paused", etc.) |
+| `precioConsultado` | Precio actual del producto en ML |
+| `comisionVenta` | Comisión de venta (sale_fee_amount) |
+| `costoFijo` | Costo fijo de publicación (listing_fee_amount) |
+| `totalCostos` | Suma de comisionVenta + costoFijo |
+| `listingTypeId` | Tipo de publicación ("gold_special", "gold_pro", etc.) |
+| `mensaje` | Descripción del resultado o error |
+
+**Mensajes de error posibles:**
+| Mensaje | Significado |
+|---------|-------------|
+| `Debe proporcionar 'mla' o 'productoId'` | No se envió ningún parámetro |
+| `Producto no encontrado con ID: X` | El productoId no existe |
+| `El producto no tiene MLA asociado` | El producto no tiene MLA vinculado |
+| `No se pudo obtener el producto de MercadoLibre` | Error al consultar API ML |
+| `Error al consultar costos de venta` | Error en la API de listing_prices |
+
+**Ejemplo de uso:**
+```typescript
+// Obtener costos de venta por MLA
+const response = await fetch(
+  'http://localhost:8080/api/ml/costo-venta?mla=MLA123456789'
+);
+const costos: CostoVentaResponse = await response.json();
+
+// Obtener costos de venta por producto
+const responseProducto = await fetch(
+  'http://localhost:8080/api/ml/costo-venta?productoId=123'
+);
+const costosProducto: CostoVentaResponse = await responseProducto.json();
 ```
 
 ---
