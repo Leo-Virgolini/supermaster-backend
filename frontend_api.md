@@ -1928,6 +1928,12 @@ interface ImportResult {
 
 Módulo para integración con MercadoLibre: configuración y cálculo de costos de envío.
 
+**Cuotas utilizadas en los cálculos:**
+| Cálculo | Cuotas | Descripción |
+|---------|--------|-------------|
+| Costo de envío | `0` (contado) | Usa el PVP calculado con cuotas=0 para determinar el tier de envío |
+| Costo de venta | N/A | Usa el precio actual publicado en MercadoLibre (no el calculado localmente) |
+
 #### Configuración
 
 ```http
