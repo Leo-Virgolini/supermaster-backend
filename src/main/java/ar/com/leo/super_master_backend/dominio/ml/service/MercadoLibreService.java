@@ -312,8 +312,8 @@ public class MercadoLibreService {
         Producto productoMl = getItemByMLA(mlaCode);
         if (productoMl == null) {
             log.warn("ML - No se pudo obtener el producto con MLA: {}", mlaCode);
-            return new CostoVentaResponseDTO(mlaCode, null, null, null, null, null, null,
-                    "No se pudo obtener el producto de MercadoLibre");
+            return new CostoVentaResponseDTO(mlaCode, null, null, null, null, null, null, null,
+                    null, null, "No se pudo obtener el producto de MercadoLibre");
         }
 
         String status = productoMl.status;
@@ -343,8 +343,8 @@ public class MercadoLibreService {
         if (response == null || response.statusCode() != 200) {
             log.warn("ML - Error al obtener costos de venta para MLA {}: {}",
                     mlaCode, response != null ? response.body() : "null");
-            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null,
-                    productoMl.listingTypeId, "Error al consultar costos de venta");
+            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null, null, null,
+                    productoMl.listingTypeId, null, "Error al consultar costos de venta");
         }
 
         try {
@@ -352,36 +352,50 @@ public class MercadoLibreService {
             log.info("ML - Costos de venta para MLA {}: {}", mlaCode, response.body());
 
             // Buscar el listing_type correspondiente
-            BigDecimal comisionVenta = BigDecimal.ZERO;
+            BigDecimal comisionVentaTotal = BigDecimal.ZERO;
             BigDecimal costoFijo = BigDecimal.ZERO;
+            BigDecimal cargoFinanciacion = BigDecimal.ZERO;
+            BigDecimal porcentajeMeli = BigDecimal.ZERO;
+            BigDecimal porcentajeTotal = BigDecimal.ZERO;
+            String listingTypeName = null;
 
             for (JsonNode listing : json) {
                 if (productoMl.listingTypeId.equals(listing.path("listing_type_id").asText())) {
-                    comisionVenta = BigDecimal.valueOf(listing.path("sale_fee_amount").asDouble(0));
-                    // El costo fijo puede estar en different fields según el tipo
-                    costoFijo = BigDecimal.valueOf(listing.path("listing_fee_amount").asDouble(0));
+                    // Total de comisión de venta
+                    comisionVentaTotal = BigDecimal.valueOf(listing.path("sale_fee_amount").asDouble(0));
+                    listingTypeName = listing.path("listing_type_name").asText(null);
+
+                    // Detalles desglosados de sale_fee_details
+                    JsonNode details = listing.path("sale_fee_details");
+                    if (!details.isMissingNode()) {
+                        costoFijo = BigDecimal.valueOf(details.path("fixed_fee").asDouble(0));
+                        cargoFinanciacion = BigDecimal.valueOf(details.path("financing_add_on_fee").asDouble(0));
+                        porcentajeMeli = BigDecimal.valueOf(details.path("meli_percentage_fee").asDouble(0));
+                        porcentajeTotal = BigDecimal.valueOf(details.path("percentage_fee").asDouble(0));
+                    }
                     break;
                 }
             }
-
-            BigDecimal totalCostos = comisionVenta.add(costoFijo);
 
             return new CostoVentaResponseDTO(
                     mlaCode,
                     status,
                     precio,
-                    comisionVenta,
+                    comisionVentaTotal,
                     costoFijo,
-                    totalCostos,
+                    cargoFinanciacion,
+                    porcentajeMeli,
+                    porcentajeTotal,
                     productoMl.listingTypeId,
-                    String.format("Comisión: $%.2f, Costo fijo: $%.2f, Total: $%.2f",
-                            comisionVenta, costoFijo, totalCostos)
+                    listingTypeName,
+                    String.format("Comisión total: $%.2f (Fijo: $%.2f + Financiación: $%.2f), Porcentaje: %.2f%%",
+                            comisionVentaTotal, costoFijo, cargoFinanciacion, porcentajeTotal)
             );
 
         } catch (Exception e) {
             log.error("Error parseando respuesta de costos de venta", e);
-            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null,
-                    productoMl.listingTypeId, "Error parseando respuesta: " + e.getMessage());
+            return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null, null, null,
+                    productoMl.listingTypeId, null, "Error parseando respuesta: " + e.getMessage());
         }
     }
 
@@ -398,8 +412,8 @@ public class MercadoLibreService {
 
         if (productoOpt.isEmpty()) {
             log.warn("ML - Producto con ID {} no encontrado", productoId);
-            return new CostoVentaResponseDTO(null, null, null, null, null, null, null,
-                    "Producto no encontrado con ID: " + productoId);
+            return new CostoVentaResponseDTO(null, null, null, null, null, null, null, null,
+                    null, null, "Producto no encontrado con ID: " + productoId);
         }
 
         ar.com.leo.super_master_backend.dominio.producto.entity.Producto producto = productoOpt.get();
@@ -407,8 +421,8 @@ public class MercadoLibreService {
 
         if (mla == null) {
             log.warn("ML - Producto {} no tiene MLA asociado", productoId);
-            return new CostoVentaResponseDTO(null, null, null, null, null, null, null,
-                    "El producto no tiene MLA asociado");
+            return new CostoVentaResponseDTO(null, null, null, null, null, null, null, null,
+                    null, null, "El producto no tiene MLA asociado");
         }
 
         return obtenerCostoVenta(mla.getMla());
@@ -471,7 +485,7 @@ public class MercadoLibreService {
                     CostoVentaResponseDTO resultado = obtenerCostoVenta(mla.getMla());
                     resultados.add(resultado);
 
-                    if (resultado.totalCostos() != null && resultado.totalCostos().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    if (resultado.comisionVentaTotal() != null && resultado.comisionVentaTotal().compareTo(java.math.BigDecimal.ZERO) > 0) {
                         exitosos++;
                     } else {
                         errores++;
@@ -480,8 +494,8 @@ public class MercadoLibreService {
                 } catch (Exception e) {
                     log.error("ML - Error procesando costo de venta MLA {}: {}", mla.getMla(), e.getMessage());
                     CostoVentaResponseDTO error = new CostoVentaResponseDTO(
-                            mla.getMla(), null, null, null, null, null, null,
-                            "Error: " + e.getMessage());
+                            mla.getMla(), null, null, null, null, null, null, null,
+                            null, null, "Error: " + e.getMessage());
                     resultados.add(error);
                     errores++;
                 }

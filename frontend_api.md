@@ -1053,13 +1053,19 @@ interface CostoEnvioMasivoResponse {
 
 interface CostoVentaResponse {
   mla: string | null;
-  status: string | null;           // Estado del producto en ML ("active", "paused", etc.)
-  precioConsultado: number | null; // Precio actual del producto en ML
-  comisionVenta: number | null;    // Comisión de venta (sale_fee_amount)
-  costoFijo: number | null;        // Costo fijo de publicación (listing_fee_amount)
-  totalCostos: number | null;      // comisionVenta + costoFijo
-  listingTypeId: string | null;    // Tipo de publicación ("gold_special", etc.)
-  mensaje: string;                 // Descripción del resultado o error
+  status: string | null;              // Estado del producto en ML ("active", "paused", etc.)
+  precioConsultado: number | null;    // Precio actual del producto en ML
+  // Totales
+  comisionVentaTotal: number | null;  // sale_fee_amount - Comisión total de venta
+  // Detalles desglosados de sale_fee_details
+  costoFijo: number | null;           // sale_fee_details.fixed_fee
+  cargoFinanciacion: number | null;   // sale_fee_details.financing_add_on_fee
+  porcentajeMeli: number | null;      // sale_fee_details.meli_percentage_fee
+  porcentajeTotal: number | null;     // sale_fee_details.percentage_fee
+  // Metadata
+  listingTypeId: string | null;       // Tipo de publicación ("gold_pro", "gold_special", etc.)
+  listingTypeName: string | null;     // Nombre del tipo ("Premium", "Clásica", etc.)
+  mensaje: string;                    // Descripción del resultado o error
 }
 
 interface CostoVentaMasivoResponse {
@@ -2191,14 +2197,17 @@ GET /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del produc
 
 ```json
 {
-  "mla": "MLA123456789",
+  "mla": "MLA913196815",
   "status": "active",
-  "precioConsultado": 15000.00,
-  "comisionVenta": 1950.00,
-  "costoFijo": 0.00,
-  "totalCostos": 1950.00,
-  "listingTypeId": "gold_special",
-  "mensaje": "Comisión: $1950.00, Costo fijo: $0.00, Total: $1950.00"
+  "precioConsultado": 15769.00,
+  "comisionVentaTotal": 6738.69,
+  "costoFijo": 2300.00,
+  "cargoFinanciacion": 13.80,
+  "porcentajeMeli": 14.35,
+  "porcentajeTotal": 28.15,
+  "listingTypeId": "gold_pro",
+  "listingTypeName": "Premium",
+  "mensaje": "Comisión total: $6738.69 (Fijo: $2300.00 + Financiación: $13.80), Porcentaje: 28.15%"
 }
 ```
 
@@ -2208,10 +2217,13 @@ GET /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del produc
 | `mla` | Código MLA consultado |
 | `status` | Estado del producto en ML ("active", "paused", etc.) |
 | `precioConsultado` | Precio actual del producto en ML |
-| `comisionVenta` | Comisión de venta (sale_fee_amount) |
-| `costoFijo` | Costo fijo de publicación (listing_fee_amount) |
-| `totalCostos` | Suma de comisionVenta + costoFijo |
-| `listingTypeId` | Tipo de publicación ("gold_special", "gold_pro", etc.) |
+| `comisionVentaTotal` | Total de comisión de venta (sale_fee_amount) |
+| `costoFijo` | Costo fijo dentro de la comisión (sale_fee_details.fixed_fee) |
+| `cargoFinanciacion` | Cargo adicional por financiación (sale_fee_details.financing_add_on_fee) |
+| `porcentajeMeli` | Porcentaje de comisión de MercadoLibre (sale_fee_details.meli_percentage_fee) |
+| `porcentajeTotal` | Porcentaje total aplicado (sale_fee_details.percentage_fee) |
+| `listingTypeId` | ID del tipo de publicación ("gold_pro", "gold_special", etc.) |
+| `listingTypeName` | Nombre del tipo de publicación ("Premium", "Clásica", etc.) |
 | `mensaje` | Descripción del resultado o error |
 
 **Mensajes de error posibles:**

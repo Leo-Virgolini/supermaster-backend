@@ -64,17 +64,44 @@ import static org.junit.jupiter.api.Assertions.*;
  * Test de integración para verificar que los triggers de recálculo automático
  * funcionan correctamente cuando se modifican las entidades relacionadas.
  *
- * Triggers probados:
- * 1. Producto (costo, iva)
- * 2. ProductoMargen (márgenes)
- * 3. ConceptoCalculo (porcentaje)
- * 4. CanalConcepto (asignar/quitar concepto)
- * 5. CanalConceptoCuota (porcentaje cuotas)
- * 6. Canal (canalBase)
- * 7. Proveedor (porcentaje financiación)
- * 8. ClasifGastro (esMaquina)
- * 9. ReglaDescuento
- * 10. MLA (precioEnvio)
+ * Tests incluidos (25 total):
+ *
+ * ENTIDADES PRINCIPALES:
+ * 1-2.   Producto (costo, IVA)
+ * 3.     ProductoMargen (margen minorista)
+ * 14.    ProductoMargen (margen mayorista)
+ * 23.    ProductoMargen (margen fijo)
+ *
+ * CONCEPTOS DE CÁLCULO:
+ * 4.     ConceptoCalculo (cambio de porcentaje)
+ * 5-6.   CanalConcepto (asignar/quitar)
+ * 15.    AJUSTE_MARGEN_PUNTOS
+ * 16.    AJUSTE_MARGEN_PROPORCIONAL
+ * 17.    GASTO_POST_GANANCIA
+ * 18.    IMPUESTO_ADICIONAL
+ * 19.    GASTO_POST_IMPUESTOS
+ * 20.    RECARGO_CUPON
+ *
+ * CUOTAS:
+ * 7.     CanalConceptoCuota (modificar porcentaje)
+ * 21.    CanalConceptoCuota (eliminar)
+ * 25.    CanalConceptoCuota (crear nueva)
+ *
+ * CANAL:
+ * 8.     Canal (cambio de canalBase)
+ *
+ * RELACIONES:
+ * 9.     Proveedor (porcentaje financiación)
+ * 22.    Producto-Proveedor (cambio de proveedor)
+ * 10.    ClasifGastro (esMaquina)
+ * 11.    MLA (precioEnvio)
+ *
+ * REGLAS DE DESCUENTO:
+ * 12.    ReglaDescuento (crear/modificar)
+ * 13.    ReglaDescuento (eliminar)
+ *
+ * MÚLTIPLES PRODUCTOS:
+ * 24.    Recálculo en cascada de múltiples productos
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -736,7 +763,7 @@ class RecalculoAutomaticoIntegrationTest {
     }
 
     // ===========================================
-    // TEST 12: Cambio en ReglaDescuento
+    // TEST 12: Cambio en ReglaDescuento (crear/modificar)
     // ===========================================
     @Test
     @Order(12)
@@ -773,5 +800,466 @@ class RecalculoAutomaticoIntegrationTest {
 
         assertNotEquals(pvpDespuesCrear, pvpDespuesModificar,
                 "El PVP debe cambiar al modificar la regla de descuento");
+    }
+
+    // ===========================================
+    // TEST 13: Eliminar ReglaDescuento
+    // ===========================================
+    @Test
+    @Order(13)
+    @DisplayName("13. Recálculo automático al eliminar ReglaDescuento")
+    void testRecalculoPorEliminarReglaDescuento() {
+        // Crear regla de descuento
+        ReglaDescuentoCreateDTO reglaDto = new ReglaDescuentoCreateDTO(
+                canal.getId(),
+                null, null, null,
+                BigDecimal.ZERO,
+                new BigDecimal("10"),
+                1, true, "Regla a eliminar"
+        );
+
+        var reglaCreada = reglaDescuentoService.crear(reglaDto);
+        BigDecimal pvpConRegla = obtenerPvpActual();
+
+        // Eliminar la regla
+        reglaDescuentoService.eliminar(reglaCreada.id());
+
+        BigDecimal pvpSinRegla = obtenerPvpActual();
+
+        assertNotEquals(pvpConRegla, pvpSinRegla,
+                "El PVP debe cambiar al eliminar una regla de descuento");
+    }
+
+    // ===========================================
+    // TEST 14: Cambio en ProductoMargen (margen mayorista)
+    // ===========================================
+    @Test
+    @Order(14)
+    @DisplayName("14. Recálculo automático al cambiar margen mayorista")
+    void testRecalculoPorCambioMargenMayorista() {
+        // Cambiar el canal para usar margen mayorista
+        ConceptoCalculo conceptoMargenMay = new ConceptoCalculo();
+        conceptoMargenMay.setConcepto(TEST_PREFIX + "MARGEN_MAY");
+        conceptoMargenMay.setPorcentaje(BigDecimal.ZERO);
+        conceptoMargenMay.setAplicaSobre(AplicaSobre.FLAG_USAR_MARGEN_MAYORISTA);
+        conceptoMargenMay = conceptoGastoRepository.save(conceptoMargenMay);
+
+        // Quitar margen minorista y agregar mayorista
+        canalConceptoService.eliminarConcepto(canal.getId(), conceptoMargen.getId());
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoMargenMay.getId());
+
+        // Recalcular
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Modificar margen mayorista
+        productoMargenService.guardar(
+                new ProductoMargenDTO(
+                        productoMargen.getId(),
+                        producto.getId(),
+                        new BigDecimal("50"),
+                        new BigDecimal("50"), // aumentar margen mayorista de 30 a 50
+                        null, null, null
+                ));
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al modificar el margen mayorista");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al aumentar el margen mayorista");
+    }
+
+    // ===========================================
+    // TEST 15: Concepto AJUSTE_MARGEN_PUNTOS
+    // ===========================================
+    @Test
+    @Order(15)
+    @DisplayName("15. Recálculo automático con concepto AJUSTE_MARGEN_PUNTOS")
+    void testRecalculoConAjusteMargenPuntos() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto AJUSTE_MARGEN_PUNTOS
+        ConceptoCalculo conceptoAjuste = new ConceptoCalculo();
+        conceptoAjuste.setConcepto(TEST_PREFIX + "AJUSTE_PUNTOS");
+        conceptoAjuste.setPorcentaje(new BigDecimal("10")); // +10 puntos al margen
+        conceptoAjuste.setAplicaSobre(AplicaSobre.AJUSTE_MARGEN_PUNTOS);
+        conceptoAjuste = conceptoGastoRepository.save(conceptoAjuste);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoAjuste.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar AJUSTE_MARGEN_PUNTOS");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar puntos al margen");
+    }
+
+    // ===========================================
+    // TEST 16: Concepto AJUSTE_MARGEN_PROPORCIONAL
+    // ===========================================
+    @Test
+    @Order(16)
+    @DisplayName("16. Recálculo automático con concepto AJUSTE_MARGEN_PROPORCIONAL")
+    void testRecalculoConAjusteMargenProporcional() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto AJUSTE_MARGEN_PROPORCIONAL
+        ConceptoCalculo conceptoAjuste = new ConceptoCalculo();
+        conceptoAjuste.setConcepto(TEST_PREFIX + "AJUSTE_PROP");
+        conceptoAjuste.setPorcentaje(new BigDecimal("-20")); // -20% del margen
+        conceptoAjuste.setAplicaSobre(AplicaSobre.AJUSTE_MARGEN_PROPORCIONAL);
+        conceptoAjuste = conceptoGastoRepository.save(conceptoAjuste);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoAjuste.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar AJUSTE_MARGEN_PROPORCIONAL");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) < 0,
+                "El PVP debe disminuir al reducir proporcionalmente el margen");
+    }
+
+    // ===========================================
+    // TEST 17: Concepto GASTO_POST_GANANCIA
+    // ===========================================
+    @Test
+    @Order(17)
+    @DisplayName("17. Recálculo automático con concepto GASTO_POST_GANANCIA")
+    void testRecalculoConGastoPostGanancia() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto GASTO_POST_GANANCIA
+        ConceptoCalculo conceptoGasto = new ConceptoCalculo();
+        conceptoGasto.setConcepto(TEST_PREFIX + "POST_GAN");
+        conceptoGasto.setPorcentaje(new BigDecimal("5"));
+        conceptoGasto.setAplicaSobre(AplicaSobre.GASTO_POST_GANANCIA);
+        conceptoGasto = conceptoGastoRepository.save(conceptoGasto);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoGasto.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar GASTO_POST_GANANCIA");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar gasto post ganancia");
+    }
+
+    // ===========================================
+    // TEST 18: Concepto IMPUESTO_ADICIONAL
+    // ===========================================
+    @Test
+    @Order(18)
+    @DisplayName("18. Recálculo automático con concepto IMPUESTO_ADICIONAL")
+    void testRecalculoConImpuestoAdicional() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto IMPUESTO_ADICIONAL (ej: IIBB)
+        ConceptoCalculo conceptoImpuesto = new ConceptoCalculo();
+        conceptoImpuesto.setConcepto(TEST_PREFIX + "IIBB");
+        conceptoImpuesto.setPorcentaje(new BigDecimal("3.5"));
+        conceptoImpuesto.setAplicaSobre(AplicaSobre.IMPUESTO_ADICIONAL);
+        conceptoImpuesto = conceptoGastoRepository.save(conceptoImpuesto);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoImpuesto.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar IMPUESTO_ADICIONAL");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar impuesto adicional");
+    }
+
+    // ===========================================
+    // TEST 19: Concepto GASTO_POST_IMPUESTOS
+    // ===========================================
+    @Test
+    @Order(19)
+    @DisplayName("19. Recálculo automático con concepto GASTO_POST_IMPUESTOS")
+    void testRecalculoConGastoPostImpuestos() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto GASTO_POST_IMPUESTOS
+        ConceptoCalculo conceptoGasto = new ConceptoCalculo();
+        conceptoGasto.setConcepto(TEST_PREFIX + "POST_IMP");
+        conceptoGasto.setPorcentaje(new BigDecimal("2"));
+        conceptoGasto.setAplicaSobre(AplicaSobre.GASTO_POST_IMPUESTOS);
+        conceptoGasto = conceptoGastoRepository.save(conceptoGasto);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoGasto.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar GASTO_POST_IMPUESTOS");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar gasto post impuestos");
+    }
+
+    // ===========================================
+    // TEST 20: Concepto RECARGO_CUPON
+    // ===========================================
+    @Test
+    @Order(20)
+    @DisplayName("20. Recálculo automático con concepto RECARGO_CUPON")
+    void testRecalculoConRecargoCupon() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Crear concepto RECARGO_CUPON
+        ConceptoCalculo conceptoCupon = new ConceptoCalculo();
+        conceptoCupon.setConcepto(TEST_PREFIX + "CUPON");
+        conceptoCupon.setPorcentaje(new BigDecimal("5"));
+        conceptoCupon.setAplicaSobre(AplicaSobre.RECARGO_CUPON);
+        conceptoCupon = conceptoGastoRepository.save(conceptoCupon);
+
+        // Asignar al canal
+        canalConceptoService.asignarConcepto(canal.getId(), conceptoCupon.getId());
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar RECARGO_CUPON");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar recargo de cupón");
+    }
+
+    // ===========================================
+    // TEST 21: Eliminar CanalConceptoCuota
+    // ===========================================
+    @Test
+    @Order(21)
+    @DisplayName("21. Recálculo automático al eliminar cuota del canal")
+    void testRecalculoPorEliminarCuotaCanal() {
+        // Crear una cuota adicional
+        CanalConceptoCuota cuota3 = new CanalConceptoCuota();
+        cuota3.setCanal(canal);
+        cuota3.setCuotas(3);
+        cuota3.setPorcentaje(new BigDecimal("15"));
+        cuota3.setDescripcion("3 cuotas");
+        cuota3 = canalConceptoCuotaRepository.save(cuota3);
+
+        // Recalcular para incluir la cuota
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        entityManager.flush();
+
+        // Verificar que existe precio para 3 cuotas
+        var precioCuotas = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdAndCuotas(producto.getId(), canal.getId(), 3);
+        assertTrue(precioCuotas.isPresent(), "Debe existir precio para 3 cuotas antes de eliminar");
+
+        // Eliminar la cuota
+        canalConceptoCuotaRepository.delete(cuota3);
+        entityManager.flush();
+
+        // Recalcular
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // Verificar que ya no existe precio para 3 cuotas
+        precioCuotas = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdAndCuotas(producto.getId(), canal.getId(), 3);
+        assertFalse(precioCuotas.isPresent(),
+                "No debe existir precio para 3 cuotas después de eliminar la cuota");
+    }
+
+    // ===========================================
+    // TEST 22: Cambio de Proveedor en Producto
+    // ===========================================
+    @Test
+    @Order(22)
+    @DisplayName("22. Recálculo automático al cambiar proveedor del producto")
+    void testRecalculoPorCambioProveedorEnProducto() {
+        // Crear proveedor 1
+        Proveedor proveedor1 = new Proveedor();
+        proveedor1.setProveedor(TEST_PREFIX + "Proveedor1");
+        proveedor1.setApodo(TEST_PREFIX + "P1");
+        proveedor1.setPorcentaje(new BigDecimal("5"));
+        proveedor1 = proveedorRepository.save(proveedor1);
+
+        // Crear proveedor 2 con diferente porcentaje
+        Proveedor proveedor2 = new Proveedor();
+        proveedor2.setProveedor(TEST_PREFIX + "Proveedor2");
+        proveedor2.setApodo(TEST_PREFIX + "P2");
+        proveedor2.setPorcentaje(new BigDecimal("15"));
+        proveedor2 = proveedorRepository.save(proveedor2);
+
+        // Crear concepto FLAG_FINANCIACION_PROVEEDOR
+        ConceptoCalculo conceptoFinanciacion = new ConceptoCalculo();
+        conceptoFinanciacion.setConcepto(TEST_PREFIX + "FIN_PROV2");
+        conceptoFinanciacion.setPorcentaje(BigDecimal.ZERO);
+        conceptoFinanciacion.setAplicaSobre(AplicaSobre.FLAG_FINANCIACION_PROVEEDOR);
+        conceptoFinanciacion = conceptoGastoRepository.save(conceptoFinanciacion);
+
+        CanalConcepto ccFin = new CanalConcepto();
+        ccFin.setId(new CanalConceptoId(canal.getId(), conceptoFinanciacion.getId()));
+        ccFin.setCanal(canal);
+        ccFin.setConcepto(conceptoFinanciacion);
+        canalConceptoRepository.save(ccFin);
+
+        // Asignar proveedor 1 al producto
+        producto.setProveedor(proveedor1);
+        producto = productoRepository.save(producto);
+        entityManager.flush();
+
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConProveedor1 = obtenerPvpActual();
+
+        // Cambiar a proveedor 2
+        productoService.actualizar(producto.getId(),
+                new ProductoUpdateDTO(
+                        null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, proveedor2.getId(), null,
+                        null, null, null, null, null, null, null,
+                        null, null
+                ));
+
+        BigDecimal pvpConProveedor2 = obtenerPvpActual();
+
+        assertNotEquals(pvpConProveedor1, pvpConProveedor2,
+                "El PVP debe cambiar al cambiar el proveedor del producto");
+    }
+
+    // ===========================================
+    // TEST 23: ProductoMargen con margen fijo
+    // ===========================================
+    @Test
+    @Order(23)
+    @DisplayName("23. Recálculo automático al cambiar margen fijo del producto")
+    void testRecalculoPorCambioMargenFijo() {
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Agregar margen fijo minorista
+        productoMargenService.guardar(
+                new ProductoMargenDTO(
+                        productoMargen.getId(),
+                        producto.getId(),
+                        new BigDecimal("50"),
+                        new BigDecimal("30"),
+                        new BigDecimal("200"), // margen fijo minorista
+                        null, null
+                ));
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al agregar margen fijo minorista");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al agregar margen fijo");
+    }
+
+    // ===========================================
+    // TEST 24: Múltiples productos afectados por cambio de concepto
+    // ===========================================
+    @Test
+    @Order(24)
+    @DisplayName("24. Recálculo de múltiples productos al cambiar concepto del canal")
+    void testRecalculoMultiplesProductosPorCambioConcepto() {
+        // Crear segundo producto
+        Producto producto2 = new Producto();
+        producto2.setSku(TEST_PREFIX + "002");
+        producto2.setDescripcion(TEST_PREFIX + "Producto 2");
+        producto2.setTituloWeb(TEST_PREFIX + "Producto Test 2");
+        producto2.setCosto(new BigDecimal("2000"));
+        producto2.setIva(new BigDecimal("21"));
+        producto2.setOrigen(producto.getOrigen());
+        producto2.setTipo(producto.getTipo());
+        producto2.setClasifGral(producto.getClasifGral());
+        producto2 = productoRepository.save(producto2);
+
+        // Crear margen para producto 2
+        ProductoMargen margen2 = new ProductoMargen();
+        margen2.setProducto(producto2);
+        margen2.setMargenMinorista(new BigDecimal("40"));
+        margen2.setMargenMayorista(new BigDecimal("25"));
+        productoMargenRepository.save(margen2);
+
+        entityManager.flush();
+
+        // Calcular precios para ambos productos
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto2.getId(), canal.getId());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        BigDecimal pvp1Inicial = obtenerPvpActual();
+        var precio2Opt = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdAndCuotas(producto2.getId(), canal.getId(), 1);
+        assertTrue(precio2Opt.isPresent(), "Debe existir precio para producto 2");
+        BigDecimal pvp2Inicial = precio2Opt.get().getPvp();
+
+        // Modificar el concepto de comisión (afecta a ambos productos)
+        conceptoGastoService.actualizar(conceptoComision.getId(),
+                new ConceptoCalculoUpdateDTO(
+                        null,
+                        new BigDecimal("25"), // aumentar comisión
+                        null,
+                        null
+                ));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        BigDecimal pvp1Nuevo = obtenerPvpActual();
+        precio2Opt = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdAndCuotas(producto2.getId(), canal.getId(), 1);
+        assertTrue(precio2Opt.isPresent(), "Debe seguir existiendo precio para producto 2");
+        BigDecimal pvp2Nuevo = precio2Opt.get().getPvp();
+
+        assertNotEquals(pvp1Inicial, pvp1Nuevo,
+                "El PVP del producto 1 debe cambiar");
+        assertNotEquals(pvp2Inicial, pvp2Nuevo,
+                "El PVP del producto 2 debe cambiar");
+    }
+
+    // ===========================================
+    // TEST 25: Crear nueva cuota en canal
+    // ===========================================
+    @Test
+    @Order(25)
+    @DisplayName("25. Recálculo automático al crear nueva cuota en canal")
+    void testRecalculoPorCrearNuevaCuota() {
+        // Verificar cuotas existentes
+        List<ProductoCanalPrecio> preciosAntes = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdOrderByCuotasAsc(producto.getId(), canal.getId());
+        int cantidadCuotasAntes = preciosAntes.size();
+
+        // Crear nueva cuota de 6 pagos
+        CanalConceptoCuota cuota6 = new CanalConceptoCuota();
+        cuota6.setCanal(canal);
+        cuota6.setCuotas(6);
+        cuota6.setPorcentaje(new BigDecimal("25"));
+        cuota6.setDescripcion("6 cuotas");
+        canalConceptoCuotaRepository.save(cuota6);
+
+        entityManager.flush();
+
+        // Recalcular
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<ProductoCanalPrecio> preciosDespues = productoCanalPrecioRepository
+                .findByProductoIdAndCanalIdOrderByCuotasAsc(producto.getId(), canal.getId());
+
+        assertTrue(preciosDespues.size() > cantidadCuotasAntes,
+                "Debe haber más precios después de agregar cuota");
+
+        var precio6Cuotas = preciosDespues.stream()
+                .filter(p -> p.getCuotas() != null && p.getCuotas() == 6)
+                .findFirst();
+        assertTrue(precio6Cuotas.isPresent(),
+                "Debe existir precio para 6 cuotas");
     }
 }
