@@ -1804,6 +1804,22 @@ GET /api/excel/exportar-precios?formato=nube&cuotas=0
 - Formato `completo`: super headers con bordes gruesos, canales separados visualmente con bordes
 - Formatos `mercadolibre` y `nube` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
 
+**Formato `mercadolibre`:**
+| Configuración | Valor |
+|---------------|-------|
+| Canal | `ML` (hardcodeado) |
+| Columnas | SKU, PRECIO (pvpInflado), MLA |
+| Nombre hoja | "MercadoLibre" |
+| Validaciones | Excluye productos sin MLA o con pvpInflado <= 0 |
+
+**Formato `nube`:**
+| Configuración | Valor |
+|---------------|-------|
+| Canal | `KT HOGAR` (hardcodeado) |
+| Columnas | SKU, PVP_NUBE (pvp), PVP_INFLADO |
+| Nombre hoja | "Nube" |
+| Validaciones | Excluye productos con pvp <= 0 o pvpInflado <= 0 |
+
 #### Exportar catálogo a Excel
 ```http
 GET /api/excel/exportar-catalogo?catalogoId=4&canalId=1&cuotas=0

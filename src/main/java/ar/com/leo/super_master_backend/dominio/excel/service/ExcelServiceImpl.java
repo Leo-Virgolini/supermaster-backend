@@ -2701,6 +2701,7 @@ public class ExcelServiceImpl implements ExcelService {
     };
 
     @Override
+    @Transactional(readOnly = true)
     public byte[] exportarPrecios(ProductoFilter filter, Sort sort) throws IOException {
         log.info("Iniciando exportación de precios a Excel");
 
@@ -3351,6 +3352,7 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ExportCatalogoResultDTO exportarCatalogo(Integer catalogoId, Integer canalId, Integer cuotas,
                                                     Integer clasifGralId, Integer clasifGastroId, Integer tipoId, Integer marcaId,
                                                     Boolean esMaquina, String ordenarPor) throws IOException {
@@ -3538,6 +3540,7 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ExportResultDTO exportarMercadoLibre(Integer cuotas) throws IOException {
         log.info("Iniciando exportación para Mercado Libre con cuotas {}", cuotas);
 
@@ -3638,6 +3641,7 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ExportResultDTO exportarNube(Integer cuotas) throws IOException {
         log.info("Iniciando exportación para Tienda Nube con cuotas {}", cuotas);
 
