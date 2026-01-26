@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.producto.mla.service;
 
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,9 +15,9 @@ public interface MlaService {
 
     MlaDTO obtener(Integer id);
 
-    MlaDTO crear(MlaDTO dto);
+    MlaDTO crear(MlaCreateDTO dto);
 
-    MlaDTO actualizar(Integer id, MlaDTO dto);
+    MlaDTO actualizar(Integer id, MlaUpdateDTO dto);
 
     void eliminar(Integer id);
 

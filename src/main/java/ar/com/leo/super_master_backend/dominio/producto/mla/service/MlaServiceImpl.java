@@ -6,7 +6,9 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.service.Recalcul
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.mapper.MlaMapper;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
@@ -50,7 +52,7 @@ public class MlaServiceImpl implements MlaService {
 
     @Override
     @Transactional
-    public MlaDTO crear(MlaDTO dto) {
+    public MlaDTO crear(MlaCreateDTO dto) {
         // Validar que no exista otro MLA con el mismo código
         if (repo.findByMla(dto.mla()).isPresent()) {
             throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
@@ -63,26 +65,24 @@ public class MlaServiceImpl implements MlaService {
 
     @Override
     @Transactional
-    public MlaDTO actualizar(Integer id, MlaDTO dto) {
+    public MlaDTO actualizar(Integer id, MlaUpdateDTO dto) {
         Mla entity = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("MLA no encontrado"));
 
         // Validar unicidad si cambió el código
-        if (!entity.getMla().equals(dto.mla()) && repo.findByMla(dto.mla()).isPresent()) {
+        if (dto.mla() != null && !entity.getMla().equals(dto.mla()) && repo.findByMla(dto.mla()).isPresent()) {
             throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
         }
 
         // Guardar valor anterior para detectar cambio
         BigDecimal precioEnvioAnterior = entity.getPrecioEnvio();
 
-        entity.setMla(dto.mla());
-        entity.setMlau(dto.mlau());
-        entity.setPrecioEnvio(dto.precioEnvio());
+        mapper.updateEntity(dto, entity);
 
         repo.save(entity);
 
         // Recalcular si cambió el precioEnvio
-        if (!Objects.equals(precioEnvioAnterior, dto.precioEnvio())) {
+        if (!Objects.equals(precioEnvioAnterior, entity.getPrecioEnvio())) {
             recalculoFacade.recalcularPorCambioMla(id);
         }
 

@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.dominio.ml.controller;
 import ar.com.leo.super_master_backend.dominio.ml.dto.ConfiguracionMlDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.dominio.ml.service.ConfiguracionMlService;
@@ -117,33 +118,93 @@ public class MercadoLibreController {
     /**
      * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre.
      *
-     * Parámetros (al menos uno requerido):
-     * - 'mla': Código MLA del producto (ej: MLA123456789)
-     * - 'productoId': ID del producto para buscar su MLA asociado
+     * Prioridad de parámetros:
+     * 1. Si se proporciona 'mla', consulta solo para ese MLA (sincrónico).
+     * 2. Si se proporciona 'productoId', busca el MLA asociado al producto y consulta (sincrónico).
+     * 3. Si no se proporciona ninguno, inicia consulta masiva en background (asincrónico).
+     *    - Usar GET /costo-venta/estado para ver progreso
+     *    - Usar POST /costo-venta/cancelar para cancelar
+     *    - Usar GET /costo-venta/resultado para obtener resultados
      *
-     * @param mla (Opcional) Código MLA del producto
-     * @param productoId (Opcional) ID del producto
-     * @return DTO con los costos de venta (comisión, costo fijo, total)
+     * @param mla (Opcional) Código MLA del producto (ej: MLA123456789)
+     * @param productoId (Opcional) ID del producto para buscar su MLA asociado
+     * @return DTO con los costos de venta o confirmación de inicio de proceso masivo
      */
     @GetMapping("/costo-venta")
-    public ResponseEntity<CostoVentaResponseDTO> obtenerCostoVenta(
+    public ResponseEntity<?> obtenerCostoVenta(
             @RequestParam(required = false) String mla,
             @RequestParam(required = false) Integer productoId) {
 
-        // Si se proporciona MLA
+        // Si se proporciona MLA, consultar solo para ese producto (sincrónico)
         if (mla != null && !mla.isBlank()) {
             return ResponseEntity.ok(mercadoLibreService.obtenerCostoVenta(mla));
         }
 
-        // Si se proporciona productoId
+        // Si se proporciona productoId, buscar su MLA y consultar (sincrónico)
         if (productoId != null) {
             return ResponseEntity.ok(mercadoLibreService.obtenerCostoVentaPorProducto(productoId));
         }
 
-        // Si no se proporciona ninguno, devolver error
-        return ResponseEntity.badRequest().body(
-                new CostoVentaResponseDTO(null, null, null, null, null, null, null,
-                        "Debe proporcionar 'mla' o 'productoId'"));
+        // Si no se proporciona ninguno, iniciar proceso masivo en background
+        boolean iniciado = mercadoLibreService.iniciarCalculoCostoVentaTodos();
+        if (iniciado) {
+            return ResponseEntity.accepted().body(java.util.Map.of(
+                    "mensaje", "Proceso masivo de costo de venta iniciado en background",
+                    "iniciado", true,
+                    "endpoints", java.util.Map.of(
+                            "estado", "GET /api/ml/costo-venta/estado",
+                            "cancelar", "POST /api/ml/costo-venta/cancelar",
+                            "resultado", "GET /api/ml/costo-venta/resultado"
+                    )));
+        }
+        return ResponseEntity.badRequest().body(java.util.Map.of(
+                "mensaje", "Ya hay un proceso masivo de costo de venta en ejecución. Use GET /api/ml/costo-venta/estado para ver el progreso.",
+                "iniciado", false));
+    }
+
+    /**
+     * Cancela el proceso masivo de consulta de costos de venta en ejecución.
+     *
+     * @return Mensaje indicando si se canceló o no había proceso en ejecución
+     */
+    @PostMapping("/costo-venta/cancelar")
+    public ResponseEntity<?> cancelarCostoVenta() {
+        boolean cancelado = mercadoLibreService.cancelarProcesoMasivoCostoVenta();
+        if (cancelado) {
+            return ResponseEntity.ok(java.util.Map.of(
+                    "mensaje", "Solicitud de cancelación enviada. El proceso se detendrá después del MLA actual.",
+                    "cancelado", true));
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+                "mensaje", "No hay proceso masivo de costo de venta en ejecución",
+                "cancelado", false));
+    }
+
+    /**
+     * Obtiene el estado actual del proceso masivo de consulta de costos de venta.
+     * Incluye progreso en tiempo real: total, procesados, exitosos, errores.
+     *
+     * @return Estado del proceso masivo
+     */
+    @GetMapping("/costo-venta/estado")
+    public ResponseEntity<ProcesoMasivoEstadoDTO> estadoCostoVenta() {
+        return ResponseEntity.ok(mercadoLibreService.obtenerEstadoProcesoMasivoCostoVenta());
+    }
+
+    /**
+     * Obtiene los resultados del último proceso masivo de costo de venta completado.
+     *
+     * @return Resultados del proceso masivo o mensaje si no hay resultados disponibles
+     */
+    @GetMapping("/costo-venta/resultado")
+    public ResponseEntity<?> resultadoCostoVenta() {
+        CostoVentaMasivoResponseDTO resultado = mercadoLibreService.obtenerResultadoProcesoMasivoCostoVenta();
+        if (resultado != null) {
+            return ResponseEntity.ok(resultado);
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+                "mensaje", "No hay resultados disponibles. El proceso aún no ha finalizado o no se ha ejecutado.",
+                "disponible", false));
     }
 
     // =====================================================

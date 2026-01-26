@@ -1,6 +1,8 @@
 package ar.com.leo.super_master_backend.dominio.producto.mla.controller;
 
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaCreateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.service.MlaService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -34,7 +36,7 @@ public class MlaController {
     }
 
     @PostMapping
-    public ResponseEntity<MlaDTO> crear(@Valid @RequestBody MlaDTO dto) {
+    public ResponseEntity<MlaDTO> crear(@Valid @RequestBody MlaCreateDTO dto) {
         MlaDTO creado = mlaService.crear(dto);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -47,7 +49,7 @@ public class MlaController {
     @PutMapping("/{id}")
     public ResponseEntity<MlaDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
-            @Valid @RequestBody MlaDTO dto) {
+            @Valid @RequestBody MlaUpdateDTO dto) {
         return ResponseEntity.ok(mlaService.actualizar(id, dto));
     }
 

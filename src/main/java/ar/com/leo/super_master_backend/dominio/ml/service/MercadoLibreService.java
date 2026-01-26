@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.ml.HttpRetryHandler;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
 import org.springframework.scheduling.annotation.Async;
@@ -61,13 +62,21 @@ public class MercadoLibreService {
     private final HttpClient httpClient;
     private final Object tokenLock = new Object();
 
-    // Control de ejecución masiva
+    // Control de ejecución masiva - Costo de Envío
     private final AtomicBoolean cancelarProcesoMasivo = new AtomicBoolean(false);
     private final AtomicBoolean procesoMasivoEnEjecucion = new AtomicBoolean(false);
 
-    // Estado y resultados del proceso masivo
+    // Estado y resultados del proceso masivo - Costo de Envío
     private volatile ProcesoMasivoEstadoDTO estadoProcesoMasivo = ProcesoMasivoEstadoDTO.idle();
     private volatile CostoEnvioMasivoResponseDTO resultadoProcesoMasivo = null;
+
+    // Control de ejecución masiva - Costo de Venta
+    private final AtomicBoolean cancelarProcesoMasivoCostoVenta = new AtomicBoolean(false);
+    private final AtomicBoolean procesoMasivoCostoVentaEnEjecucion = new AtomicBoolean(false);
+
+    // Estado y resultados del proceso masivo - Costo de Venta
+    private volatile ProcesoMasivoEstadoDTO estadoProcesoMasivoCostoVenta = ProcesoMasivoEstadoDTO.idle();
+    private volatile CostoVentaMasivoResponseDTO resultadoProcesoMasivoCostoVenta = null;
 
     // Auto-inyección para que las llamadas internas pasen por el proxy de Spring
     // y respeten @Transactional
@@ -404,6 +413,176 @@ public class MercadoLibreService {
 
         return obtenerCostoVenta(mla.getMla());
     }
+
+    // =====================================================
+    // PROCESO MASIVO - COSTO DE VENTA
+    // =====================================================
+
+    /**
+     * Inicia el cálculo de costo de venta para todos los MLAs de forma asincrónica.
+     * @return true si se inició el proceso, false si ya había uno en ejecución
+     */
+    public boolean iniciarCalculoCostoVentaTodos() {
+        // Verificar si ya hay un proceso en ejecución
+        if (!procesoMasivoCostoVentaEnEjecucion.compareAndSet(false, true)) {
+            log.warn("ML - Ya hay un proceso masivo de costo de venta en ejecución");
+            return false;
+        }
+
+        // Resetear estado
+        cancelarProcesoMasivoCostoVenta.set(false);
+        resultadoProcesoMasivoCostoVenta = null;
+
+        int total = (int) mlaRepository.count();
+        estadoProcesoMasivoCostoVenta = ProcesoMasivoEstadoDTO.iniciado(total, LocalDateTime.now());
+
+        // Ejecutar en background
+        self.calcularCostoVentaTodosAsync();
+
+        return true;
+    }
+
+    /**
+     * Calcula el costo de venta para todos los MLAs en la base de datos de forma asincrónica.
+     * Este método se ejecuta en un thread separado.
+     */
+    @Async
+    public void calcularCostoVentaTodosAsync() {
+        List<Mla> mlas = mlaRepository.findAll();
+        List<CostoVentaResponseDTO> resultados = new ArrayList<>();
+        int exitosos = 0;
+        int errores = 0;
+        int omitidos = 0;
+
+        LocalDateTime iniciadoEn = estadoProcesoMasivoCostoVenta.iniciadoEn();
+        log.info("ML - Iniciando cálculo masivo de costos de venta para {} MLAs", mlas.size());
+
+        try {
+            for (Mla mla : mlas) {
+                // Verificar si se solicitó cancelación
+                if (cancelarProcesoMasivoCostoVenta.get()) {
+                    omitidos = mlas.size() - resultados.size();
+                    log.info("ML - Proceso masivo de costo de venta cancelado. Procesados: {}, Omitidos: {}",
+                            resultados.size(), omitidos);
+                    break;
+                }
+
+                try {
+                    CostoVentaResponseDTO resultado = obtenerCostoVenta(mla.getMla());
+                    resultados.add(resultado);
+
+                    if (resultado.totalCostos() != null && resultado.totalCostos().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                        exitosos++;
+                    } else {
+                        errores++;
+                    }
+
+                } catch (Exception e) {
+                    log.error("ML - Error procesando costo de venta MLA {}: {}", mla.getMla(), e.getMessage());
+                    CostoVentaResponseDTO error = new CostoVentaResponseDTO(
+                            mla.getMla(), null, null, null, null, null, null,
+                            "Error: " + e.getMessage());
+                    resultados.add(error);
+                    errores++;
+                }
+
+                // Actualizar estado de progreso
+                estadoProcesoMasivoCostoVenta = new ProcesoMasivoEstadoDTO(
+                        true,
+                        mlas.size(),
+                        resultados.size(),
+                        exitosos,
+                        errores,
+                        "ejecutando",
+                        iniciadoEn,
+                        null,
+                        String.format("Procesando %d/%d", resultados.size(), mlas.size())
+                );
+            }
+
+            // Proceso terminado
+            LocalDateTime finalizadoEn = LocalDateTime.now();
+            String estado = cancelarProcesoMasivoCostoVenta.get() ? "cancelado" : "completado";
+
+            log.info("ML - Cálculo masivo de costo de venta {}. Exitosos: {}, Errores: {}, Omitidos: {}",
+                    estado, exitosos, errores, omitidos);
+
+            // Guardar resultado
+            resultadoProcesoMasivoCostoVenta = new CostoVentaMasivoResponseDTO(
+                    resultados.size(),
+                    exitosos,
+                    errores,
+                    omitidos,
+                    resultados
+            );
+
+            // Actualizar estado final
+            estadoProcesoMasivoCostoVenta = new ProcesoMasivoEstadoDTO(
+                    false,
+                    mlas.size(),
+                    resultados.size(),
+                    exitosos,
+                    errores,
+                    estado,
+                    iniciadoEn,
+                    finalizadoEn,
+                    String.format("Proceso %s. Exitosos: %d, Errores: %d, Omitidos: %d",
+                            estado, exitosos, errores, omitidos)
+            );
+
+        } catch (Exception e) {
+            log.error("ML - Error fatal en proceso masivo de costo de venta: {}", e.getMessage(), e);
+            estadoProcesoMasivoCostoVenta = new ProcesoMasivoEstadoDTO(
+                    false, 0, 0, 0, 0, "error", null, LocalDateTime.now(),
+                    "Error fatal: " + e.getMessage()
+            );
+        } finally {
+            procesoMasivoCostoVentaEnEjecucion.set(false);
+            cancelarProcesoMasivoCostoVenta.set(false);
+        }
+    }
+
+    /**
+     * Cancela el proceso masivo de cálculo de costos de venta en ejecución.
+     * @return true si había un proceso en ejecución que fue marcado para cancelar
+     */
+    public boolean cancelarProcesoMasivoCostoVenta() {
+        if (procesoMasivoCostoVentaEnEjecucion.get()) {
+            cancelarProcesoMasivoCostoVenta.set(true);
+            log.info("ML - Solicitud de cancelación de proceso masivo de costo de venta recibida");
+            return true;
+        }
+        log.info("ML - No hay proceso masivo de costo de venta en ejecución para cancelar");
+        return false;
+    }
+
+    /**
+     * Obtiene el estado actual del proceso masivo de costo de venta.
+     * @return DTO con el estado del proceso
+     */
+    public ProcesoMasivoEstadoDTO obtenerEstadoProcesoMasivoCostoVenta() {
+        return estadoProcesoMasivoCostoVenta;
+    }
+
+    /**
+     * Obtiene el resultado del último proceso masivo de costo de venta completado.
+     * @return DTO con los resultados o null si no hay resultados disponibles
+     */
+    public CostoVentaMasivoResponseDTO obtenerResultadoProcesoMasivoCostoVenta() {
+        return resultadoProcesoMasivoCostoVenta;
+    }
+
+    /**
+     * Verifica si hay un proceso masivo de costo de venta en ejecución.
+     * @return true si hay un proceso en ejecución
+     */
+    public boolean isProcesoMasivoCostoVentaEnEjecucion() {
+        return procesoMasivoCostoVentaEnEjecucion.get();
+    }
+
+    // =====================================================
+    // PROCESO MASIVO - COSTO DE ENVÍO
+    // =====================================================
 
     /**
      * Inicia el cálculo de costo de envío para todos los MLAs de forma asincrónica.

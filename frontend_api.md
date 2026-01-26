@@ -1,4 +1,4 @@
-# API Documentation for Frontend (Next.js)
+# API Documentation Backend
 
 Este documento describe los endpoints de la API REST para el desarrollo del frontend.
 
@@ -824,6 +824,13 @@ interface CanalConceptoCuotaCreate {
   descripcion?: string;   // max 255
 }
 
+interface CanalConceptoCuotaUpdate {
+  cuotas?: number;        // >= 0
+  porcentaje?: number;    // -100 a 100
+  descripcion?: string;   // max 255
+}
+```
+
 ### Canal Concepto Regla
 
 ```typescript
@@ -985,6 +992,18 @@ interface Mla {
   precioEnvio: number | null;
   fechaCalculoEnvio: string | null;  // ISO DateTime
 }
+
+interface MlaCreate {
+  mla: string;                    // @NotBlank, max 20
+  mlau?: string;                  // max 20
+  precioEnvio?: number;           // >= 0
+}
+
+interface MlaUpdate {
+  mla?: string;                   // max 20
+  mlau?: string;                  // max 20
+  precioEnvio?: number;           // >= 0
+}
 ```
 
 ### Configuración ML
@@ -1043,7 +1062,15 @@ interface CostoVentaResponse {
   mensaje: string;                 // Descripción del resultado o error
 }
 
-// Estado del proceso masivo de costo de envío (async)
+interface CostoVentaMasivoResponse {
+  totalProcesados: number;
+  exitosos: number;
+  errores: number;
+  omitidos: number;
+  resultados: CostoVentaResponse[];
+}
+
+// Estado del proceso masivo (costo de envío y costo de venta)
 interface ProcesoMasivoEstado {
   enEjecucion: boolean;
   total: number;                   // Total de MLAs a procesar
@@ -1068,6 +1095,22 @@ interface Proveedor {
   entrega: boolean | null;
   porcentaje: number | null;  // % financiación
 }
+
+interface ProveedorCreate {
+  proveedor: string;              // @NotBlank, max 100
+  apodo: string;                  // @NotBlank, max 50
+  plazoPago?: string;             // max 45
+  entrega?: boolean;
+  porcentaje?: number;            // 0-100
+}
+
+interface ProveedorUpdate {
+  proveedor?: string;             // max 100
+  apodo?: string;                 // max 50
+  plazoPago?: string;             // max 45
+  entrega?: boolean;
+  porcentaje?: number;            // 0-100
+}
 ```
 
 ### Otros Maestros
@@ -1079,10 +1122,30 @@ interface Marca {
   padreId: number | null;  // Marca padre (jerárquica)
 }
 
+interface MarcaCreate {
+  nombre: string;             // @NotBlank, max 45
+  padreId?: number;           // @Positive
+}
+
+interface MarcaUpdate {
+  nombre?: string;            // max 45
+  padreId?: number;           // @Positive
+}
+
 interface Tipo {
   id: number;
   nombre: string;
   padreId: number | null;  // Tipo padre (jerárquico)
+}
+
+interface TipoCreate {
+  nombre: string;             // @NotBlank, max 45
+  padreId?: number;           // @Positive
+}
+
+interface TipoUpdate {
+  nombre?: string;            // max 45
+  padreId?: number;           // @Positive
 }
 
 interface Origen {
@@ -1090,9 +1153,25 @@ interface Origen {
   origen: string;
 }
 
+interface OrigenCreate {
+  origen: string;             // @NotBlank, max 45
+}
+
+interface OrigenUpdate {
+  origen?: string;            // max 45
+}
+
 interface Material {
   id: number;
   material: string;
+}
+
+interface MaterialCreate {
+  material: string;           // @NotBlank, max 45
+}
+
+interface MaterialUpdate {
+  material?: string;          // max 45
 }
 
 interface Apto {
@@ -1100,9 +1179,28 @@ interface Apto {
   apto: string;
 }
 
+interface AptoCreate {
+  apto: string;               // @NotBlank, max 45
+}
+
+interface AptoUpdate {
+  apto?: string;              // max 45
+}
+
 interface ClasifGral {
   id: number;
   nombre: string;
+  padreId: number | null;  // Clasificación padre (jerárquica)
+}
+
+interface ClasifGralCreate {
+  nombre: string;             // @NotBlank, max 45
+  padreId?: number;           // @Positive
+}
+
+interface ClasifGralUpdate {
+  nombre?: string;            // max 45
+  padreId?: number;           // @Positive
 }
 
 interface ClasifGastro {
@@ -1113,13 +1211,15 @@ interface ClasifGastro {
 }
 
 interface ClasifGastroCreate {
-  nombre: string;            // @NotNull, max 100
-  esMaquina?: boolean;       // default false
+  nombre: string;             // @NotBlank, max 45
+  esMaquina?: boolean;        // default false
+  padreId?: number;           // @Positive
 }
 
 interface ClasifGastroUpdate {
-  nombre?: string;           // max 100
+  nombre?: string;            // max 45
   esMaquina?: boolean;
+  padreId?: number;           // @Positive
 }
 
 interface Catalogo {
@@ -1129,9 +1229,29 @@ interface Catalogo {
   recargoPorcentaje: number;           // Recargo % al exportar (default: 0)
 }
 
+interface CatalogoCreate {
+  catalogo: string;           // @NotBlank, max 45
+  exportarConIva?: boolean;   // default true
+  recargoPorcentaje?: number; // 0-100, default 0
+}
+
+interface CatalogoUpdate {
+  catalogo?: string;          // max 45
+  exportarConIva?: boolean;
+  recargoPorcentaje?: number; // 0-100
+}
+
 interface Cliente {
   id: number;
   cliente: string;  // Nombre del cliente
+}
+
+interface ClienteCreate {
+  cliente: string;            // @NotBlank, max 45
+}
+
+interface ClienteUpdate {
+  cliente?: string;           // max 45
 }
 ```
 
@@ -1812,15 +1932,22 @@ Content-Type: application/json
 
 #### Calcular Costo de Envío
 
-Calcula y guarda el costo de envío para productos de ML. **Modifica datos** (guarda en BD y recalcula precios).
+Calcula y guarda el costo de envío para productos de ML. **Modifica datos** (guarda en BD y recalcula precios automáticamente).
 
 ```http
-POST /api/ml/costo-envio                         # Calcula para TODOS los MLAs
-POST /api/ml/costo-envio?mla=MLA123456789        # Calcula para un MLA específico
-POST /api/ml/costo-envio?productoId=123          # Calcula para el MLA del producto
+POST /api/ml/costo-envio                         # ASYNC - Todos los MLAs en background
+POST /api/ml/costo-envio?mla=MLA123456789        # SYNC - Solo ese MLA
+POST /api/ml/costo-envio?productoId=123          # SYNC - Solo el MLA del producto
 ```
 
-**Query params (opcionales, prioridad: mla > productoId > todos):**
+**Comportamiento según parámetros:**
+| Parámetros | Comportamiento | Response |
+|------------|----------------|----------|
+| `mla=X` | **Sincrónico** - solo ese MLA | `CostoEnvioResponse` |
+| `productoId=X` | **Sincrónico** - busca MLA del producto | `CostoEnvioResponse` |
+| Sin parámetros | **Asincrónico** - todos en background | `202 Accepted` + info de endpoints |
+
+**Query params (opcionales, prioridad: mla > productoId > masivo async):**
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
 | `mla` | string | Código MLA (ej: MLA123456789) |
@@ -1896,34 +2023,27 @@ Los costos de envío (tanto de tiers como de API ML) incluyen 21% de IVA. El sis
 
 **Ejemplo de uso:**
 ```typescript
-// Calcular para un MLA específico
+// Calcular para un MLA específico (SYNC)
 const response = await fetch(
   'http://localhost:8080/api/ml/costo-envio?mla=MLA123456789',
   { method: 'POST' }
 );
 const resultado: CostoEnvioResponse = await response.json();
 
-// Calcular para un producto (busca su MLA)
+// Calcular para un producto (SYNC - busca su MLA)
 const responseProducto = await fetch(
   'http://localhost:8080/api/ml/costo-envio?productoId=123',
   { method: 'POST' }
 );
 const resultadoProducto: CostoEnvioResponse = await responseProducto.json();
-
-// Calcular para todos los MLAs (sincrónico - espera a terminar)
-const responseMasivo = await fetch(
-  'http://localhost:8080/api/ml/costo-envio',
-  { method: 'POST' }
-);
-const resultadoMasivo: CostoEnvioMasivoResponse = await responseMasivo.json();
 ```
 
-#### Cálculo Masivo Asíncrono (con cancelación)
+#### Cálculo Masivo (Asíncrono)
 
-Para el cálculo masivo de todos los MLAs, existen endpoints adicionales que permiten ejecutar el proceso en segundo plano y cancelarlo si es necesario.
+El cálculo masivo (sin parámetros) **siempre es asíncrono**. No existe parámetro para hacerlo sincrónico.
 
 ```http
-POST /api/ml/costo-envio/async               # Inicia cálculo masivo en segundo plano
+POST /api/ml/costo-envio                     # Inicia proceso en background (202 Accepted)
 GET  /api/ml/costo-envio/estado              # Consulta estado del proceso
 POST /api/ml/costo-envio/cancelar            # Cancela el proceso en ejecución
 GET  /api/ml/costo-envio/resultado           # Obtiene resultado del último proceso
@@ -1931,9 +2051,9 @@ GET  /api/ml/costo-envio/resultado           # Obtiene resultado del último pro
 
 **Flujo de uso:**
 
-1. **Iniciar proceso:** `POST /api/ml/costo-envio/async`
+1. **Iniciar proceso:** `POST /api/ml/costo-envio` (sin parámetros)
    - Retorna inmediatamente con `202 Accepted`
-   - El proceso continúa en segundo plano
+   - Si ya hay un proceso en ejecución, retorna `400 Bad Request`
 
 2. **Monitorear progreso:** `GET /api/ml/costo-envio/estado`
    - Consultar periódicamente para ver el progreso
@@ -1946,6 +2066,27 @@ GET  /api/ml/costo-envio/resultado           # Obtiene resultado del último pro
 4. **Obtener resultado:** `GET /api/ml/costo-envio/resultado`
    - Disponible solo después de que el proceso termine
    - Response: `CostoEnvioMasivoResponse`
+
+**Response al iniciar (202 Accepted):**
+```json
+{
+  "mensaje": "Proceso masivo iniciado en background",
+  "iniciado": true,
+  "endpoints": {
+    "estado": "GET /api/ml/costo-envio/estado",
+    "cancelar": "POST /api/ml/costo-envio/cancelar",
+    "resultado": "GET /api/ml/costo-envio/resultado"
+  }
+}
+```
+
+**Response si ya hay proceso en ejecución (400):**
+```json
+{
+  "mensaje": "Ya hay un proceso masivo en ejecución. Use GET /api/ml/costo-envio/estado para ver el progreso.",
+  "iniciado": false
+}
+```
 
 **Response Estado:** `ProcesoMasivoEstado`
 
@@ -1965,15 +2106,19 @@ interface ProcesoMasivoEstado {
 
 **Ejemplo de uso (polling):**
 ```typescript
-// 1. Iniciar proceso asíncrono
-await fetch('http://localhost:8080/api/ml/costo-envio/async', { method: 'POST' });
+// 1. Iniciar proceso masivo (ASYNC)
+const initResponse = await fetch('http://localhost:8080/api/ml/costo-envio', { method: 'POST' });
+if (initResponse.status !== 202) {
+  console.log('No se pudo iniciar - ya hay un proceso en ejecución');
+  return;
+}
 
 // 2. Polling del estado
 const checkEstado = async () => {
   const response = await fetch('http://localhost:8080/api/ml/costo-envio/estado');
   const estado: ProcesoMasivoEstado = await response.json();
 
-  console.log(`Progreso: ${estado.procesados}/${estado.total}`);
+  console.log(`Progreso: ${estado.procesados}/${estado.total} (${estado.estado})`);
 
   if (estado.enEjecucion) {
     setTimeout(checkEstado, 2000); // Revisar cada 2 segundos
@@ -1998,11 +2143,19 @@ const cancelar = async () => {
 Consulta los costos de venta (comisiones ML) de un producto. **Solo lectura** (no guarda en BD).
 
 ```http
-GET /api/ml/costo-venta?mla=MLA123456789        # Por código MLA
-GET /api/ml/costo-venta?productoId=123          # Por ID de producto
+GET /api/ml/costo-venta                          # ASYNC - Todos los MLAs en background
+GET /api/ml/costo-venta?mla=MLA123456789         # SYNC - Solo ese MLA
+GET /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del producto
 ```
 
-**Query params (al menos uno requerido):**
+**Comportamiento según parámetros:**
+| Parámetros | Comportamiento | Response |
+|------------|----------------|----------|
+| `mla=X` | **Sincrónico** - solo ese MLA | `CostoVentaResponse` |
+| `productoId=X` | **Sincrónico** - busca MLA del producto | `CostoVentaResponse` |
+| Sin parámetros | **Asincrónico** - todos en background | `202 Accepted` + info de endpoints |
+
+**Query params (opcionales, prioridad: mla > productoId > masivo async):**
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
 | `mla` | string | Código MLA (ej: MLA123456789) |
@@ -2038,25 +2191,112 @@ GET /api/ml/costo-venta?productoId=123          # Por ID de producto
 **Mensajes de error posibles:**
 | Mensaje | Significado |
 |---------|-------------|
-| `Debe proporcionar 'mla' o 'productoId'` | No se envió ningún parámetro |
 | `Producto no encontrado con ID: X` | El productoId no existe |
 | `El producto no tiene MLA asociado` | El producto no tiene MLA vinculado |
 | `No se pudo obtener el producto de MercadoLibre` | Error al consultar API ML |
 | `Error al consultar costos de venta` | Error en la API de listing_prices |
 
-**Ejemplo de uso:**
+**Ejemplo de uso (sincrónico):**
 ```typescript
-// Obtener costos de venta por MLA
+// Obtener costos de venta por MLA (SYNC)
 const response = await fetch(
   'http://localhost:8080/api/ml/costo-venta?mla=MLA123456789'
 );
 const costos: CostoVentaResponse = await response.json();
 
-// Obtener costos de venta por producto
+// Obtener costos de venta por producto (SYNC)
 const responseProducto = await fetch(
   'http://localhost:8080/api/ml/costo-venta?productoId=123'
 );
 const costosProducto: CostoVentaResponse = await responseProducto.json();
+```
+
+#### Costo de Venta Masivo (Asíncrono)
+
+El cálculo masivo (sin parámetros) **siempre es asíncrono**. No existe parámetro para hacerlo sincrónico.
+
+```http
+GET  /api/ml/costo-venta                     # Inicia proceso en background (202 Accepted)
+GET  /api/ml/costo-venta/estado              # Consulta estado del proceso
+POST /api/ml/costo-venta/cancelar            # Cancela el proceso en ejecución
+GET  /api/ml/costo-venta/resultado           # Obtiene resultado del último proceso
+```
+
+**Flujo de uso:**
+
+1. **Iniciar proceso:** `GET /api/ml/costo-venta` (sin parámetros)
+   - Retorna inmediatamente con `202 Accepted`
+   - Si ya hay un proceso en ejecución, retorna `400 Bad Request`
+
+2. **Monitorear progreso:** `GET /api/ml/costo-venta/estado`
+   - Consultar periódicamente para ver el progreso
+   - Response: `ProcesoMasivoEstado`
+
+3. **Cancelar (opcional):** `POST /api/ml/costo-venta/cancelar`
+   - Cancela el proceso en ejecución
+   - Los MLAs ya consultados se mantienen en el resultado
+
+4. **Obtener resultado:** `GET /api/ml/costo-venta/resultado`
+   - Disponible solo después de que el proceso termine
+   - Response: `CostoVentaMasivoResponse`
+
+**Response al iniciar (202 Accepted):**
+```json
+{
+  "mensaje": "Proceso masivo de costo de venta iniciado en background",
+  "iniciado": true,
+  "endpoints": {
+    "estado": "GET /api/ml/costo-venta/estado",
+    "cancelar": "POST /api/ml/costo-venta/cancelar",
+    "resultado": "GET /api/ml/costo-venta/resultado"
+  }
+}
+```
+
+**Response masivo:** `CostoVentaMasivoResponse`
+
+```typescript
+interface CostoVentaMasivoResponse {
+  totalProcesados: number;
+  exitosos: number;
+  errores: number;
+  omitidos: number;
+  resultados: CostoVentaResponse[];
+}
+```
+
+**Ejemplo de uso (polling):**
+```typescript
+// 1. Iniciar proceso masivo (ASYNC)
+const initResponse = await fetch('http://localhost:8080/api/ml/costo-venta');
+if (initResponse.status !== 202) {
+  console.log('No se pudo iniciar - ya hay un proceso en ejecución');
+  return;
+}
+
+// 2. Polling del estado
+const checkEstado = async () => {
+  const response = await fetch('http://localhost:8080/api/ml/costo-venta/estado');
+  const estado: ProcesoMasivoEstado = await response.json();
+
+  console.log(`Progreso: ${estado.procesados}/${estado.total} (${estado.estado})`);
+
+  if (estado.enEjecucion) {
+    setTimeout(checkEstado, 2000); // Revisar cada 2 segundos
+  } else {
+    // Proceso terminado, obtener resultado
+    const resultResponse = await fetch('http://localhost:8080/api/ml/costo-venta/resultado');
+    const resultado: CostoVentaMasivoResponse = await resultResponse.json();
+    console.log('Resultado:', resultado);
+  }
+};
+
+checkEstado();
+
+// 3. Para cancelar (opcional)
+const cancelar = async () => {
+  await fetch('http://localhost:8080/api/ml/costo-venta/cancelar', { method: 'POST' });
+};
 ```
 
 ---
