@@ -2768,9 +2768,7 @@ public class ExcelServiceImpl implements ExcelService {
             int totalColumnas = headersFijos.length + totalColumnasDinamicas;
 
             // Crear estilos base
-            CellStyle superHeaderDatosStyle = crearEstiloSuperHeader(workbook, IndexedColors.GREY_40_PERCENT.getIndex());
-            CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
-            CellStyle headerDatosBordeDerechoStyle = crearEstiloHeaderConBordeDerecho(workbook, IndexedColors.GREY_25_PERCENT.getIndex());
+            CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.LIGHT_GREEN.getIndex(), false);
 
             // Estilos para filas pares (sin fondo) e impares (con fondo azul claro - TableStyleLight1)
             short colorFilaAlternada = IndexedColors.GREY_25_PERCENT.getIndex();
@@ -2803,19 +2801,15 @@ public class ExcelServiceImpl implements ExcelService {
                 estilosDataBordePorCanalAlt.put(canal, crearEstiloDataConBordeGruesoCentradoConFondo(workbook, colorFilaAlternada));
             }
 
-            // ========== FILA 0: Super headers (DATOS + un header por canal) ==========
+            // ========== FILA 0: Super headers (headers datos + un header por canal) ==========
             Row superHeaderRow = sheet.createRow(0);
 
-            // Celda "DATOS" (desde columna 0 hasta PVP_MAX, ocupando filas 0 y 1)
-            Cell cellDatos = superHeaderRow.createCell(0);
-            cellDatos.setCellValue("DATOS");
-            cellDatos.setCellStyle(superHeaderDatosStyle);
-            for (int i = 1; i <= colPvpMax; i++) {
-                Cell c = superHeaderRow.createCell(i);
-                c.setCellStyle(superHeaderDatosStyle);
+            // Headers fijos en fila 0 (se combinarán verticalmente con filas 1 y 2)
+            for (int i = 0; i < headersFijos.length; i++) {
+                Cell cell = superHeaderRow.createCell(i);
+                cell.setCellValue(headersFijos[i]);
+                cell.setCellStyle(headerDatosStyle);
             }
-            // Merge de DATOS: filas 0-1, columnas 0-colPvpMax
-            sheet.addMergedRegion(new CellRangeAddress(0, 1, 0, colPvpMax));
 
             // Super headers por cada canal
             int superHeaderColIndex = headersFijos.length;
@@ -2826,14 +2820,8 @@ public class ExcelServiceImpl implements ExcelService {
 
                 CellStyle estiloSuperCanal = estilosSuperHeaderPorCanal.get(canalNombre);
 
-                // Si se filtra por cuotas, agregar al nombre del canal
-                String nombreCanalHeader = canalNombre;
-                if (filter.cuotas() != null) {
-                    nombreCanalHeader = canalNombre + " (" + filter.cuotas() + " cuotas)";
-                }
-
                 Cell cellCanal = superHeaderRow.createCell(colInicio);
-                cellCanal.setCellValue(nombreCanalHeader);
+                cellCanal.setCellValue(canalNombre);
                 cellCanal.setCellStyle(estiloSuperCanal);
 
                 for (int i = colInicio + 1; i <= colFin; i++) {
@@ -2851,10 +2839,10 @@ public class ExcelServiceImpl implements ExcelService {
             // ========== FILA 1: Sub-headers con descripción de cuotas ==========
             Row cuotasHeaderRow = sheet.createRow(1);
 
-            // Celdas de DATOS en fila 1 (cubiertas por el merge, pero necesarias para el estilo)
-            for (int i = 0; i <= colPvpMax; i++) {
+            // Celdas de headers fijos en fila 1 (parte del merge vertical)
+            for (int i = 0; i < headersFijos.length; i++) {
                 Cell cell = cuotasHeaderRow.createCell(i);
-                cell.setCellStyle(superHeaderDatosStyle);
+                cell.setCellStyle(headerDatosStyle);
             }
 
             // Sub-headers de cuotas por canal (merge por cada grupo de cuotas)
@@ -2911,19 +2899,19 @@ public class ExcelServiceImpl implements ExcelService {
             Row headerRow = sheet.createRow(2);
             int colIndex = 0;
 
-            // Headers fijos (DATOS: hasta PVP_MAX)
+            // Headers fijos en fila 2 (parte del merge vertical) y aplicar merge vertical
             for (int i = 0; i < headersFijos.length; i++) {
                 Cell cell = headerRow.createCell(colIndex++);
-                cell.setCellValue(headersFijos[i]);
                 cell.setCellStyle(headerDatosStyle);
+                // Merge vertical de filas 0-2 para cada header fijo
+                CellRangeAddress mergeRegion = new CellRangeAddress(0, 2, i, i);
+                sheet.addMergedRegion(mergeRegion);
+                // Aplicar bordes gruesos a cada celda mergeada
+                RegionUtil.setBorderTop(BorderStyle.THICK, mergeRegion, sheet);
+                RegionUtil.setBorderBottom(BorderStyle.THICK, mergeRegion, sheet);
+                RegionUtil.setBorderLeft(BorderStyle.THICK, mergeRegion, sheet);
+                RegionUtil.setBorderRight(BorderStyle.THICK, mergeRegion, sheet);
             }
-
-            // Aplicar bordes gruesos al rango de DATOS en fila 2
-            CellRangeAddress rangoDatosFila2 = new CellRangeAddress(2, 2, 0, headersFijos.length - 1);
-            RegionUtil.setBorderTop(BorderStyle.THICK, rangoDatosFila2, sheet);
-            RegionUtil.setBorderBottom(BorderStyle.THICK, rangoDatosFila2, sheet);
-            RegionUtil.setBorderLeft(BorderStyle.THICK, rangoDatosFila2, sheet);
-            RegionUtil.setBorderRight(BorderStyle.THICK, rangoDatosFila2, sheet);
 
             // Headers dinámicos por canal y cuotas
             // Lista para guardar los rangos de cuotas de fila 2 y aplicar bordes después
@@ -2933,7 +2921,6 @@ public class ExcelServiceImpl implements ExcelService {
 
                 for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
                     Integer cuotas = cuotasList.get(cuotaIndex);
-                    String sufijoCuotas = cuotas == 0 ? "" : "_" + cuotas + "C";
 
                     // Color diferente para cada cuota
                     short colorCuota = COLORES_CUOTAS[cuotaIndex % COLORES_CUOTAS.length];
@@ -2942,9 +2929,8 @@ public class ExcelServiceImpl implements ExcelService {
                     int colInicioCuota = colIndex;
 
                     for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
-                        String headerName = CAMPOS_PRECIO[i] + "_" + canalNombre + sufijoCuotas;
                         Cell cell = headerRow.createCell(colIndex++);
-                        cell.setCellValue(headerName);
+                        cell.setCellValue(CAMPOS_PRECIO[i]);
                         cell.setCellStyle(estiloHeaderCuota);
                     }
 

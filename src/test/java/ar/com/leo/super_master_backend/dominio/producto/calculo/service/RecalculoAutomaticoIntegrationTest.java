@@ -40,7 +40,7 @@ import ar.com.leo.super_master_backend.dominio.proveedor.dto.ProveedorUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.mla.service.MlaService;
-import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaDTO;
+import ar.com.leo.super_master_backend.dominio.producto.mla.dto.MlaUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.service.ReglaDescuentoService;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.dto.ReglaDescuentoCreateDTO;
@@ -725,7 +725,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar precio de envío (mantener el código MLA original)
         mlaService.actualizar(mla.getId(),
-                new MlaDTO(null, TEST_PREFIX + "MLA123", null, new BigDecimal("1000"), null));
+                new MlaUpdateDTO(TEST_PREFIX + "MLA123", null, new BigDecimal("1000")));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
