@@ -314,15 +314,20 @@ Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos n
 
 **Clave única:** (producto, canal, cuotas)
 
-#### 8. `reglas_descuento` - Descuentos Automáticos
+#### 8. `reglas_descuento` - Descuentos por Monto de Compra (Informativos)
 | Campo | Descripción |
 |-------|-------------|
 | `canal_id` | Canal donde aplica |
-| `monto_minimo` | Monto mínimo para aplicar |
+| `monto_minimo` | Monto mínimo de compra total para aplicar |
 | `descuento_porcentaje` | % de descuento |
-| `prioridad` | Orden de evaluación |
+| `prioridad` | Orden de evaluación (menor = mayor prioridad) |
 | `catalogo_id` | Filtro por catálogo (opcional) |
 | `clasif_gral_id` | Filtro por clasificación (opcional) |
+| `activo` | Si la regla está activa |
+
+**Importante:** Las reglas de descuento son **informativas**. No se aplican automáticamente al cálculo del PVP. Se usan para mostrar al usuario cómo quedaría el precio y margen si se aplica un descuento según el monto de compra total.
+
+Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `POST /api/precios/calcular` si el canal tiene reglas de descuento configuradas.
 
 #### 9. `promociones` - Promociones Globales
 | Campo | Descripción |
@@ -632,6 +637,16 @@ interface Precio {
   margenSobrePvp: number;          // (ganancia / pvp) × 100 - Margen tradicional
   markupPorcentaje: number;        // (ganancia / costoProducto) × 100
   fechaUltimoCalculo: string;
+  descuentos: DescuentoAplicable[] | null;  // Se incluyen automáticamente si el canal tiene reglas
+}
+
+// Descuento aplicable según reglas de descuento del canal
+interface DescuentoAplicable {
+  montoMinimo: number;           // Monto mínimo de compra para aplicar
+  descuentoPorcentaje: number;   // % de descuento
+  pvpConDescuento: number;       // PVP después de aplicar descuento
+  gananciaConDescuento: number;  // Ganancia si se aplica el descuento
+  margenConDescuento: number;    // Margen % si se aplica el descuento
 }
 ```
 
@@ -1027,6 +1042,19 @@ interface CostoVentaResponse {
   listingTypeId: string | null;    // Tipo de publicación ("gold_special", etc.)
   mensaje: string;                 // Descripción del resultado o error
 }
+
+// Estado del proceso masivo de costo de envío (async)
+interface ProcesoMasivoEstado {
+  enEjecucion: boolean;
+  total: number;                   // Total de MLAs a procesar
+  procesados: number;              // MLAs procesados hasta ahora
+  exitosos: number;                // Procesados exitosamente
+  errores: number;                 // Procesados con error
+  estado: 'IDLE' | 'EN_EJECUCION' | 'CANCELADO' | 'COMPLETADO' | 'ERROR';
+  iniciadoEn: string | null;       // ISO DateTime
+  finalizadoEn: string | null;     // ISO DateTime
+  mensaje: string | null;          // Mensaje descriptivo
+}
 ```
 
 ### Proveedor
@@ -1277,7 +1305,48 @@ GET /api/precios
 **Ejemplo con filtros:**
 ```
 GET /api/precios?search=bol&marcaId=5&costoMin=100&costoMax=500&canalIds=1,2&page=0&size=20
+GET /api/precios?canalId=1&cuotas=0
 ```
+
+**Ejemplo respuesta con descuentos:**
+```json
+{
+  "content": [{
+    "id": 123,
+    "sku": "BOL-001",
+    "canales": [{
+      "canalId": 1,
+      "canalNombre": "ML",
+      "precios": [{
+        "cuotas": 0,
+        "pvp": 5000.00,
+        "ganancia": 1200.00,
+        "descuentos": [
+          {
+            "montoMinimo": 10000.00,
+            "descuentoPorcentaje": 5.00,
+            "pvpConDescuento": 4750.00,
+            "gananciaConDescuento": 950.00,
+            "margenConDescuento": 18.50
+          },
+          {
+            "montoMinimo": 50000.00,
+            "descuentoPorcentaje": 10.00,
+            "pvpConDescuento": 4500.00,
+            "gananciaConDescuento": 700.00,
+            "margenConDescuento": 14.20
+          }
+        ]
+      }]
+    }]
+  }]
+}
+```
+
+**Notas sobre descuentos:**
+- Los descuentos se incluyen **automáticamente** si el canal tiene reglas de descuento activas
+- Canales sin reglas muestran `descuentos: null`
+- Los descuentos son **informativos** (no se aplican al cálculo del PVP, solo muestran cómo quedaría)
 
 #### Obtener fórmula del cálculo paso a paso
 ```http
@@ -1379,13 +1448,24 @@ interface CalculoResultadoDTO {
           "margenSobreIngresoNeto": 33.90,
           "margenSobrePvp": 26.70,
           "markupPorcentaje": 51.28,
-          "fechaUltimoCalculo": "2026-01-15T17:00:00"
+          "fechaUltimoCalculo": "2026-01-15T17:00:00",
+          "descuentos": [
+            {
+              "montoMinimo": 10000.00,
+              "descuentoPorcentaje": 5.00,
+              "pvpConDescuento": 8208.81,
+              "gananciaConDescuento": 1892.09,
+              "margenConDescuento": 28.50
+            }
+          ]
         }
       ]
     }
   ]
 }
 ```
+
+**Nota:** Los descuentos se incluyen automáticamente si el canal tiene reglas de descuento activas. No es necesario pasar ningún parámetro.
 
 **Ejemplo respuesta (masivo - sin parámetros):**
 ```json
@@ -1830,12 +1910,87 @@ const responseProducto = await fetch(
 );
 const resultadoProducto: CostoEnvioResponse = await responseProducto.json();
 
-// Calcular para todos los MLAs
+// Calcular para todos los MLAs (sincrónico - espera a terminar)
 const responseMasivo = await fetch(
   'http://localhost:8080/api/ml/costo-envio',
   { method: 'POST' }
 );
 const resultadoMasivo: CostoEnvioMasivoResponse = await responseMasivo.json();
+```
+
+#### Cálculo Masivo Asíncrono (con cancelación)
+
+Para el cálculo masivo de todos los MLAs, existen endpoints adicionales que permiten ejecutar el proceso en segundo plano y cancelarlo si es necesario.
+
+```http
+POST /api/ml/costo-envio/async               # Inicia cálculo masivo en segundo plano
+GET  /api/ml/costo-envio/estado              # Consulta estado del proceso
+POST /api/ml/costo-envio/cancelar            # Cancela el proceso en ejecución
+GET  /api/ml/costo-envio/resultado           # Obtiene resultado del último proceso
+```
+
+**Flujo de uso:**
+
+1. **Iniciar proceso:** `POST /api/ml/costo-envio/async`
+   - Retorna inmediatamente con `202 Accepted`
+   - El proceso continúa en segundo plano
+
+2. **Monitorear progreso:** `GET /api/ml/costo-envio/estado`
+   - Consultar periódicamente para ver el progreso
+   - Response: `ProcesoMasivoEstado`
+
+3. **Cancelar (opcional):** `POST /api/ml/costo-envio/cancelar`
+   - Cancela el proceso en ejecución
+   - Los MLAs ya procesados mantienen sus cambios
+
+4. **Obtener resultado:** `GET /api/ml/costo-envio/resultado`
+   - Disponible solo después de que el proceso termine
+   - Response: `CostoEnvioMasivoResponse`
+
+**Response Estado:** `ProcesoMasivoEstado`
+
+```typescript
+interface ProcesoMasivoEstado {
+  enEjecucion: boolean;
+  total: number;           // Total de MLAs a procesar
+  procesados: number;      // MLAs procesados hasta ahora
+  exitosos: number;        // Procesados exitosamente
+  errores: number;         // Procesados con error
+  estado: string;          // "IDLE", "EN_EJECUCION", "CANCELADO", "COMPLETADO", "ERROR"
+  iniciadoEn: string | null;      // ISO DateTime
+  finalizadoEn: string | null;    // ISO DateTime
+  mensaje: string | null;         // Mensaje descriptivo
+}
+```
+
+**Ejemplo de uso (polling):**
+```typescript
+// 1. Iniciar proceso asíncrono
+await fetch('http://localhost:8080/api/ml/costo-envio/async', { method: 'POST' });
+
+// 2. Polling del estado
+const checkEstado = async () => {
+  const response = await fetch('http://localhost:8080/api/ml/costo-envio/estado');
+  const estado: ProcesoMasivoEstado = await response.json();
+
+  console.log(`Progreso: ${estado.procesados}/${estado.total}`);
+
+  if (estado.enEjecucion) {
+    setTimeout(checkEstado, 2000); // Revisar cada 2 segundos
+  } else {
+    // Proceso terminado, obtener resultado
+    const resultResponse = await fetch('http://localhost:8080/api/ml/costo-envio/resultado');
+    const resultado: CostoEnvioMasivoResponse = await resultResponse.json();
+    console.log('Resultado:', resultado);
+  }
+};
+
+checkEstado();
+
+// 3. Para cancelar (opcional)
+const cancelar = async () => {
+  await fetch('http://localhost:8080/api/ml/costo-envio/cancelar', { method: 'POST' });
+};
 ```
 
 #### Obtener Costo de Venta (Comisiones)
@@ -2114,7 +2269,6 @@ interface ProductoResumenDTO {
    | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
    | Canal (canalBase) | Todos los productos del canal cuyo canalBase cambió |
    | Proveedor (porcentaje financiación) | Todos los productos de ese proveedor |
-   | ReglaDescuento | Todos los productos del canal de la regla |
    | Promoción (asignar/desasignar) | Ese producto en ese canal |
    | MLA (precioEnvio) | Todos los productos con ese MLA |
    | ClasifGastro (esMaquina) | Todos los productos de esa clasificación en todos sus canales |
@@ -2164,3 +2318,13 @@ interface ProductoResumenDTO {
    - `costoEnvioSinIva`: Costo neto (sin IVA) - **este es el que se guarda en BD**
 
    El frontend puede mostrar ambos valores según necesidad. El cálculo de precios usa el costo sin IVA.
+
+10. **Descuentos automáticos:** Los endpoints `GET /api/precios` y `POST /api/precios/calcular` incluyen automáticamente los descuentos aplicables si el canal tiene reglas de descuento configuradas. No es necesario pasar ningún parámetro adicional.
+    - Canales con reglas activas → `descuentos: [...]`
+    - Canales sin reglas → `descuentos: null`
+
+11. **Cálculo masivo ML asíncrono:** Para el cálculo masivo de costos de envío, se recomienda usar los endpoints async:
+    - `POST /api/ml/costo-envio/async` → Inicia en segundo plano
+    - `GET /api/ml/costo-envio/estado` → Monitorear progreso
+    - `POST /api/ml/costo-envio/cancelar` → Cancelar si es necesario
+    - `GET /api/ml/costo-envio/resultado` → Obtener resultado final

@@ -6,6 +6,8 @@ import ar.com.leo.super_master_backend.dominio.ml.HttpRetryHandler;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
+import org.springframework.scheduling.annotation.Async;
 import ar.com.leo.super_master_backend.dominio.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.dominio.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.dominio.ml.model.Producto;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -57,6 +60,14 @@ public class MercadoLibreService {
     private final RecalculoPrecioFacade recalculoPrecioFacade;
     private final HttpClient httpClient;
     private final Object tokenLock = new Object();
+
+    // Control de ejecución masiva
+    private final AtomicBoolean cancelarProcesoMasivo = new AtomicBoolean(false);
+    private final AtomicBoolean procesoMasivoEnEjecucion = new AtomicBoolean(false);
+
+    // Estado y resultados del proceso masivo
+    private volatile ProcesoMasivoEstadoDTO estadoProcesoMasivo = ProcesoMasivoEstadoDTO.idle();
+    private volatile CostoEnvioMasivoResponseDTO resultadoProcesoMasivo = null;
 
     // Auto-inyección para que las llamadas internas pasen por el proxy de Spring
     // y respeten @Transactional
@@ -395,42 +406,156 @@ public class MercadoLibreService {
     }
 
     /**
-     * Calcula el costo de envío para todos los MLAs en la base de datos.
-     * Cada MLA se procesa en su propia transacción (si uno falla, los demás se guardan).
+     * Inicia el cálculo de costo de envío para todos los MLAs de forma asincrónica.
+     * @return true si se inició el proceso, false si ya había uno en ejecución
      */
-    public CostoEnvioMasivoResponseDTO calcularCostoEnvioTodos() {
+    public boolean iniciarCalculoCostoEnvioTodos() {
+        // Verificar si ya hay un proceso en ejecución
+        if (!procesoMasivoEnEjecucion.compareAndSet(false, true)) {
+            log.warn("ML - Ya hay un proceso masivo en ejecución");
+            return false;
+        }
+
+        // Resetear estado
+        cancelarProcesoMasivo.set(false);
+        resultadoProcesoMasivo = null;
+
+        int total = (int) mlaRepository.count();
+        estadoProcesoMasivo = ProcesoMasivoEstadoDTO.iniciado(total, LocalDateTime.now());
+
+        // Ejecutar en background
+        self.calcularCostoEnvioTodosAsync();
+
+        return true;
+    }
+
+    /**
+     * Calcula el costo de envío para todos los MLAs en la base de datos de forma asincrónica.
+     * Este método se ejecuta en un thread separado.
+     */
+    @Async
+    public void calcularCostoEnvioTodosAsync() {
         List<Mla> mlas = mlaRepository.findAll();
         List<CostoEnvioResponseDTO> resultados = new ArrayList<>();
         int exitosos = 0;
         int errores = 0;
+        int omitidos = 0;
 
+        LocalDateTime iniciadoEn = estadoProcesoMasivo.iniciadoEn();
         log.info("ML - Iniciando cálculo masivo de costos de envío para {} MLAs", mlas.size());
 
-        for (Mla mla : mlas) {
-            try {
-                // Llamar via self para que pase por el proxy y respete @Transactional
-                CostoEnvioResponseDTO resultado = self.calcularCostoEnvioGratis(mla.getMla());
-                resultados.add(resultado);
+        try {
+            for (Mla mla : mlas) {
+                // Verificar si se solicitó cancelación
+                if (cancelarProcesoMasivo.get()) {
+                    omitidos = mlas.size() - resultados.size();
+                    log.info("ML - Proceso masivo cancelado. Procesados: {}, Omitidos: {}",
+                            resultados.size(), omitidos);
+                    break;
+                }
 
-                if (resultado.costoEnvioSinIva().compareTo(BigDecimal.ZERO) > 0) {
-                    exitosos++;
-                } else {
+                try {
+                    // Llamar via self para que pase por el proxy y respete @Transactional
+                    CostoEnvioResponseDTO resultado = self.calcularCostoEnvioGratis(mla.getMla());
+                    resultados.add(resultado);
+
+                    if (resultado.costoEnvioSinIva().compareTo(BigDecimal.ZERO) > 0) {
+                        exitosos++;
+                    } else {
+                        errores++;
+                    }
+
+                } catch (Exception e) {
+                    log.error("ML - Error procesando MLA {}: {}", mla.getMla(), e.getMessage());
+                    CostoEnvioResponseDTO error = new CostoEnvioResponseDTO(
+                            mla.getMla(), null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                            "Error: " + e.getMessage());
+                    resultados.add(error);
                     errores++;
                 }
 
-            } catch (Exception e) {
-                log.error("ML - Error procesando MLA {}: {}", mla.getMla(), e.getMessage());
-                CostoEnvioResponseDTO error = new CostoEnvioResponseDTO(
-                        mla.getMla(), null, null, BigDecimal.ZERO, BigDecimal.ZERO,
-                        "Error: " + e.getMessage());
-                resultados.add(error);
-                errores++;
+                // Actualizar estado de progreso
+                estadoProcesoMasivo = new ProcesoMasivoEstadoDTO(
+                        true,
+                        mlas.size(),
+                        resultados.size(),
+                        exitosos,
+                        errores,
+                        "ejecutando",
+                        iniciadoEn,
+                        null,
+                        String.format("Procesando %d/%d", resultados.size(), mlas.size())
+                );
             }
+
+            // Proceso terminado
+            LocalDateTime finalizadoEn = LocalDateTime.now();
+            String estado = cancelarProcesoMasivo.get() ? "cancelado" : "completado";
+
+            log.info("ML - Cálculo masivo {}. Exitosos: {}, Errores: {}, Omitidos: {}",
+                    estado, exitosos, errores, omitidos);
+
+            // Guardar resultado final
+            resultadoProcesoMasivo = new CostoEnvioMasivoResponseDTO(
+                    resultados.size(), exitosos, errores, omitidos, resultados);
+
+            // Actualizar estado final
+            estadoProcesoMasivo = new ProcesoMasivoEstadoDTO(
+                    false,
+                    mlas.size(),
+                    resultados.size(),
+                    exitosos,
+                    errores,
+                    estado,
+                    iniciadoEn,
+                    finalizadoEn,
+                    String.format("Proceso %s. Exitosos: %d, Errores: %d, Omitidos: %d",
+                            estado, exitosos, errores, omitidos)
+            );
+
+        } finally {
+            // Siempre liberar el flag de ejecución
+            procesoMasivoEnEjecucion.set(false);
+            cancelarProcesoMasivo.set(false);
         }
+    }
 
-        log.info("ML - Cálculo masivo completado. Exitosos: {}, Errores: {}", exitosos, errores);
+    /**
+     * Cancela el proceso masivo de cálculo de costos de envío en ejecución.
+     * @return true si había un proceso en ejecución que fue marcado para cancelar
+     */
+    public boolean cancelarProcesoMasivo() {
+        if (procesoMasivoEnEjecucion.get()) {
+            cancelarProcesoMasivo.set(true);
+            log.info("ML - Solicitud de cancelación de proceso masivo recibida");
+            return true;
+        }
+        log.info("ML - No hay proceso masivo en ejecución para cancelar");
+        return false;
+    }
 
-        return new CostoEnvioMasivoResponseDTO(mlas.size(), exitosos, errores, 0, resultados);
+    /**
+     * Obtiene el estado actual del proceso masivo.
+     * @return DTO con el estado del proceso
+     */
+    public ProcesoMasivoEstadoDTO obtenerEstadoProcesoMasivo() {
+        return estadoProcesoMasivo;
+    }
+
+    /**
+     * Obtiene el resultado del último proceso masivo completado.
+     * @return DTO con los resultados o null si no hay resultados disponibles
+     */
+    public CostoEnvioMasivoResponseDTO obtenerResultadoProcesoMasivo() {
+        return resultadoProcesoMasivo;
+    }
+
+    /**
+     * Verifica si hay un proceso masivo en ejecución.
+     * @return true si hay un proceso en ejecución
+     */
+    public boolean isProcesoMasivoEnEjecucion() {
+        return procesoMasivoEnEjecucion.get();
     }
 
     /**

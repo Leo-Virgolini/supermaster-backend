@@ -75,7 +75,7 @@ public interface ProductoMapper {
      * Versión que usa descripciones por defecto (para compatibilidad).
      */
     default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, ProductoMargen productoMargen, List<ProductoCanalPrecio> precios) {
-        return toProductoConPreciosDTO(producto, productoMargen, precios, null);
+        return toProductoConPreciosDTO(producto, productoMargen, precios, null, null, null);
     }
 
     /**
@@ -83,6 +83,36 @@ public interface ProductoMapper {
      * @param descripcionesCuotas Mapa de (canalId + "_" + cuotas) -> descripcion
      */
     default ProductoConPreciosDTO toProductoConPreciosDTO(Producto producto, ProductoMargen productoMargen, List<ProductoCanalPrecio> precios, Map<String, String> descripcionesCuotas) {
+        return toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, null, null);
+    }
+
+    /**
+     * Versión completa que incluye descuentos aplicables por canal.
+     * @param descripcionesCuotas Mapa de (canalId + "_" + cuotas) -> descripcion
+     * @param descuentosPorCanal Mapa de canalId -> lista de descuentos aplicables (puede ser null)
+     */
+    default ProductoConPreciosDTO toProductoConPreciosDTO(
+            Producto producto,
+            ProductoMargen productoMargen,
+            List<ProductoCanalPrecio> precios,
+            Map<String, String> descripcionesCuotas,
+            Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal) {
+        return toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, null);
+    }
+
+    /**
+     * Versión completa que incluye nombres de canales explícitos.
+     * @param descripcionesCuotas Mapa de (canalId + "_" + cuotas) -> descripcion
+     * @param descuentosPorCanal Mapa de canalId -> lista de descuentos aplicables (puede ser null)
+     * @param nombresPorCanal Mapa de canalId -> nombre del canal (puede ser null, usa lazy loading)
+     */
+    default ProductoConPreciosDTO toProductoConPreciosDTO(
+            Producto producto,
+            ProductoMargen productoMargen,
+            List<ProductoCanalPrecio> precios,
+            Map<String, String> descripcionesCuotas,
+            Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal,
+            Map<Integer, String> nombresPorCanal) {
         // Obtener MLA (si existe)
         ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla mlaEntity = producto.getMla();
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
@@ -100,8 +130,14 @@ public interface ProductoMapper {
 
         List<CanalPreciosDTO> preciosCanales = preciosPorCanal.entrySet().stream()
                 .map(entry -> {
+                    Integer canalId = entry.getKey();
                     List<ProductoCanalPrecio> preciosDelCanal = entry.getValue();
                     ProductoCanalPrecio primerPrecio = preciosDelCanal.get(0);
+
+                    // Obtener descuentos para este canal (si existen)
+                    List<DescuentoAplicableDTO> descuentosCanal = descuentosPorCanal != null
+                            ? descuentosPorCanal.get(canalId)
+                            : null;
 
                     List<PrecioDTO> preciosList = preciosDelCanal.stream()
                             .map(pcp -> new PrecioDTO(
@@ -116,13 +152,19 @@ public interface ProductoMapper {
                                     pcp.getMargenSobreIngresoNeto(),
                                     pcp.getMargenSobrePvp(),
                                     pcp.getMarkupPorcentaje(),
-                                    pcp.getFechaUltimoCalculo()
+                                    pcp.getFechaUltimoCalculo(),
+                                    descuentosCanal
                             ))
                             .toList();
 
+                    // Obtener nombre del canal: primero del mapa explícito, luego de la entidad
+                    String canalNombre = nombresPorCanal != null
+                            ? nombresPorCanal.get(canalId)
+                            : primerPrecio.getCanal().getCanal();
+
                     return new CanalPreciosDTO(
-                            primerPrecio.getCanal().getId(),
-                            primerPrecio.getCanal().getCanal(),
+                            canalId,
+                            canalNombre,
                             preciosList
                     );
                 })

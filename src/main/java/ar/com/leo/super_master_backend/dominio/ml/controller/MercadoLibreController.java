@@ -4,6 +4,7 @@ import ar.com.leo.super_master_backend.dominio.ml.dto.ConfiguracionMlDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.dominio.ml.service.ConfiguracionMlService;
 import ar.com.leo.super_master_backend.dominio.ml.service.MercadoLibreService;
 import jakarta.validation.Valid;
@@ -23,40 +24,94 @@ public class MercadoLibreController {
      * Calcula y guarda el costo de envío para productos de ML.
      *
      * Prioridad de parámetros:
-     * 1. Si se proporciona 'mla', calcula solo para ese MLA.
-     * 2. Si se proporciona 'productoId', busca el MLA asociado al producto y calcula.
-     * 3. Si no se proporciona ninguno, calcula para todos los MLAs en la base de datos.
-     *
-     * Lógica de cálculo:
-     * - PVP >= umbral ($33,000): Consulta API ML para obtener costo real de envío gratis
-     * - PVP < umbral: Usa tiers fijos ($1,115 / $2,300 / $2,810)
-     *
-     * El cálculo es iterativo hasta que el costo de envío se estabilice.
+     * 1. Si se proporciona 'mla', calcula solo para ese MLA (sincrónico).
+     * 2. Si se proporciona 'productoId', busca el MLA asociado al producto y calcula (sincrónico).
+     * 3. Si no se proporciona ninguno, inicia cálculo masivo en background (asincrónico).
+     *    - Usar GET /costo-envio/estado para ver progreso
+     *    - Usar POST /costo-envio/cancelar para cancelar
+     *    - Usar GET /costo-envio/resultado para obtener resultados
      *
      * @param mla (Opcional) Código MLA del producto (ej: MLA123456789)
      * @param productoId (Opcional) ID del producto para buscar su MLA asociado
-     * @return DTO con el costo de envío calculado o resumen del procesamiento masivo
+     * @return DTO con el costo de envío calculado o confirmación de inicio de proceso masivo
      */
     @PostMapping("/costo-envio")
     public ResponseEntity<?> calcularCostoEnvio(
             @RequestParam(required = false) String mla,
             @RequestParam(required = false) Integer productoId) {
 
-        // Si se proporciona MLA, calcular solo para ese producto
+        // Si se proporciona MLA, calcular solo para ese producto (sincrónico)
         if (mla != null && !mla.isBlank()) {
             CostoEnvioResponseDTO response = mercadoLibreService.calcularCostoEnvioGratis(mla);
             return ResponseEntity.ok(response);
         }
 
-        // Si se proporciona productoId, buscar su MLA y calcular
+        // Si se proporciona productoId, buscar su MLA y calcular (sincrónico)
         if (productoId != null) {
             CostoEnvioResponseDTO response = mercadoLibreService.calcularCostoEnvioPorProducto(productoId);
             return ResponseEntity.ok(response);
         }
 
-        // Si no se proporciona ninguno, calcular para todos
-        CostoEnvioMasivoResponseDTO response = mercadoLibreService.calcularCostoEnvioTodos();
-        return ResponseEntity.ok(response);
+        // Si no se proporciona ninguno, iniciar proceso masivo en background
+        boolean iniciado = mercadoLibreService.iniciarCalculoCostoEnvioTodos();
+        if (iniciado) {
+            return ResponseEntity.accepted().body(java.util.Map.of(
+                    "mensaje", "Proceso masivo iniciado en background",
+                    "iniciado", true,
+                    "endpoints", java.util.Map.of(
+                            "estado", "GET /api/ml/costo-envio/estado",
+                            "cancelar", "POST /api/ml/costo-envio/cancelar",
+                            "resultado", "GET /api/ml/costo-envio/resultado"
+                    )));
+        }
+        return ResponseEntity.badRequest().body(java.util.Map.of(
+                "mensaje", "Ya hay un proceso masivo en ejecución. Use GET /api/ml/costo-envio/estado para ver el progreso.",
+                "iniciado", false));
+    }
+
+    /**
+     * Cancela el proceso masivo de cálculo de costos de envío en ejecución.
+     *
+     * @return Mensaje indicando si se canceló o no había proceso en ejecución
+     */
+    @PostMapping("/costo-envio/cancelar")
+    public ResponseEntity<?> cancelarCostoEnvio() {
+        boolean cancelado = mercadoLibreService.cancelarProcesoMasivo();
+        if (cancelado) {
+            return ResponseEntity.ok(java.util.Map.of(
+                    "mensaje", "Solicitud de cancelación enviada. El proceso se detendrá después del MLA actual.",
+                    "cancelado", true));
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+                "mensaje", "No hay proceso masivo en ejecución",
+                "cancelado", false));
+    }
+
+    /**
+     * Obtiene el estado actual del proceso masivo de cálculo de costos de envío.
+     * Incluye progreso en tiempo real: total, procesados, exitosos, errores.
+     *
+     * @return Estado del proceso masivo
+     */
+    @GetMapping("/costo-envio/estado")
+    public ResponseEntity<ProcesoMasivoEstadoDTO> estadoCostoEnvio() {
+        return ResponseEntity.ok(mercadoLibreService.obtenerEstadoProcesoMasivo());
+    }
+
+    /**
+     * Obtiene los resultados del último proceso masivo completado.
+     *
+     * @return Resultados del proceso masivo o mensaje si no hay resultados disponibles
+     */
+    @GetMapping("/costo-envio/resultado")
+    public ResponseEntity<?> resultadoCostoEnvio() {
+        CostoEnvioMasivoResponseDTO resultado = mercadoLibreService.obtenerResultadoProcesoMasivo();
+        if (resultado != null) {
+            return ResponseEntity.ok(resultado);
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+                "mensaje", "No hay resultados disponibles. El proceso aún no ha finalizado o no se ha ejecutado.",
+                "disponible", false));
     }
 
     /**

@@ -14,17 +14,17 @@ import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.FormulaCalcu
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.RecalculoMasivoResultDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.DescuentoAplicableDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
-import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.*;
 import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
 import ar.com.leo.super_master_backend.dominio.promocion.entity.TipoPromocionTabla;
-import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
-import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,13 +46,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private final ProductoMargenRepository productoMargenRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final ProductoCanalPromocionRepository productoCanalPromocionRepository;
-    private final ReglaDescuentoRepository reglaDescuentoRepository;
-    private final ProductoCatalogoRepository productoCatalogoRepository;
-    private final MlaRepository mlaRepository;
     private final CanalRepository canalRepository;
     private final CanalConceptoRepository canalConceptoRepository;
     private final CanalConceptoReglaRepository canalConceptoReglaRepository;
     private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
+    private final ReglaDescuentoRepository reglaDescuentoRepository;
 
     // ====================================================
     // CONSTANTES
@@ -90,7 +88,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ? null
                 : obtenerProductoMargen(idProducto);
 
-        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, null, null);
+        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, canal, null);
     }
 
     @Override
@@ -112,7 +110,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ? null
                 : obtenerProductoMargen(idProducto);
 
-        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, null, precioEnvioOverride);
+        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, canal, precioEnvioOverride);
     }
 
     @Override
@@ -135,7 +133,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 : obtenerProductoMargen(idProducto);
 
         PrecioCalculadoDTO dto = calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas,
-                idCanal, null, null);
+                idCanal, canal, null);
 
         // Persistimos/actualizamos en producto_canal_precios (por producto, canal y cuotas)
         ProductoCanalPrecio pcp = productoCanalPrecioRepository
@@ -471,27 +469,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // ============================================
-        // PASO 12: Aplicar reglas de descuento (si existen)
-        // ============================================
-        BigDecimal descuentoTotal = obtenerDescuentoAplicable(producto, idCanal, pvp);
-        if (descuentoTotal.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal descuentoFrac = descuentoTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
-            BigDecimal denominadorDescuento = BigDecimal.ONE.subtract(descuentoFrac);
-            if (denominadorDescuento.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BadRequestException("El descuento es >= 100%, lo cual es inválido");
-            }
-            pvp = pvp.divide(denominadorDescuento, PRECISION_CALCULO, RoundingMode.HALF_UP);
-        }
-
-        // ============================================
-        // PASO 13: Margen fijo
+        // PASO 12: Margen fijo
         // ============================================
         if (margenFijo.compareTo(BigDecimal.ZERO) > 0) {
             pvp = pvp.add(margenFijo);
         }
 
         // ============================================
-        // PASO 14: INFLACION (concepto) - usando mapa pre-agrupado
+        // PASO 13: INFLACION (concepto) - usando mapa pre-agrupado
         // ============================================
         List<CanalConcepto> conceptosInflacion = conceptosPorTipo.getOrDefault(AplicaSobre.INFLACION_DIVISOR, List.of());
 
@@ -971,22 +956,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                             fmt(pvp))));
         }
 
-        // Paso 11: Reglas de descuento
-        BigDecimal descuentoTotal = obtenerDescuentoAplicable(producto, idCanal, pvp);
-        if (descuentoTotal.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal descuentoFrac = descuentoTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
-            BigDecimal denominadorDescuento = BigDecimal.ONE.subtract(descuentoFrac);
-            if (denominadorDescuento.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BadRequestException("El descuento es >= 100%, lo cual es inválido");
-            }
-            BigDecimal pvpAntesDescuentoRegla = pvp;
-            pvp = pvp.divide(denominadorDescuento, PRECISION_CALCULO, RoundingMode.HALF_UP);
-            pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                    "Aplicar reglas de descuento",
-                    String.format("PVP = PVP / (1 - DESCUENTO_REGLA/100)"),
-                    rd(pvp),
-                    String.format("%s / (1 - %s/100) = %s", fmt(pvpAntesDescuentoRegla), fmt(descuentoTotal), fmt(pvp))));
-        }
 
         // Paso 12: Margen fijo
         BigDecimal margenFijo = obtenerMargenFijo(productoMargen, conceptos);
@@ -1091,9 +1060,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (descuentoConceptos.compareTo(BigDecimal.ZERO) > 0) {
             List<String> nombresDescuento = obtenerNombresConceptos(conceptos, AplicaSobre.DESCUENTO_PORCENTUAL);
             formulaGeneral.append(" * (1 - ").append(formatearNombresConceptos(nombresDescuento)).append("/100)");
-        }
-        if (descuentoTotal.compareTo(BigDecimal.ZERO) > 0) {
-            formulaGeneral.append(" / (1 - DESCUENTO_REGLA/100)");
         }
         if (margenFijo.compareTo(BigDecimal.ZERO) > 0) {
             formulaGeneral.append(" + MARGEN_FIJO");
@@ -1355,7 +1321,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      *
      * @param idCanal      ID del canal
      * @param numeroCuotas Número de cuotas
-     * @return Porcentaje de cuota o null si no se encuentra
+     * @return Porcentaje de cuota o ZERO si no se encuentra
      */
     private BigDecimal obtenerPorcentajeCuota(Integer idCanal, Integer numeroCuotas) {
         // Usar cache si está disponible (recálculo masivo)
@@ -1371,7 +1337,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         return cuotasCanal.stream()
                 .findFirst()
                 .map(CanalConceptoCuota::getPorcentaje)
-                .orElse(null);
+                .orElse(BigDecimal.ZERO);
     }
 
     /**
@@ -1398,70 +1364,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .map(cc -> cc.getConcepto().getPorcentaje())
                 .filter(p -> p != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /**
-     * Obtiene el descuento aplicable al producto según las reglas de descuento
-     * del canal. Retorna el descuento porcentual de la regla de mayor prioridad
-     * que cumpla todas las condiciones.
-     *
-     * @param producto El producto al que se aplicará el descuento
-     * @param canalId  El ID del canal
-     * @param pvpBase  El PVP base antes de aplicar descuentos (para validar
-     *                 monto mínimo)
-     * @return El porcentaje de descuento aplicable (0 si no hay descuento
-     * aplicable)
-     */
-    private BigDecimal obtenerDescuentoAplicable(Producto producto, Integer canalId, BigDecimal pvpBase) {
-        // Obtener todas las reglas activas del canal, ordenadas por prioridad
-        List<ReglaDescuento> reglas = reglaDescuentoRepository
-                .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
-
-        // Obtener los catálogos del producto
-        List<Integer> catalogosProducto = productoCatalogoRepository
-                .findByProductoId(producto.getId())
-                .stream()
-                .map(pc -> pc.getCatalogo().getId())
-                .collect(Collectors.toList());
-
-        // Buscar la primera regla que cumpla todas las condiciones
-        for (ReglaDescuento regla : reglas) {
-            // Verificar monto mínimo
-            if (pvpBase.compareTo(regla.getMontoMinimo()) < 0) {
-                continue;
-            }
-
-            // Verificar catálogo (si la regla tiene catálogo, el producto debe estar en ese catálogo)
-            if (regla.getCatalogo() != null) {
-                if (!catalogosProducto.contains(regla.getCatalogo().getId())) {
-                    continue;
-                }
-            }
-
-            // Verificar clasificación general (si la regla tiene clasifGral, debe
-            // coincidir)
-            if (regla.getClasifGral() != null) {
-                if (producto.getClasifGral() == null
-                        || !producto.getClasifGral().getId().equals(regla.getClasifGral().getId())) {
-                    continue;
-                }
-            }
-
-            // Verificar clasificación gastro (si la regla tiene clasifGastro, debe
-            // coincidir)
-            if (regla.getClasifGastro() != null) {
-                if (producto.getClasifGastro() == null
-                        || !producto.getClasifGastro().getId().equals(regla.getClasifGastro().getId())) {
-                    continue;
-                }
-            }
-
-            // Si llegamos aquí, la regla aplica
-            return regla.getDescuentoPorcentaje();
-        }
-
-        // No se encontró ninguna regla aplicable
-        return BigDecimal.ZERO;
     }
 
     // ====================================================
@@ -1988,7 +1890,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Obtener info del canal del primer precio
         String canalNombre = preciosCalculados.isEmpty() ? null : preciosCalculados.get(0).canalNombre();
 
-        // Convertir a PrecioDTO (sin canalId y canalNombre repetidos) + agregar descripcion
+        // Calcular descuentos aplicables (usar el primer precio como base)
+        List<DescuentoAplicableDTO> descuentosCanal = null;
+        if (!preciosCalculados.isEmpty()) {
+            PrecioCalculadoDTO primerPrecio = preciosCalculados.get(0);
+            descuentosCanal = calcularDescuentosAplicables(
+                    idCanal,
+                    primerPrecio.pvp(),
+                    primerPrecio.costoProducto(),
+                    primerPrecio.ganancia(),
+                    primerPrecio.ingresoNetoVendedor()
+            );
+        }
+
+        // Convertir a PrecioDTO (sin canalId y canalNombre repetidos) + agregar descripcion + descuentos
+        final List<DescuentoAplicableDTO> descuentosFinal = descuentosCanal;
         List<PrecioDTO> precios = preciosCalculados.stream()
                 .map(p -> new PrecioDTO(
                         p.cuotas(),
@@ -2002,7 +1918,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         p.margenSobreIngresoNeto(),
                         p.margenSobrePvp(),
                         p.markupPorcentaje(),
-                        p.fechaUltimoCalculo()
+                        p.fechaUltimoCalculo(),
+                        descuentosFinal
                 ))
                 .toList();
 
@@ -2040,6 +1957,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .findFirst()
                 .orElse("");
 
+        // Calcular descuentos aplicables
+        List<DescuentoAplicableDTO> descuentos = calcularDescuentosAplicables(
+                idCanal,
+                precioCalculado.pvp(),
+                precioCalculado.costoProducto(),
+                precioCalculado.ganancia(),
+                precioCalculado.ingresoNetoVendedor()
+        );
+
         PrecioDTO precioDTO = new PrecioDTO(
                 precioCalculado.cuotas(),
                 descripcion,
@@ -2052,7 +1978,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 precioCalculado.margenSobreIngresoNeto(),
                 precioCalculado.margenSobrePvp(),
                 precioCalculado.markupPorcentaje(),
-                precioCalculado.fechaUltimoCalculo()
+                precioCalculado.fechaUltimoCalculo(),
+                descuentos
         );
 
         return new CanalPreciosDTO(idCanal, precioCalculado.canalNombre(), List.of(precioDTO));
@@ -2153,13 +2080,6 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         Map<Integer, List<CanalConceptoRegla>> reglasPorCanal = new HashMap<>();
         for (Canal canal : todosLosCanales) {
             reglasPorCanal.put(canal.getId(), canalConceptoReglaRepository.findByCanalId(canal.getId()));
-        }
-
-        // Cache de reglas de descuento por canal
-        Map<Integer, List<ReglaDescuento>> reglasDescuentoPorCanal = new HashMap<>();
-        for (Canal canal : todosLosCanales) {
-            reglasDescuentoPorCanal.put(canal.getId(),
-                    reglaDescuentoRepository.findByCanalIdAndActivoTrueOrderByPrioridadAsc(canal.getId()));
         }
 
         // Determinar qué tipo de margen usa cada canal
@@ -2616,6 +2536,80 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         return total.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+    }
+
+    // ====================================================
+    // CÁLCULO DE DESCUENTOS APLICABLES
+    // ====================================================
+
+    /**
+     * Calcula los descuentos aplicables para un precio dado basándose en las reglas de descuento del canal.
+     * @param canalId ID del canal
+     * @param pvp Precio de venta al público
+     * @param costoProducto Costo del producto
+     * @param gananciaOriginal Ganancia original calculada
+     * @param ingresoNetoOriginal Ingreso neto original
+     * @return Lista de descuentos aplicables o null si no hay reglas
+     */
+    private List<DescuentoAplicableDTO> calcularDescuentosAplicables(
+            Integer canalId,
+            BigDecimal pvp,
+            BigDecimal costoProducto,
+            BigDecimal gananciaOriginal,
+            BigDecimal ingresoNetoOriginal) {
+
+        if (pvp == null || pvp.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+
+        List<ReglaDescuento> reglas = reglaDescuentoRepository
+                .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
+
+        if (reglas.isEmpty()) {
+            return null;
+        }
+
+        List<DescuentoAplicableDTO> descuentos = new ArrayList<>();
+
+        for (ReglaDescuento regla : reglas) {
+            BigDecimal descuentoPct = regla.getDescuentoPorcentaje();
+            BigDecimal montoMinimo = regla.getMontoMinimo();
+
+            // Calcular PVP con descuento
+            BigDecimal factorDescuento = BigDecimal.ONE.subtract(
+                    descuentoPct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
+            BigDecimal pvpConDescuento = pvp.multiply(factorDescuento)
+                    .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+
+            // Calcular ganancia con descuento
+            BigDecimal gananciaConDescuento = BigDecimal.ZERO;
+            BigDecimal margenConDescuento = BigDecimal.ZERO;
+
+            if (gananciaOriginal != null && costoProducto != null && ingresoNetoOriginal != null
+                    && ingresoNetoOriginal.compareTo(BigDecimal.ZERO) > 0) {
+                // Proporción del ingreso neto respecto al PVP
+                BigDecimal proporcionIngreso = ingresoNetoOriginal.divide(pvp, 6, RoundingMode.HALF_UP);
+                BigDecimal ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso);
+                gananciaConDescuento = ingresoNetoConDescuento.subtract(costoProducto)
+                        .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+
+                // Margen con descuento
+                if (ingresoNetoConDescuento.compareTo(BigDecimal.ZERO) > 0) {
+                    margenConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                            .divide(ingresoNetoConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                }
+            }
+
+            descuentos.add(new DescuentoAplicableDTO(
+                    montoMinimo,
+                    descuentoPct,
+                    pvpConDescuento,
+                    gananciaConDescuento,
+                    margenConDescuento
+            ));
+        }
+
+        return descuentos.isEmpty() ? null : descuentos;
     }
 
 }

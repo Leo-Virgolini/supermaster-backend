@@ -27,7 +27,14 @@ public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCan
 
     List<ProductoCanalPrecio> findByProductoIdAndCanalIdOrderByCuotasAsc(Integer productoId, Integer canalId);
 
-    List<ProductoCanalPrecio> findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(List<Integer> productoIds);
+    /**
+     * Obtiene precios por lista de productos con FETCH JOIN del canal para evitar N+1.
+     */
+    @Query("SELECT p FROM ProductoCanalPrecio p " +
+           "LEFT JOIN FETCH p.canal " +
+           "WHERE p.producto.id IN :productoIds " +
+           "ORDER BY p.producto.id ASC, p.canal.id ASC, p.cuotas ASC")
+    List<ProductoCanalPrecio> findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(@Param("productoIds") List<Integer> productoIds);
 
     boolean existsByCanalIdAndCuotas(Integer canalId, Integer cuotas);
 

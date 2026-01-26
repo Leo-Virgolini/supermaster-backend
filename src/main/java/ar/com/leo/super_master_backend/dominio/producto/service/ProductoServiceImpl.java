@@ -1,10 +1,13 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
@@ -25,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,6 +43,9 @@ public class ProductoServiceImpl implements ProductoService {
     private final RecalculoPrecioFacade recalculoFacade;
     private final CanalRepository canalRepository;
     private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
+    private final ReglaDescuentoRepository reglaDescuentoRepository;
+
+    private static final int PRECISION_RESULTADO = 2;
 
     // ============================
     // LISTAR
@@ -280,10 +287,16 @@ public class ProductoServiceImpl implements ProductoService {
         Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
                 .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
 
-        // 4.2) Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
+        // 4.2) Obtener IDs de canales y sus nombres
         Set<Integer> canalIds = todosPrecios.stream()
                 .map(p -> p.getCanal().getId())
                 .collect(Collectors.toSet());
+
+        // Cargar nombres de canales explícitamente (evita problemas de lazy loading)
+        Map<Integer, String> nombresPorCanal = canalRepository.findAllById(canalIds).stream()
+                .collect(Collectors.toMap(Canal::getId, Canal::getCanal));
+
+        // 4.3) Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
         Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIds).stream()
                 .filter(c -> c.getDescripcion() != null)
                 .collect(Collectors.toMap(
@@ -291,6 +304,16 @@ public class ProductoServiceImpl implements ProductoService {
                         CanalConceptoCuota::getDescripcion,
                         (a, b) -> a
                 ));
+
+        // 4.3) Obtener reglas de descuento por canal (siempre se cargan si existen)
+        Map<Integer, List<ReglaDescuento>> reglasPorCanal = new HashMap<>();
+        for (Integer canalId : canalIds) {
+            List<ReglaDescuento> reglas = reglaDescuentoRepository
+                    .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
+            if (!reglas.isEmpty()) {
+                reglasPorCanal.put(canalId, reglas);
+            }
+        }
 
         // 5) Mapear cada producto + sus márgenes + sus precios a DTO
         List<ProductoConPreciosDTO> dtos = productosPage.getContent().stream()
@@ -319,7 +342,13 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
-                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas);
+                    // Calcular descuentos aplicables por canal (siempre si hay reglas)
+                    Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal = null;
+                    if (!precios.isEmpty() && !reglasPorCanal.isEmpty()) {
+                        descuentosPorCanal = calcularDescuentosPorCanal(precios, reglasPorCanal);
+                    }
+
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, nombresPorCanal);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -518,10 +547,16 @@ public class ProductoServiceImpl implements ProductoService {
         Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
                 .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
 
-        // Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
+        // Obtener IDs de canales y sus nombres
         Set<Integer> canalIds = todosPrecios.stream()
                 .map(p -> p.getCanal().getId())
                 .collect(Collectors.toSet());
+
+        // Cargar nombres de canales explícitamente (evita problemas de lazy loading)
+        Map<Integer, String> nombresPorCanal = canalRepository.findAllById(canalIds).stream()
+                .collect(Collectors.toMap(Canal::getId, Canal::getCanal));
+
+        // Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
         Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIds).stream()
                 .filter(c -> c.getDescripcion() != null)
                 .collect(Collectors.toMap(
@@ -529,6 +564,16 @@ public class ProductoServiceImpl implements ProductoService {
                         CanalConceptoCuota::getDescripcion,
                         (a, b) -> a
                 ));
+
+        // Obtener reglas de descuento por canal (siempre se cargan si existen)
+        Map<Integer, List<ReglaDescuento>> reglasPorCanal = new HashMap<>();
+        for (Integer canalId : canalIds) {
+            List<ReglaDescuento> reglas = reglaDescuentoRepository
+                    .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
+            if (!reglas.isEmpty()) {
+                reglasPorCanal.put(canalId, reglas);
+            }
+        }
 
         // Mapear a DTOs
         List<ProductoConPreciosDTO> dtos = productos.stream()
@@ -554,7 +599,13 @@ public class ProductoServiceImpl implements ProductoService {
                                 .toList();
                     }
 
-                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas);
+                    // Calcular descuentos aplicables por canal (siempre si hay reglas)
+                    Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal = null;
+                    if (!precios.isEmpty() && !reglasPorCanal.isEmpty()) {
+                        descuentosPorCanal = calcularDescuentosPorCanal(precios, reglasPorCanal);
+                    }
+
+                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, nombresPorCanal);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -602,6 +653,111 @@ public class ProductoServiceImpl implements ProductoService {
                         String.format("El canal '%s' no tiene precios configurados para %d cuotas", nombreCanal, cuotas));
             }
         }
+    }
+
+    // ============================
+    // CÁLCULO DE DESCUENTOS APLICABLES
+    // ============================
+
+    /**
+     * Calcula los descuentos aplicables por canal basado en las reglas de descuento.
+     * Para cada canal con reglas, calcula cómo quedaría el PVP y la ganancia con cada nivel de descuento.
+     *
+     * @param precios Lista de precios del producto
+     * @param reglasPorCanal Mapa de canalId -> reglas de descuento activas ordenadas por prioridad
+     * @return Mapa de canalId -> lista de descuentos aplicables
+     */
+    private Map<Integer, List<DescuentoAplicableDTO>> calcularDescuentosPorCanal(
+            List<ProductoCanalPrecio> precios,
+            Map<Integer, List<ReglaDescuento>> reglasPorCanal) {
+
+        if (reglasPorCanal.isEmpty()) {
+            return null;
+        }
+
+        Map<Integer, List<DescuentoAplicableDTO>> resultado = new HashMap<>();
+
+        // Agrupar precios por canal
+        Map<Integer, List<ProductoCanalPrecio>> preciosPorCanal = precios.stream()
+                .collect(Collectors.groupingBy(p -> p.getCanal().getId()));
+
+        for (Map.Entry<Integer, List<ReglaDescuento>> entry : reglasPorCanal.entrySet()) {
+            Integer canalId = entry.getKey();
+            List<ReglaDescuento> reglas = entry.getValue();
+
+            // Obtener el primer precio del canal para calcular descuentos
+            // (usamos el precio base, típicamente contado cuotas=0)
+            List<ProductoCanalPrecio> preciosCanal = preciosPorCanal.get(canalId);
+            if (preciosCanal == null || preciosCanal.isEmpty()) {
+                continue;
+            }
+
+            // Buscar precio de contado (cuotas=0) o el primero disponible
+            ProductoCanalPrecio precioBase = preciosCanal.stream()
+                    .filter(p -> p.getCuotas() != null && p.getCuotas() == 0)
+                    .findFirst()
+                    .orElse(preciosCanal.get(0));
+
+            BigDecimal pvp = precioBase.getPvp();
+            BigDecimal costoProducto = precioBase.getCostoProducto();
+
+            if (pvp == null || pvp.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            List<DescuentoAplicableDTO> descuentos = new ArrayList<>();
+
+            for (ReglaDescuento regla : reglas) {
+                BigDecimal descuentoPct = regla.getDescuentoPorcentaje();
+                BigDecimal montoMinimo = regla.getMontoMinimo();
+
+                // Calcular PVP con descuento (descuento real = resta)
+                // pvpConDescuento = pvp * (1 - descuento/100)
+                BigDecimal factorDescuento = BigDecimal.ONE.subtract(
+                        descuentoPct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
+                BigDecimal pvpConDescuento = pvp.multiply(factorDescuento)
+                        .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+
+                // Calcular ganancia con descuento
+                // gananciaConDescuento = pvpConDescuento - costoProducto - (costosVenta proporcionales)
+                // Simplificación: ganancia = pvpConDescuento * (gananciaOriginal / pvpOriginal)
+                BigDecimal gananciaOriginal = precioBase.getGanancia();
+                BigDecimal gananciaConDescuento = BigDecimal.ZERO;
+                BigDecimal margenConDescuento = BigDecimal.ZERO;
+
+                if (gananciaOriginal != null && costoProducto != null) {
+                    // Recalcular ganancia aproximada: ingresoNetoVendedor proporcional - costo
+                    BigDecimal ingresoNetoOriginal = precioBase.getIngresoNetoVendedor();
+                    if (ingresoNetoOriginal != null && ingresoNetoOriginal.compareTo(BigDecimal.ZERO) > 0) {
+                        // Proporción del ingreso neto respecto al PVP
+                        BigDecimal proporcionIngreso = ingresoNetoOriginal.divide(pvp, 6, RoundingMode.HALF_UP);
+                        BigDecimal ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso);
+                        gananciaConDescuento = ingresoNetoConDescuento.subtract(costoProducto)
+                                .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+
+                        // Margen con descuento = (gananciaConDescuento / ingresoNetoConDescuento) * 100
+                        if (ingresoNetoConDescuento.compareTo(BigDecimal.ZERO) > 0) {
+                            margenConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                                    .divide(ingresoNetoConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                        }
+                    }
+                }
+
+                descuentos.add(new DescuentoAplicableDTO(
+                        montoMinimo,
+                        descuentoPct,
+                        pvpConDescuento,
+                        gananciaConDescuento,
+                        margenConDescuento
+                ));
+            }
+
+            if (!descuentos.isEmpty()) {
+                resultado.put(canalId, descuentos);
+            }
+        }
+
+        return resultado.isEmpty() ? null : resultado;
     }
 
 }
