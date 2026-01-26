@@ -159,6 +159,19 @@ public class MercadoLibreService {
                     "MLA sin producto asociado");
         }
 
+        // Si no tiene comisionPorcentaje, obtenerla primero (es necesaria para calcular el PVP correctamente)
+        if (mla.getComisionPorcentaje() == null) {
+            log.info("ML - MLA {} no tiene comisión, obteniendo primero costo de venta...", mlaCode);
+            CostoVentaResponseDTO costoVentaResult = obtenerCostoVenta(mlaCode);
+            if (costoVentaResult.porcentajeTotal() != null && costoVentaResult.porcentajeTotal().compareTo(BigDecimal.ZERO) > 0) {
+                log.info("ML - Comisión obtenida para MLA {}: {}%", mlaCode, costoVentaResult.porcentajeTotal());
+                // Recargar el MLA para tener la comisión actualizada
+                mla = mlaRepository.findByMla(mlaCode).orElse(mla);
+            } else {
+                log.warn("ML - No se pudo obtener la comisión para MLA {}: {}", mlaCode, costoVentaResult.mensaje());
+            }
+        }
+
         // Buscar el canal ML
         Canal canalMl = canalRepository.findByCanalIgnoreCase(CANAL_ML)
                 .orElseThrow(() -> new IllegalStateException("No se encontró el canal " + CANAL_ML));
@@ -169,7 +182,10 @@ public class MercadoLibreService {
         String status = null;
 
         // CÁLCULO ITERATIVO
+        // costoEnvioActual: valor SIN IVA que se pasa al cálculo de precio
+        // costoEnvioConIvaActual: valor CON IVA para comparar con API/tiers
         BigDecimal costoEnvioActual = BigDecimal.ZERO;
+        BigDecimal costoEnvioConIvaActual = BigDecimal.ZERO;
         BigDecimal pvpActual = BigDecimal.ZERO;
         int iteracion = 0;
         String tipoCalculo = "";
@@ -232,24 +248,27 @@ public class MercadoLibreService {
                 tipoCalculo = "Tier";
             }
 
-            log.info("ML - MLA {} - Iteración {}: costoEnvioInput=${}, PVP=${}, nuevoCostoEnvio=${} ({})",
+            log.info("ML - MLA {} - Iteración {}: costoEnvioSinIva=${}, PVP=${}, nuevoCostoEnvioConIva=${} ({})",
                     mlaCode, iteracion, costoEnvioActual, pvpActual, nuevoCostoEnvio, tipoCalculo);
 
-            // Verificar si se estabilizó
-            if (nuevoCostoEnvio.compareTo(costoEnvioActual) == 0) {
-                log.info("ML - MLA {} - Estabilizado en iteración {}: PVP=${}, costoEnvio=${} ({})",
-                        mlaCode, iteracion, pvpActual, nuevoCostoEnvio, tipoCalculo);
+            // Verificar si se estabilizó (comparar valores CON IVA)
+            if (nuevoCostoEnvio.compareTo(costoEnvioConIvaActual) == 0) {
+                log.info("ML - MLA {} - Estabilizado en iteración {}: PVP=${}, costoEnvioConIva=${}, costoEnvioSinIva=${} ({})",
+                        mlaCode, iteracion, pvpActual, nuevoCostoEnvio, costoEnvioActual, tipoCalculo);
                 break;
             }
 
-            costoEnvioActual = nuevoCostoEnvio;
+            // Guardar el valor CON IVA para comparación
+            costoEnvioConIvaActual = nuevoCostoEnvio;
+            // Convertir a SIN IVA para el cálculo de precio
+            costoEnvioActual = nuevoCostoEnvio.compareTo(BigDecimal.ZERO) > 0
+                    ? nuevoCostoEnvio.divide(IVA_DIVISOR, 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
         }
 
-        // Calcular costo sin IVA (dividir por 1.21)
-        BigDecimal costoEnvioConIva = costoEnvioActual;
-        BigDecimal costoEnvioSinIva = costoEnvioActual.compareTo(BigDecimal.ZERO) > 0
-                ? costoEnvioActual.divide(IVA_DIVISOR, 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        // Los valores finales
+        BigDecimal costoEnvioConIva = costoEnvioConIvaActual;
+        BigDecimal costoEnvioSinIva = costoEnvioActual;
 
         // Guardar resultado (se guarda el costo SIN IVA)
         String mensaje;
@@ -300,11 +319,13 @@ public class MercadoLibreService {
     // =====================================================
 
     /**
-     * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre.
+     * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre
+     * y guarda el porcentaje de comisión en la base de datos.
      *
      * @param mlaCode Código MLA del producto
      * @return DTO con los costos de venta
      */
+    @Transactional
     public CostoVentaResponseDTO obtenerCostoVenta(String mlaCode) {
         verificarTokens();
 
@@ -377,6 +398,11 @@ public class MercadoLibreService {
                 }
             }
 
+            // Guardar el porcentaje de comisión si se obtuvo correctamente
+            if (porcentajeTotal != null && porcentajeTotal.compareTo(BigDecimal.ZERO) > 0) {
+                guardarComisionPorcentaje(mlaCode, porcentajeTotal);
+            }
+
             return new CostoVentaResponseDTO(
                     mlaCode,
                     status,
@@ -400,12 +426,13 @@ public class MercadoLibreService {
     }
 
     /**
-     * Obtiene los costos de venta de un producto a partir de su ID.
+     * Obtiene los costos de venta de un producto a partir de su ID
+     * y guarda el porcentaje de comisión en la base de datos.
      *
      * @param productoId ID del producto
      * @return DTO con los costos de venta
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public CostoVentaResponseDTO obtenerCostoVentaPorProducto(Integer productoId) {
         Optional<ar.com.leo.super_master_backend.dominio.producto.entity.Producto> productoOpt =
                 productoRepository.findById(productoId);
@@ -752,6 +779,30 @@ public class MercadoLibreService {
     }
 
     /**
+     * Guarda el porcentaje de comisión en la entidad Mla.
+     */
+    private void guardarComisionPorcentaje(String mlaCode, BigDecimal porcentaje) {
+        Optional<Mla> mlaOpt = mlaRepository.findByMla(mlaCode);
+        if (mlaOpt.isPresent()) {
+            Mla mla = mlaOpt.get();
+            BigDecimal comisionAnterior = mla.getComisionPorcentaje();
+
+            mla.setComisionPorcentaje(porcentaje);
+            mla.setFechaCalculoComision(LocalDateTime.now());
+            mlaRepository.save(mla);
+            log.info("ML - Porcentaje de comisión guardado para MLA {}: {}%", mlaCode, porcentaje);
+
+            // Recalcular precios si cambió la comisión
+            if (comisionAnterior == null || comisionAnterior.compareTo(porcentaje) != 0) {
+                recalculoPrecioFacade.recalcularPorCambioMla(mla.getId());
+                log.info("ML - Precios recalculados para MLA: {}", mlaCode);
+            }
+        } else {
+            log.warn("ML - No se encontró el MLA {} en la base de datos para guardar la comisión", mlaCode);
+        }
+    }
+
+    /**
      * Guarda el costo de envío en la entidad Mla.
      */
     private void guardarCostoEnvio(String mlaCode, BigDecimal costoEnvio) {
@@ -884,7 +935,7 @@ public class MercadoLibreService {
         }
 
         try {
-            cachedUserId = objectMapper.readTree(response.body()).get("id").asText();
+            cachedUserId = objectMapper.readTree(response.body()).get("id").asString();
             return cachedUserId;
         } catch (Exception e) {
             throw new IOException("Error parseando userId de ML", e);

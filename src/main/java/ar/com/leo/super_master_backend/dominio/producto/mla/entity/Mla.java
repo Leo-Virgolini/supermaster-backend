@@ -40,6 +40,12 @@ public class Mla {
     @Column(name = "fecha_calculo_envio")
     private LocalDateTime fechaCalculoEnvio;
 
+    @Column(name = "comision_porcentaje", precision = 5, scale = 2)
+    private BigDecimal comisionPorcentaje;
+
+    @Column(name = "fecha_calculo_comision")
+    private LocalDateTime fechaCalculoComision;
+
     // Relación inversa: un MLA puede estar en varios productos
     @OneToMany(mappedBy = "mla")
     private Set<Producto> productos = new LinkedHashSet<>();

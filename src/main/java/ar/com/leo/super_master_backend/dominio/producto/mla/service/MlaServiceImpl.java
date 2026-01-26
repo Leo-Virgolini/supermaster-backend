@@ -74,15 +74,19 @@ public class MlaServiceImpl implements MlaService {
             throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
         }
 
-        // Guardar valor anterior para detectar cambio
+        // Guardar valores anteriores para detectar cambios
         BigDecimal precioEnvioAnterior = entity.getPrecioEnvio();
+        BigDecimal comisionPorcentajeAnterior = entity.getComisionPorcentaje();
 
         mapper.updateEntity(dto, entity);
 
         repo.save(entity);
 
-        // Recalcular si cambió el precioEnvio
-        if (!Objects.equals(precioEnvioAnterior, entity.getPrecioEnvio())) {
+        // Recalcular si cambió precioEnvio o comisionPorcentaje
+        boolean cambioPrecioEnvio = !Objects.equals(precioEnvioAnterior, entity.getPrecioEnvio());
+        boolean cambioComision = !Objects.equals(comisionPorcentajeAnterior, entity.getComisionPorcentaje());
+
+        if (cambioPrecioEnvio || cambioComision) {
             recalculoFacade.recalcularPorCambioMla(id);
         }
 

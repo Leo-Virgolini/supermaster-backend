@@ -130,8 +130,8 @@ public class MercadoLibreController {
      * @param productoId (Opcional) ID del producto para buscar su MLA asociado
      * @return DTO con los costos de venta o confirmación de inicio de proceso masivo
      */
-    @GetMapping("/costo-venta")
-    public ResponseEntity<?> obtenerCostoVenta(
+    @PostMapping("/costo-venta")
+    public ResponseEntity<?> calcularCostoVenta(
             @RequestParam(required = false) String mla,
             @RequestParam(required = false) Integer productoId) {
 

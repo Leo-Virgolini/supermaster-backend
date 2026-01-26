@@ -196,6 +196,7 @@ PVP_HIJO = PVP_PADRE × (1 + CALCULO_SOBRE_CANAL_BASE% / 100)
 | `GASTO_POST_IMPUESTOS` | Gasto después de aplicar impuestos | |
 | `FLAG_INCLUIR_ENVIO` | Flag: incluir precio envío del MLA | Envío gratis |
 | `COMISION_SOBRE_PVP` | Comisión como divisor sobre PVP | Comisión ML -13% |
+| `FLAG_COMISION_ML` | Flag: usa comisión ML del MLA | mla.comision_porcentaje |
 | `CALCULO_SOBRE_CANAL_BASE` | Calcula sobre PVP del canal base | |
 | `RECARGO_CUPON` | Divisor adicional sobre PVP | Cupones +5% |
 | `DESCUENTO_PORCENTUAL` | Descuento final sobre PVP | Promo -10% |
@@ -213,7 +214,7 @@ Donde:
 - COSTO_AJUSTADO = costo × (1 + Σ GASTO_SOBRE_COSTO%) × (1 + FLAG_FINANCIACION_PROVEEDOR%)
 - MARGEN = margen_base + Σ AJUSTE_MARGEN_PUNTOS ± (margen_base × AJUSTE_MARGEN_PROPORCIONAL%)
 - FACTOR_IMP = (1 + FLAG_APLICAR_IVA%) × (1 + Σ IMPUESTO_ADICIONAL%)
-- COMISIONES_PVP = Σ conceptos con COMISION_SOBRE_PVP
+- COMISIONES_PVP = Σ conceptos con COMISION_SOBRE_PVP + FLAG_COMISION_ML (mla.comision_porcentaje)
 ```
 
 | Tipo | Efecto | Fórmula |
@@ -227,6 +228,7 @@ Donde:
 | `DESCUENTO_PORCENTUAL` | Descuento sobre PVP | `PVP × (1 - %/100)` |
 | `INFLACION_DIVISOR` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
 | `FLAG_INCLUIR_ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
+| `FLAG_COMISION_ML` | Comisión ML del MLA como divisor | `PVP / (1 - mla.comision_porcentaje/100)` |
 
 **Conceptos tipo FLAG (el % se ignora, solo importa si está asignado):**
 - `FLAG_APLICAR_IVA`: Habilita aplicar el IVA del producto
@@ -235,6 +237,8 @@ Donde:
 - `FLAG_APLICAR_PROMOCIONES`: Habilita promociones asignadas al producto-canal
 - `CALCULO_SOBRE_CANAL_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
 - `FLAG_FINANCIACION_PROVEEDOR`: Usa el % financiación del proveedor del producto
+- `FLAG_INCLUIR_ENVIO`: Usa mla.precio_envio como costo de envío
+- `FLAG_COMISION_ML`: Usa mla.comision_porcentaje como comisión sobre PVP
 
 #### 5. `canal_concepto` - Conceptos Asignados a Canales
 Tabla intermedia que relaciona qué conceptos aplican a cada canal.
@@ -572,6 +576,7 @@ interface ProductoConPrecios {
   mla: string | null;
   mlau: string | null;
   precioEnvio: number | null;
+  comisionPorcentaje: number | null;  // porcentaje de comisión ML (ej: 14.35)
 
   codExt: string | null;
   descripcion: string;
@@ -780,6 +785,7 @@ type AplicaSobre =
   // ===== ETAPA: PRECIO =====
   | 'FLAG_INCLUIR_ENVIO'          // Flag: incluye mla.precioEnvio
   | 'COMISION_SOBRE_PVP'          // Comisión que divide el PVP
+  | 'FLAG_COMISION_ML'            // Flag: usa mla.comisionPorcentaje como comisión sobre PVP
   | 'CALCULO_SOBRE_CANAL_BASE'    // Calcula sobre PVP del canal base
 
   // ===== ETAPA: POST_PRECIO =====
@@ -987,10 +993,12 @@ interface PasoCalculo {
 ```typescript
 interface Mla {
   id: number;
-  mla: string;        // código MLA
+  mla: string;                          // código MLA
   mlau: string | null;
-  precioEnvio: number | null;
-  fechaCalculoEnvio: string | null;  // ISO DateTime
+  precioEnvio: number | null;           // costo de envío SIN IVA
+  fechaCalculoEnvio: string | null;     // ISO DateTime
+  comisionPorcentaje: number | null;    // porcentaje de comisión ML (ej: 14.35)
+  fechaCalculoComision: string | null;  // ISO DateTime
 }
 
 interface MlaCreate {
@@ -1003,6 +1011,7 @@ interface MlaUpdate {
   mla?: string;                   // max 20
   mlau?: string;                  // max 20
   precioEnvio?: number;           // >= 0
+  comisionPorcentaje?: number;    // >= 0
 }
 ```
 
@@ -1810,6 +1819,14 @@ GET /api/excel/exportar-precios?formato=nube&cuotas=0
 - Formato `completo`: super headers con bordes gruesos, canales separados visualmente con bordes
 - Formatos `mercadolibre` y `nube` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
 
+**Columnas del formato `completo`:**
+
+| Grupo | Columnas | Formato |
+|-------|----------|---------|
+| Producto | ID, SKU, MLA, MLAU, PRECIO_ENVIO, **COMISION_ML**, COD_EXT, DESCRIPCION, TITULO_WEB, ES_COMBO, ES_MAQUINA, IMAGEN_URL, STOCK, ACTIVO, MARCA, ORIGEN, CLASIF_GRAL, CLASIF_GASTRO, TIPO, PROVEEDOR, MATERIAL, UXB, CAPACIDAD, LARGO, ANCHO, ALTO, DIAMBOCA, DIAMBASE, ESPESOR, COSTO, FECHA_ULT_COSTO, IVA, MARGEN_MINORISTA, MARGEN_MAYORISTA, FECHA_CREACION, FECHA_MODIFICACION | PRECIO_ENVIO y COSTO con "$", COMISION_ML/IVA/MARGEN_* con "%" |
+| Por canal/cuota | PVP, PVP_INFLADO, COSTO_PRODUCTO, COSTOS_VENTA, INGRESO_NETO, GANANCIA, MARGEN_INGRESO, MARGEN_PVP, MARKUP_PCT, FECHA_CALCULO | Valores monetarios con "$", porcentajes con "%" |
+| Descuentos (si el canal tiene reglas) | MARGEN (>$montoMinimo -porcentaje%) | Solo para canales con reglas de descuento activas. Muestra el margen con descuento aplicado (formato %) |
+
 **Formato `mercadolibre`:**
 | Configuración | Valor |
 |---------------|-------|
@@ -1989,6 +2006,7 @@ POST /api/ml/costo-envio?productoId=123          # SYNC - Solo el MLA del produc
 
 El cálculo es **iterativo** hasta que el costo de envío se estabilice:
 
+0. **Si el MLA no tiene `comisionPorcentaje`**, primero se obtiene automáticamente llamando a `obtenerCostoVenta` (esto es necesario para calcular el PVP correctamente si el canal usa `FLAG_COMISION_ML`)
 1. Calcular PVP con costo de envío actual (inicia en $0)
 2. Determinar costo de envío según el PVP:
    - **PVP < $15,000** → `tier1Costo` ($1,115)
@@ -2170,14 +2188,14 @@ const cancelar = async () => {
 };
 ```
 
-#### Obtener Costo de Venta (Comisiones)
+#### Calcular Costo de Venta (Comisiones)
 
-Consulta los costos de venta (comisiones ML) de un producto. **Solo lectura** (no guarda en BD).
+Consulta los costos de venta (comisiones ML) de un producto y **guarda el porcentaje de comisión** en la entidad MLA (`comisionPorcentaje` y `fechaCalculoComision`).
 
 ```http
-GET /api/ml/costo-venta                          # ASYNC - Todos los MLAs en background
-GET /api/ml/costo-venta?mla=MLA123456789         # SYNC - Solo ese MLA
-GET /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del producto
+POST /api/ml/costo-venta                          # ASYNC - Todos los MLAs en background
+POST /api/ml/costo-venta?mla=MLA123456789         # SYNC - Solo ese MLA
+POST /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del producto
 ```
 
 **Comportamiento según parámetros:**
@@ -2236,15 +2254,17 @@ GET /api/ml/costo-venta?productoId=123           # SYNC - Solo el MLA del produc
 
 **Ejemplo de uso (sincrónico):**
 ```typescript
-// Obtener costos de venta por MLA (SYNC)
+// Calcular costos de venta por MLA (SYNC) - guarda comisionPorcentaje
 const response = await fetch(
-  'http://localhost:8080/api/ml/costo-venta?mla=MLA123456789'
+  'http://localhost:8080/api/ml/costo-venta?mla=MLA123456789',
+  { method: 'POST' }
 );
 const costos: CostoVentaResponse = await response.json();
 
-// Obtener costos de venta por producto (SYNC)
+// Calcular costos de venta por producto (SYNC) - guarda comisionPorcentaje
 const responseProducto = await fetch(
-  'http://localhost:8080/api/ml/costo-venta?productoId=123'
+  'http://localhost:8080/api/ml/costo-venta?productoId=123',
+  { method: 'POST' }
 );
 const costosProducto: CostoVentaResponse = await responseProducto.json();
 ```
@@ -2254,7 +2274,7 @@ const costosProducto: CostoVentaResponse = await responseProducto.json();
 El cálculo masivo (sin parámetros) **siempre es asíncrono**. No existe parámetro para hacerlo sincrónico.
 
 ```http
-GET  /api/ml/costo-venta                     # Inicia proceso en background (202 Accepted)
+POST /api/ml/costo-venta                     # Inicia proceso en background (202 Accepted)
 GET  /api/ml/costo-venta/estado              # Consulta estado del proceso
 POST /api/ml/costo-venta/cancelar            # Cancela el proceso en ejecución
 GET  /api/ml/costo-venta/resultado           # Obtiene resultado del último proceso
@@ -2262,7 +2282,7 @@ GET  /api/ml/costo-venta/resultado           # Obtiene resultado del último pro
 
 **Flujo de uso:**
 
-1. **Iniciar proceso:** `GET /api/ml/costo-venta` (sin parámetros)
+1. **Iniciar proceso:** `POST /api/ml/costo-venta` (sin parámetros)
    - Retorna inmediatamente con `202 Accepted`
    - Si ya hay un proceso en ejecución, retorna `400 Bad Request`
 
@@ -2291,6 +2311,9 @@ GET  /api/ml/costo-venta/resultado           # Obtiene resultado del último pro
 }
 ```
 
+**Nota:** El proceso masivo también guarda `comisionPorcentaje` y `fechaCalculoComision` en cada MLA procesado exitosamente.
+```
+
 **Response masivo:** `CostoVentaMasivoResponse`
 
 ```typescript
@@ -2305,8 +2328,8 @@ interface CostoVentaMasivoResponse {
 
 **Ejemplo de uso (polling):**
 ```typescript
-// 1. Iniciar proceso masivo (ASYNC)
-const initResponse = await fetch('http://localhost:8080/api/ml/costo-venta');
+// 1. Iniciar proceso masivo (ASYNC) - guarda comisionPorcentaje en cada MLA
+const initResponse = await fetch('http://localhost:8080/api/ml/costo-venta', { method: 'POST' });
 if (initResponse.status !== 202) {
   console.log('No se pudo iniciar - ya hay un proceso en ejecución');
   return;

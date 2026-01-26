@@ -8,5 +8,7 @@ public record MlaDTO(
         String mla,
         String mlau,
         BigDecimal precioEnvio,
-        LocalDateTime fechaCalculoEnvio
+        LocalDateTime fechaCalculoEnvio,
+        BigDecimal comisionPorcentaje,
+        LocalDateTime fechaCalculoComision
 ) {}

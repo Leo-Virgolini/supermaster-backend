@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashSet;
@@ -31,13 +30,12 @@ public class ConceptoCalculo {
     @Column(name = "concepto", nullable = false, length = 45)
     private String concepto;
 
-    @NotNull
-    @Column(name = "porcentaje", nullable = false, precision = 6, scale = 3)
+    @Column(name = "porcentaje", precision = 6, scale = 3)
     private BigDecimal porcentaje;
 
-    @ColumnDefault("'COMISION_SOBRE_PVP'")
+    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(name = "aplica_sobre", columnDefinition = "ENUM('GASTO_SOBRE_COSTO','FLAG_FINANCIACION_PROVEEDOR','AJUSTE_MARGEN_PUNTOS','AJUSTE_MARGEN_PROPORCIONAL','FLAG_USAR_MARGEN_MINORISTA','FLAG_USAR_MARGEN_MAYORISTA','GASTO_POST_GANANCIA','FLAG_APLICAR_IVA','IMPUESTO_ADICIONAL','GASTO_POST_IMPUESTOS','FLAG_INCLUIR_ENVIO','COMISION_SOBRE_PVP','CALCULO_SOBRE_CANAL_BASE','RECARGO_CUPON','DESCUENTO_PORCENTUAL','INFLACION_DIVISOR','FLAG_APLICAR_PROMOCIONES') DEFAULT 'COMISION_SOBRE_PVP'")
+    @Column(name = "aplica_sobre", nullable = false, columnDefinition = "ENUM('GASTO_SOBRE_COSTO','FLAG_FINANCIACION_PROVEEDOR','AJUSTE_MARGEN_PUNTOS','AJUSTE_MARGEN_PROPORCIONAL','FLAG_USAR_MARGEN_MINORISTA','FLAG_USAR_MARGEN_MAYORISTA','GASTO_POST_GANANCIA','FLAG_APLICAR_IVA','IMPUESTO_ADICIONAL','GASTO_POST_IMPUESTOS','FLAG_INCLUIR_ENVIO','COMISION_SOBRE_PVP','FLAG_COMISION_ML','CALCULO_SOBRE_CANAL_BASE','RECARGO_CUPON','DESCUENTO_PORCENTUAL','INFLACION_DIVISOR','FLAG_APLICAR_PROMOCIONES')")
     private AplicaSobre aplicaSobre;
 
     @Size(max = 255)

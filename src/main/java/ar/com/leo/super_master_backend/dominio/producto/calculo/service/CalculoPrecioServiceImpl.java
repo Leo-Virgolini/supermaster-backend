@@ -383,6 +383,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         List<CanalConcepto> gastosSobrePVP = conceptosPorTipo.getOrDefault(AplicaSobre.COMISION_SOBRE_PVP, List.of());
         gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
 
+        // FLAG_COMISION_ML: si existe, sumar comisionPorcentaje del MLA
+        List<CanalConcepto> conceptosComisionMl = conceptosPorTipo.getOrDefault(AplicaSobre.FLAG_COMISION_ML, List.of());
+        if (!conceptosComisionMl.isEmpty() && producto.getMla() != null
+                && producto.getMla().getComisionPorcentaje() != null
+                && producto.getMla().getComisionPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+            gastosSobrePVPTotal = gastosSobrePVPTotal.add(producto.getMla().getComisionPorcentaje());
+        }
+
         // Obtener porcentaje de cuotas si aplica (ahora siempre aplica si hay cuotas)
         boolean aplicarCuotas = numeroCuotas != null;
 
@@ -508,9 +516,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .multiply(BigDecimal.ONE.add(porcentajeFin.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP)))
                 .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-        // costosVenta = Σ(PVP, DESCUENTO, RECARGO_CUPON, ENVIO) + cuotas
+        // costosVenta = Σ(PVP, DESCUENTO, RECARGO_CUPON, ENVIO, COMISION_ML) + cuotas
         // Incluye EMBALAJE ya que tiene AplicaSobre=PVP
-        BigDecimal costosVenta = calcularCostosVenta(pvpSinPromocion, conceptos, numeroCuotas, idCanal);
+        BigDecimal comisionMlParaMetricas = (producto.getMla() != null && producto.getMla().getComisionPorcentaje() != null)
+                ? producto.getMla().getComisionPorcentaje() : BigDecimal.ZERO;
+        BigDecimal costosVenta = calcularCostosVenta(pvpSinPromocion, conceptos, numeroCuotas, idCanal, comisionMlParaMetricas);
 
         // montoIva = PVP × (IVA / (100 + IVA)) -- extrae IVA incluido en PVP
         // ivaAplicar ya está definida arriba
@@ -666,6 +676,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Paso 3: Ganancia ajustada
         BigDecimal margenPorcentaje = obtenerMargenPorcentaje(productoMargen, conceptos);
 
+        // Determinar tipo de margen para mostrar en fórmula
+        boolean usaMayorista = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_USAR_MARGEN_MAYORISTA);
+        String tipoMargenNombre = usaMayorista ? "MARGEN_MAYORISTA" : "MARGEN_MINORISTA";
+
         // MARGEN_PTS: suma de porcentajes (positivos aumentan, negativos reducen)
         List<CanalConcepto> conceptosMargenPts = conceptos.stream()
                 .filter(cc -> cc.getConcepto() != null
@@ -698,8 +714,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         String detalleMargenPts = formatearDetalleConceptos(conceptosMargenPts);
         String detalleMargenProp = formatearDetalleConceptos(conceptosMargenProp);
 
-        String formulaGanancia = "GANANCIA = MARGEN";
-        String detalleGanancia = String.format("MARGEN: %s%%", margenPorcentaje);
+        String formulaGanancia = "GANANCIA = " + tipoMargenNombre;
+        String detalleGanancia = String.format("%s: %s%%", tipoMargenNombre, fmt(margenPorcentaje));
         if (ajusteMargenPts.compareTo(BigDecimal.ZERO) != 0) {
             String signo = ajusteMargenPts.compareTo(BigDecimal.ZERO) > 0 ? " + " : " ";
             formulaGanancia += signo + nombresMargenPtsFormateados;
@@ -848,9 +864,27 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.COMISION_SOBRE_PVP)
                 .collect(Collectors.toList());
         BigDecimal gastosSobrePVPTotal = calcularGastosPorcentaje(gastosSobrePVP);
+
+        // FLAG_COMISION_ML: si existe, sumar comisionPorcentaje del MLA
+        BigDecimal comisionMl = BigDecimal.ZERO;
+        boolean tieneComisionMl = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_COMISION_ML);
+        if (tieneComisionMl && producto.getMla() != null
+                && producto.getMla().getComisionPorcentaje() != null
+                && producto.getMla().getComisionPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+            comisionMl = producto.getMla().getComisionPorcentaje();
+            gastosSobrePVPTotal = gastosSobrePVPTotal.add(comisionMl);
+        }
+
         BigDecimal porcentajeCuota = BigDecimal.ZERO;
 
         boolean aplicarCuotas = numeroCuotas != null;
+
+        // Preparar detalle de comisión ML para mostrar en fórmula
+        String detalleComisionMl = "";
+        if (tieneComisionMl && comisionMl.compareTo(BigDecimal.ZERO) > 0) {
+            detalleComisionMl = String.format("COMISION_ML(MLA)=%s%%", fmt(comisionMl));
+        }
 
         if (aplicarCuotas) {
             porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
@@ -866,9 +900,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
                     BigDecimal costoConImpuestosAntesCuotas = costoConImpuestos;
                     costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                    List<String> nombresConceptosPVPCuotas = obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP);
+                    List<String> nombresConceptosPVPCuotas = new ArrayList<>(obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP));
+                    if (tieneComisionMl) nombresConceptosPVPCuotas.add("COMISION_ML");
                     String nombresPVPCuotasFormateados = formatearNombresConceptos(nombresConceptosPVPCuotas);
                     String detalleConceptosPVPCuotas = formatearDetalleConceptos(gastosSobrePVP);
+                    if (!detalleComisionMl.isEmpty()) {
+                        detalleConceptosPVPCuotas = detalleConceptosPVPCuotas.isEmpty()
+                                ? detalleComisionMl
+                                : detalleConceptosPVPCuotas + " + " + detalleComisionMl;
+                    }
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar cuotas (GTML[%])",
                             String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s + %s cuotas)/100)",
@@ -891,9 +931,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 }
                 BigDecimal costoConImpuestosAntesPVP = costoConImpuestos;
                 costoConImpuestos = costoConImpuestos.divide(denominador, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                List<String> nombresConceptosPVP = obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP);
+                List<String> nombresConceptosPVP = new ArrayList<>(obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP));
+                if (tieneComisionMl) nombresConceptosPVP.add("COMISION_ML");
                 String nombresPVPFormateados = formatearNombresConceptos(nombresConceptosPVP);
                 String detalleConceptosPVP = formatearDetalleConceptos(gastosSobrePVP);
+                if (!detalleComisionMl.isEmpty()) {
+                    detalleConceptosPVP = detalleConceptosPVP.isEmpty()
+                            ? detalleComisionMl
+                            : detalleConceptosPVP + " + " + detalleComisionMl;
+                }
                 pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                         "Gastos sobre PVP",
                         String.format("PVP = COSTO_CON_IMPUESTOS / (1 - (%s)/100)", nombresPVPFormateados),
@@ -2450,10 +2496,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * AplicaSobre que representan costos de venta (se deducen del ingreso).
-     * Incluye: PVP (ej: ML COMISION, MARKETING, EMBALAJE), DESCUENTO, RECARGO_CUPON, ENVIO
+     * Incluye: PVP (ej: ML COMISION, MARKETING, EMBALAJE), DESCUENTO, RECARGO_CUPON, ENVIO, COMISION_ML
      */
     private static final Set<AplicaSobre> APLICA_SOBRE_COSTOS_VENTA = Set.of(
             AplicaSobre.COMISION_SOBRE_PVP,
+            AplicaSobre.FLAG_COMISION_ML,
             AplicaSobre.DESCUENTO_PORCENTUAL,
             AplicaSobre.RECARGO_CUPON,
             AplicaSobre.FLAG_INCLUIR_ENVIO
@@ -2461,17 +2508,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     /**
      * Calcula los costos de venta basándose en AplicaSobre.
-     * Incluye conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO
+     * Incluye conceptos con AplicaSobre: PVP, DESCUENTO, RECARGO_CUPON, ENVIO, COMISION_ML
      * Agrega: porcentaje de cuotas si aplica
      *
-     * @param pvp       PVP calculado
-     * @param conceptos Lista de conceptos del canal
-     * @param cuotas    Número de cuotas (null si contado)
-     * @param canalId   ID del canal
+     * @param pvp         PVP calculado
+     * @param conceptos   Lista de conceptos del canal
+     * @param cuotas      Número de cuotas (null si contado)
+     * @param canalId     ID del canal
+     * @param comisionMl  Porcentaje de comisión ML del MLA (para FLAG_COMISION_ML)
      * @return Monto total de costos de venta en pesos
      */
     private BigDecimal calcularCostosVenta(BigDecimal pvp, List<CanalConcepto> conceptos,
-                                           Integer cuotas, Integer canalId) {
+                                           Integer cuotas, Integer canalId, BigDecimal comisionMl) {
         BigDecimal total = BigDecimal.ZERO;
 
         for (CanalConcepto cc : conceptos) {
@@ -2481,11 +2529,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             // Verificar si es costo de venta por AplicaSobre
             if (APLICA_SOBRE_COSTOS_VENTA.contains(concepto.getAplicaSobre())) {
 
-                BigDecimal porcentaje = concepto.getPorcentaje();
-                if (porcentaje != null && porcentaje.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal monto = pvp.multiply(porcentaje)
-                            .divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                    total = total.add(monto);
+                // FLAG_COMISION_ML: usar comisionPorcentaje del MLA
+                if (concepto.getAplicaSobre() == AplicaSobre.FLAG_COMISION_ML) {
+                    if (comisionMl != null && comisionMl.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal monto = pvp.multiply(comisionMl)
+                                .divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                        total = total.add(monto);
+                    }
+                } else {
+                    // Otros conceptos: usar porcentaje del concepto
+                    BigDecimal porcentaje = concepto.getPorcentaje();
+                    if (porcentaje != null && porcentaje.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal monto = pvp.multiply(porcentaje)
+                                .divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                        total = total.add(monto);
+                    }
                 }
             }
         }

@@ -64,7 +64,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Test de integración para verificar que los triggers de recálculo automático
  * funcionan correctamente cuando se modifican las entidades relacionadas.
  *
- * Tests incluidos (25 total):
+ * Tests incluidos (26 total):
  *
  * ENTIDADES PRINCIPALES:
  * 1-2.   Producto (costo, IVA)
@@ -95,6 +95,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 22.    Producto-Proveedor (cambio de proveedor)
  * 10.    ClasifGastro (esMaquina)
  * 11.    MLA (precioEnvio)
+ * 26.    MLA (comisionPorcentaje)
  *
  * REGLAS DE DESCUENTO:
  * 12.    ReglaDescuento (crear/modificar)
@@ -752,7 +753,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar precio de envío (mantener el código MLA original)
         mlaService.actualizar(mla.getId(),
-                new MlaUpdateDTO(TEST_PREFIX + "MLA123", null, new BigDecimal("1000")));
+                new MlaUpdateDTO(TEST_PREFIX + "MLA123", null, new BigDecimal("1000"), null));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
@@ -1261,5 +1262,51 @@ class RecalculoAutomaticoIntegrationTest {
                 .findFirst();
         assertTrue(precio6Cuotas.isPresent(),
                 "Debe existir precio para 6 cuotas");
+    }
+
+    // ===========================================
+    // TEST 26: Cambio en MLA (comisionPorcentaje)
+    // ===========================================
+    @Test
+    @Order(26)
+    @DisplayName("26. Recálculo automático al cambiar comisionPorcentaje del MLA")
+    void testRecalculoPorCambioMlaComisionPorcentaje() {
+        // Crear MLA con comisión
+        Mla mla = new Mla();
+        mla.setMla(TEST_PREFIX + "MLA_COMISION");
+        mla.setComisionPorcentaje(new BigDecimal("10"));
+        mla = mlaRepository.save(mla);
+
+        // Asignar MLA al producto
+        producto.setMla(mla);
+        producto = productoRepository.save(producto);
+
+        // Crear concepto FLAG_COMISION_ML
+        ConceptoCalculo conceptoComisionMl = new ConceptoCalculo();
+        conceptoComisionMl.setConcepto(TEST_PREFIX + "COMISION_ML");
+        conceptoComisionMl.setPorcentaje(BigDecimal.ZERO);
+        conceptoComisionMl.setAplicaSobre(AplicaSobre.FLAG_COMISION_ML);
+        conceptoComisionMl = conceptoGastoRepository.save(conceptoComisionMl);
+
+        CanalConcepto ccComisionMl = new CanalConcepto();
+        ccComisionMl.setId(new CanalConceptoId(canal.getId(), conceptoComisionMl.getId()));
+        ccComisionMl.setCanal(canal);
+        ccComisionMl.setConcepto(conceptoComisionMl);
+        canalConceptoRepository.save(ccComisionMl);
+
+        // Recalcular con comisión ML
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpInicial = obtenerPvpActual();
+
+        // Modificar porcentaje de comisión
+        mlaService.actualizar(mla.getId(),
+                new MlaUpdateDTO(TEST_PREFIX + "MLA_COMISION", null, null, new BigDecimal("25")));
+
+        BigDecimal pvpNuevo = obtenerPvpActual();
+
+        assertNotEquals(pvpInicial, pvpNuevo,
+                "El PVP debe cambiar al modificar el porcentaje de comisión del MLA");
+        assertTrue(pvpNuevo.compareTo(pvpInicial) > 0,
+                "El PVP debe aumentar al aumentar el porcentaje de comisión");
     }
 }

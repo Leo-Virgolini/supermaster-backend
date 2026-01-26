@@ -93,6 +93,13 @@ public enum AplicaSobre {
     COMISION_SOBRE_PVP,
 
     /**
+     * Flag: usa mla.comisionPorcentaje como comisión sobre PVP.
+     * El concepto actúa como marcador, el valor real viene de mlas.comision_porcentaje.
+     * Se suma a COMISION_SOBRE_PVP y se aplica como divisor: PVP / (1 - %/100)
+     */
+    FLAG_COMISION_ML,
+
+    /**
      * Calcula el PVP basándose en el PVP del canal base (canalBase).
      * Si existe este concepto, se omite el cálculo normal y se usa:
      * PVP = PVP_CANAL_BASE × (1 + porcentaje/100)

@@ -20,6 +20,7 @@ import ar.com.leo.super_master_backend.dominio.origen.entity.Origen;
 import ar.com.leo.super_master_backend.dominio.origen.repository.OrigenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
+import ar.com.leo.super_master_backend.dominio.producto.dto.DescuentoAplicableDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.PrecioDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
@@ -34,6 +35,8 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatal
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
+import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
 import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
@@ -103,6 +106,7 @@ public class ExcelServiceImpl implements ExcelService {
     private final MaterialRepository materialRepository;
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoMargenRepository productoMargenRepository;
+    private final ReglaDescuentoRepository reglaDescuentoRepository;
     private final ProductoService productoService;
     private final RecalculoPrecioFacade recalculoPrecioFacade;
 
@@ -2729,6 +2733,33 @@ public class ExcelServiceImpl implements ExcelService {
 
         canalesCuotas.values().forEach(cuotas -> cuotas.sort(Integer::compareTo));
 
+        // Recolectar IDs de canales y mapear nombre normalizado -> canalId
+        Map<String, Integer> canalIdPorNombre = new LinkedHashMap<>();
+        for (ProductoConPreciosDTO producto : productos) {
+            if (producto.canales() != null) {
+                for (CanalPreciosDTO canalPrecios : producto.canales()) {
+                    String canalNombre = normalizarNombreCanal(canalPrecios.canalNombre());
+                    if (!canalIdPorNombre.containsKey(canalNombre) && canalPrecios.canalId() != null) {
+                        canalIdPorNombre.put(canalNombre, canalPrecios.canalId());
+                    }
+                }
+            }
+        }
+
+        // Obtener reglas de descuento por canal (desde la BD usando canalId)
+        // Mapa: canalNombre (normalizado) -> lista de reglas ordenadas por prioridad
+        Map<String, List<ReglaDescuento>> descuentosPorCanal = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> entry : canalIdPorNombre.entrySet()) {
+            String canalNombre = entry.getKey();
+            Integer canalId = entry.getValue();
+            List<ReglaDescuento> reglas = reglaDescuentoRepository
+                    .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
+            if (!reglas.isEmpty()) {
+                descuentosPorCanal.put(canalNombre, reglas);
+            }
+        }
+        log.info("Canales con descuentos: {}", descuentosPorCanal.keySet());
+
         // Obtener descripciones de cuotas desde canal_concepto_cuota
         // Mapa: "canalNombre_cuotas" -> descripcion
         Map<String, String> descripcionesCuotas = new HashMap<>();
@@ -2751,7 +2782,7 @@ public class ExcelServiceImpl implements ExcelService {
 
             // Headers fijos del producto
             String[] headersFijos = {
-                    "ID", "SKU", "MLA", "MLAU", "PRECIO_ENVIO", "COD_EXT", "DESCRIPCION", "TITULO_WEB",
+                    "ID", "SKU", "MLA", "MLAU", "PRECIO_ENVIO", "COMISION_ML", "COD_EXT", "DESCRIPCION", "TITULO_WEB",
                     "ES_COMBO", "ES_MAQUINA", "IMAGEN_URL", "STOCK", "ACTIVO", "MARCA", "ORIGEN",
                     "CLASIF_GRAL", "CLASIF_GASTRO", "TIPO", "PROVEEDOR", "MATERIAL", "UXB", "CAPACIDAD",
                     "LARGO", "ANCHO", "ALTO", "DIAMBOCA", "DIAMBASE", "ESPESOR", "COSTO",
@@ -2762,9 +2793,23 @@ public class ExcelServiceImpl implements ExcelService {
             // Índice donde termina FECHA_MODIFICACION (0-based): último header fijo
             int colPvpMax = headersFijos.length - 1;
 
-            // Calcular total de columnas
-            int totalColumnasDinamicas = canalesCuotas.values().stream()
-                    .mapToInt(list -> list.size() * CAMPOS_PRECIO.length).sum();
+            // Calcular columnas por canal (CAMPOS_PRECIO + 1 columna por cada descuento del canal)
+            // Mapa: canalNombre -> número de columnas por cuota
+            Map<String, Integer> columnasPorCuotaPorCanal = new LinkedHashMap<>();
+            for (String canalNombre : canalesCuotas.keySet()) {
+                int numDescuentos = descuentosPorCanal.containsKey(canalNombre)
+                        ? descuentosPorCanal.get(canalNombre).size()
+                        : 0;
+                columnasPorCuotaPorCanal.put(canalNombre, CAMPOS_PRECIO.length + numDescuentos);
+            }
+
+            // Calcular total de columnas dinámicas
+            int totalColumnasDinamicas = 0;
+            for (String canalNombre : canalesCuotas.keySet()) {
+                int cuotasCount = canalesCuotas.get(canalNombre).size();
+                int colsPorCuota = columnasPorCuotaPorCanal.get(canalNombre);
+                totalColumnasDinamicas += cuotasCount * colsPorCuota;
+            }
             int totalColumnas = headersFijos.length + totalColumnasDinamicas;
 
             // Crear estilos base
@@ -2778,6 +2823,10 @@ public class ExcelServiceImpl implements ExcelService {
             CellStyle precioStyleAlt = crearEstiloPrecioConFondo(workbook, colorFilaAlternada);
             CellStyle precioBordeStyle = crearEstiloPrecioBorde(workbook);
             CellStyle precioBordeStyleAlt = crearEstiloPrecioBordeConFondo(workbook, colorFilaAlternada);
+            CellStyle porcentajeStyle = crearEstiloPorcentaje(workbook);
+            CellStyle porcentajeStyleAlt = crearEstiloPorcentajeConFondo(workbook, colorFilaAlternada);
+            CellStyle porcentajeBordeStyle = crearEstiloPorcentajeBorde(workbook);
+            CellStyle porcentajeBordeStyleAlt = crearEstiloPorcentajeBordeConFondo(workbook, colorFilaAlternada);
 
             // Crear estilos por canal (con colores diferentes)
             List<String> nombresCanales = new ArrayList<>(canalesCuotas.keySet());
@@ -2814,7 +2863,8 @@ public class ExcelServiceImpl implements ExcelService {
             // Super headers por cada canal
             int superHeaderColIndex = headersFijos.length;
             for (String canalNombre : nombresCanales) {
-                int numColumnasCanal = canalesCuotas.get(canalNombre).size() * CAMPOS_PRECIO.length;
+                int colsPorCuota = columnasPorCuotaPorCanal.get(canalNombre);
+                int numColumnasCanal = canalesCuotas.get(canalNombre).size() * colsPorCuota;
                 int colInicio = superHeaderColIndex;
                 int colFin = superHeaderColIndex + numColumnasCanal - 1;
 
@@ -2851,6 +2901,7 @@ public class ExcelServiceImpl implements ExcelService {
             int cuotasColIndex = headersFijos.length;
             for (String canalNombre : nombresCanales) {
                 List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+                int colsPorCuotaCanal = columnasPorCuotaPorCanal.get(canalNombre);
 
                 for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
                     Integer cuotas = cuotasList.get(cuotaIndex);
@@ -2863,7 +2914,7 @@ public class ExcelServiceImpl implements ExcelService {
                     CellStyle estiloCuotaHeader = crearEstiloHeaderCentrado(workbook, colorCuota, false);
 
                     int colInicioCuota = cuotasColIndex;
-                    int colFinCuota = cuotasColIndex + CAMPOS_PRECIO.length - 1;
+                    int colFinCuota = cuotasColIndex + colsPorCuotaCanal - 1;
 
                     // Crear celda con descripción de cuotas
                     Cell cellCuota = cuotasHeaderRow.createCell(colInicioCuota);
@@ -2883,7 +2934,7 @@ public class ExcelServiceImpl implements ExcelService {
                     }
                     rangosCuotasFila1.add(rangoCuota);
 
-                    cuotasColIndex += CAMPOS_PRECIO.length;
+                    cuotasColIndex += colsPorCuotaCanal;
                 }
             }
 
@@ -2918,6 +2969,7 @@ public class ExcelServiceImpl implements ExcelService {
             List<CellRangeAddress> rangosCuotasFila2 = new ArrayList<>();
             for (String canalNombre : nombresCanales) {
                 List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+                List<ReglaDescuento> reglasCanal = descuentosPorCanal.get(canalNombre);
 
                 for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
                     Integer cuotas = cuotasList.get(cuotaIndex);
@@ -2928,10 +2980,24 @@ public class ExcelServiceImpl implements ExcelService {
 
                     int colInicioCuota = colIndex;
 
+                    // Columnas de precio base
                     for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                         Cell cell = headerRow.createCell(colIndex++);
                         cell.setCellValue(CAMPOS_PRECIO[i]);
                         cell.setCellStyle(estiloHeaderCuota);
+                    }
+
+                    // Columnas de descuento (solo si el canal tiene descuentos)
+                    if (reglasCanal != null) {
+                        for (ReglaDescuento regla : reglasCanal) {
+                            // Header formato: "MARGEN (>$montoMinimo -porcentaje%)"
+                            String headerDesc = String.format("MARGEN (>$%s -%s%%)",
+                                    regla.getMontoMinimo().stripTrailingZeros().toPlainString(),
+                                    regla.getDescuentoPorcentaje().stripTrailingZeros().toPlainString());
+                            Cell cellDesc = headerRow.createCell(colIndex++);
+                            cellDesc.setCellValue(headerDesc);
+                            cellDesc.setCellStyle(estiloHeaderCuota);
+                        }
                     }
 
                     int colFinCuota = colIndex - 1;
@@ -2963,6 +3029,7 @@ public class ExcelServiceImpl implements ExcelService {
                 // Seleccionar estilos según si es fila alternada
                 CellStyle currentDataStyle = esFilaAlternada ? dataStyleAlt : dataStyle;
                 CellStyle currentPrecioStyle = esFilaAlternada ? precioStyleAlt : precioStyle;
+                CellStyle currentPorcentajeStyleFijo = esFilaAlternada ? porcentajeStyleAlt : porcentajeStyle;
 
                 // Columnas fijas
                 setCellValue(row.createCell(cellIndex++), producto.id(), currentDataStyle);
@@ -2970,6 +3037,7 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.mla(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.mlau(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.precioEnvio(), currentPrecioStyle);
+                setCellValue(row.createCell(cellIndex++), producto.comisionPorcentaje(), currentPorcentajeStyleFijo);
                 setCellValue(row.createCell(cellIndex++), producto.codExt(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.descripcion(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.tituloWeb(), currentDataStyle);
@@ -2997,9 +3065,9 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.espesor(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.costo(), currentPrecioStyle);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), currentDataStyle, dtf);
-                setCellValue(row.createCell(cellIndex++), producto.iva(), currentDataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), currentDataStyle);
-                setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), currentDataStyle);
+                setCellValue(row.createCell(cellIndex++), producto.iva(), currentPorcentajeStyleFijo);
+                setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), currentPorcentajeStyleFijo);
+                setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), currentPorcentajeStyleFijo);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaCreacion(), currentDataStyle, dtf);
                 setCellValueDate(row.createCell(cellIndex++), producto.fechaModificacion(), currentDataStyle, dtf);
 
@@ -3020,16 +3088,21 @@ public class ExcelServiceImpl implements ExcelService {
 
                 for (String canalNombre : nombresCanales) {
                     List<Integer> cuotasList = canalesCuotas.get(canalNombre);
+                    List<ReglaDescuento> reglasCanal = descuentosPorCanal.get(canalNombre);
+                    int numDescuentosCanal = reglasCanal != null ? reglasCanal.size() : 0;
 
                     // Seleccionar estilos según si es fila alternada
                     CellStyle estiloData = esFilaAlternada ? estilosDataPorCanalAlt.get(canalNombre) : estilosDataPorCanal.get(canalNombre);
                     CellStyle estiloDataBorde = esFilaAlternada ? estilosDataBordePorCanalAlt.get(canalNombre) : estilosDataBordePorCanal.get(canalNombre);
                     CellStyle currentPrecioBordeStyle = esFilaAlternada ? precioBordeStyleAlt : precioBordeStyle;
+                    CellStyle currentPorcentajeStyle = esFilaAlternada ? porcentajeStyleAlt : porcentajeStyle;
+                    CellStyle currentPorcentajeBordeStyle = esFilaAlternada ? porcentajeBordeStyleAlt : porcentajeBordeStyle;
 
                     for (Integer cuotas : cuotasList) {
                         PrecioDTO precio = preciosPorCanal.getOrDefault(canalNombre, new HashMap<>())
                                 .get(cuotas);
 
+                        // Columnas de precio base
                         for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                             Cell cell = row.createCell(cellIndex++);
                             // Primera columna de CADA cuota usa borde grueso izquierdo
@@ -3037,6 +3110,8 @@ public class ExcelServiceImpl implements ExcelService {
                             CellStyle styleToUse = primerColumnDeCuota ? estiloDataBorde : estiloData;
                             // Usar estilo de precio para columnas de valores monetarios (0-5)
                             CellStyle stylePrecioToUse = primerColumnDeCuota ? currentPrecioBordeStyle : currentPrecioStyle;
+                            // Usar estilo de porcentaje para columnas 6-8
+                            CellStyle stylePorcentajeToUse = primerColumnDeCuota ? currentPorcentajeBordeStyle : currentPorcentajeStyle;
 
                             if (precio != null) {
                                 switch (i) {
@@ -3046,14 +3121,33 @@ public class ExcelServiceImpl implements ExcelService {
                                     case 3 -> setCellValue(cell, precio.costosVenta(), stylePrecioToUse);
                                     case 4 -> setCellValue(cell, precio.ingresoNetoVendedor(), stylePrecioToUse);
                                     case 5 -> setCellValue(cell, precio.ganancia(), stylePrecioToUse);
-                                    case 6 -> setCellValue(cell, precio.margenSobreIngresoNeto(), styleToUse);
-                                    case 7 -> setCellValue(cell, precio.margenSobrePvp(), styleToUse);
-                                    case 8 -> setCellValue(cell, precio.markupPorcentaje(), styleToUse);
+                                    case 6 -> setCellValue(cell, precio.margenSobreIngresoNeto(), stylePorcentajeToUse);
+                                    case 7 -> setCellValue(cell, precio.margenSobrePvp(), stylePorcentajeToUse);
+                                    case 8 -> setCellValue(cell, precio.markupPorcentaje(), stylePorcentajeToUse);
                                     case 9 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
                                 }
                             } else {
                                 cell.setBlank();
                                 cell.setCellStyle(styleToUse);
+                            }
+                        }
+
+                        // Columnas de descuentos (solo margenConDescuento, una por cada regla del canal)
+                        if (numDescuentosCanal > 0) {
+                            List<DescuentoAplicableDTO> descuentos = (precio != null && precio.descuentos() != null)
+                                    ? precio.descuentos()
+                                    : Collections.emptyList();
+
+                            for (int d = 0; d < numDescuentosCanal; d++) {
+                                DescuentoAplicableDTO descuento = d < descuentos.size() ? descuentos.get(d) : null;
+
+                                Cell cellDescMargen = row.createCell(cellIndex++);
+                                if (descuento != null) {
+                                    setCellValue(cellDescMargen, descuento.margenConDescuento(), currentPorcentajeStyle);
+                                } else {
+                                    cellDescMargen.setBlank();
+                                    cellDescMargen.setCellStyle(estiloData);
+                                }
                             }
                         }
                     }
@@ -3146,8 +3240,8 @@ public class ExcelServiceImpl implements ExcelService {
     }
 
     /**
-     * Crea un estilo para celdas de precio con formato de separador de miles.
-     * Formato: #,##0.00 (separador de miles)
+     * Crea un estilo para celdas de precio con formato de moneda.
+     * Formato: $#,##0.00
      */
     private CellStyle crearEstiloPrecio(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
@@ -3158,12 +3252,13 @@ public class ExcelServiceImpl implements ExcelService {
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         DataFormat format = workbook.createDataFormat();
-        style.setDataFormat(format.getFormat("#,##0.00"));
+        style.setDataFormat(format.getFormat("\"$\"#,##0.00"));
         return style;
     }
 
     /**
      * Crea un estilo para celdas de precio con borde grueso izquierdo.
+     * Formato: $#,##0.00
      */
     private CellStyle crearEstiloPrecioBorde(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
@@ -3174,7 +3269,41 @@ public class ExcelServiceImpl implements ExcelService {
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         DataFormat format = workbook.createDataFormat();
-        style.setDataFormat(format.getFormat("#,##0.00"));
+        style.setDataFormat(format.getFormat("\"$\"#,##0.00"));
+        return style;
+    }
+
+    /**
+     * Crea un estilo para celdas de porcentaje.
+     * Formato: 0.00%
+     */
+    private CellStyle crearEstiloPorcentaje(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("0.00\"%\""));
+        return style;
+    }
+
+    /**
+     * Crea un estilo para celdas de porcentaje con borde grueso izquierdo.
+     * Formato: 0.00%
+     */
+    private CellStyle crearEstiloPorcentajeBorde(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("0.00\"%\""));
         return style;
     }
 
@@ -3217,7 +3346,7 @@ public class ExcelServiceImpl implements ExcelService {
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         DataFormat format = workbook.createDataFormat();
-        style.setDataFormat(format.getFormat("#,##0.00"));
+        style.setDataFormat(format.getFormat("\"$\"#,##0.00"));
         return style;
     }
 
@@ -3232,7 +3361,37 @@ public class ExcelServiceImpl implements ExcelService {
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         DataFormat format = workbook.createDataFormat();
-        style.setDataFormat(format.getFormat("#,##0.00"));
+        style.setDataFormat(format.getFormat("\"$\"#,##0.00"));
+        return style;
+    }
+
+    private CellStyle crearEstiloPorcentajeConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("0.00\"%\""));
+        return style;
+    }
+
+    private CellStyle crearEstiloPorcentajeBordeConFondo(XSSFWorkbook workbook, short colorIndex) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(colorIndex);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THICK);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("0.00\"%\""));
         return style;
     }
 

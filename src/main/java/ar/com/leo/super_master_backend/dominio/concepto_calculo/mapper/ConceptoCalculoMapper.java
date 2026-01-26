@@ -43,12 +43,8 @@ public interface ConceptoCalculoMapper {
     @Named("stringToEnum")
     default AplicaSobre stringToEnum(String aplicaSobre) {
         if (aplicaSobre == null || aplicaSobre.isBlank()) {
-            return AplicaSobre.COMISION_SOBRE_PVP; // Valor por defecto
+            return null; // Será ignorado por GlobalMapperConfig en updates, o fallará validación en creates
         }
-        try {
-            return AplicaSobre.valueOf(aplicaSobre.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return AplicaSobre.COMISION_SOBRE_PVP; // Valor por defecto si no es válido
-        }
+        return AplicaSobre.valueOf(aplicaSobre.toUpperCase()); // Lanza IllegalArgumentException si es inválido
     }
 }

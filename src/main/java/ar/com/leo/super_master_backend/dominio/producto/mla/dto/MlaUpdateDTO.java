@@ -10,6 +10,8 @@ public record MlaUpdateDTO(
         @Size(max = 20, message = "El código MLAU no puede exceder 20 caracteres")
         String mlau,
         @PositiveOrZero(message = "El precio de envío debe ser mayor o igual a 0")
-        BigDecimal precioEnvio
+        BigDecimal precioEnvio,
+        @PositiveOrZero(message = "El porcentaje de comisión debe ser mayor o igual a 0")
+        BigDecimal comisionPorcentaje
 ) {
 }
