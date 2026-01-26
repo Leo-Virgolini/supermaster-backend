@@ -1820,6 +1820,10 @@ GET /api/excel/exportar-precios?formato=nube&cuotas=0
 | Nombre hoja | "Nube" |
 | Validaciones | Excluye productos con pvp <= 0 o pvpInflado <= 0 |
 
+**Importante - Prioridad de parámetros:**
+- Si se pasa `formato=mercadolibre` o `formato=nube`, el parámetro `canalId` es **ignorado**. Siempre se usa el canal hardcodeado (ML o KT HOGAR respectivamente).
+- El parámetro `canalId` solo aplica cuando `formato=completo` (o no se especifica formato).
+
 #### Exportar catálogo a Excel
 ```http
 GET /api/excel/exportar-catalogo?catalogoId=4&canalId=1&cuotas=0
