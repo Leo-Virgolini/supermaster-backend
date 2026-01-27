@@ -1344,11 +1344,15 @@ DELETE /api/productos/{id}
 #### Filtrar productos (con parámetros)
 ```http
 GET /api/productos?search=texto&marcaId=1&activo=true
+GET /api/productos?sku=ABC123&sort=descripcion,asc
+GET /api/productos?tieneMla=true&comisionPorcentajeMin=5
 ```
-**Query params:** `search`, `page`, `size`, `sort` + filtros básicos (marcaId, tipoId, etc.)
+**Query params:** Todos los de `ProductoFilter` + `page`, `size`, `sort`
 **Response:** `PageResponse<Producto>`
 
-**Nota:** Para filtros avanzados con precios, usar `/api/precios` que soporta todos los parámetros de `ProductoFilter`.
+**Ordenamiento:** Solo campos JPA de la entidad Producto (`id`, `sku`, `codExt`, `descripcion`, `tituloWeb`, `costo`, `iva`, `stock`, `uxb`, `activo`, `esCombo`, `fechaCreacion`, `fechaModificacion`, `fechaUltCosto`).
+
+**Nota:** Para ordenamiento especial (campos MLA, precios calculados, esMaquina), usar `/api/precios`.
 
 ---
 
@@ -1453,10 +1457,17 @@ GET /api/precios
 **Query params:** Todos los de `ProductoFilter` + `page`, `size`, `sort`
 **Response:** `PageResponse<ProductoConPrecios>`
 
+**Ordenamiento:** Soporta campos JPA + campos especiales:
+- **JPA:** `id`, `sku`, `codExt`, `descripcion`, `tituloWeb`, `costo`, `iva`, `stock`, etc.
+- **MLA:** `mla`, `mlau`, `comisionPorcentaje`, `precioEnvio`
+- **Relaciones:** `esMaquina`
+- **Precios:** `pvp`, `pvpInflado`, `costoProducto`, `costosVenta`, `ganancia`, `margenSobreIngreso`, `margenSobrePvp`, `markup`
+
 **Ejemplo con filtros:**
 ```
 GET /api/precios?search=bol&marcaId=5&costoMin=100&costoMax=500&canalIds=1,2&page=0&size=20
-GET /api/precios?canalId=1&cuotas=0
+GET /api/precios?canalId=1&cuotas=0&sort=pvp,desc
+GET /api/precios?sku=ABC123&sort=ganancia,desc
 ```
 
 **Ejemplo respuesta con descuentos:**
@@ -2611,8 +2622,8 @@ interface ProductoResumenDTO {
    GET /api/precios?sort=ganancia,desc                       # MAX ganancia de todos los canales
    GET /api/precios?sort=pvp,asc&canalId=1                   # PVP del canal 1
    GET /api/precios?sort=margenSobrePvp,desc&canalId=2&cuotas=0  # Margen del canal 2, contado
-   GET /api/precios?sort=mla,desc
-   GET /api/precios?sort=costo,asc
+   GET /api/precios?sort=mla,desc                            # Por código MLA
+   GET /api/precios?sort=comisionPorcentaje,asc              # Por comisión ML
    ```
 
 4. **Fechas:** Enviar en formato ISO:
