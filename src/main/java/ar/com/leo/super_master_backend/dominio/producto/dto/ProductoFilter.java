@@ -9,8 +9,14 @@ public record ProductoFilter(
         // 0) FILTRO POR ID
         Integer productoId,
 
-        // 1) BÚSQUEDA POR TEXTO
+        // 1) BÚSQUEDA POR TEXTO (parcial en múltiples campos)
         String search,
+
+        // 1.1) FILTROS DE TEXTO DEDICADOS (exacto, case insensitive)
+        String sku,
+        String codExt,
+        String descripcion,
+        String tituloWeb,
 
         // 2) BOOLEANOS / NUMÉRICOS
         Boolean esCombo,
@@ -18,6 +24,16 @@ public record ProductoFilter(
         Boolean esMaquina,
         Boolean tieneMla,
         Boolean activo,
+
+        // 2.1) FILTROS MLA
+        String mla,                     // código MLA exacto (case insensitive)
+        String mlau,                    // código MLAU exacto (case insensitive)
+        BigDecimal precioEnvioMin,      // precio envío mínimo
+        BigDecimal precioEnvioMax,      // precio envío máximo
+        BigDecimal comisionPorcentajeMin, // comisión % mínima
+        BigDecimal comisionPorcentajeMax, // comisión % máxima
+        Boolean tieneComision,          // tiene comisionPorcentaje != null
+        Boolean tienePrecioEnvio,       // tiene precioEnvio != null
 
         // 3) MANY-TO-ONE
         Integer marcaId,

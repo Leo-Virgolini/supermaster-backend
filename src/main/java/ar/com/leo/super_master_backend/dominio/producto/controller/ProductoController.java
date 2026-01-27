@@ -38,6 +38,14 @@ public class ProductoController {
             @RequestParam(required = false) String search,
 
             // =======================
+            // 1.1) FILTROS DE TEXTO DEDICADOS
+            // =======================
+            @RequestParam(required = false) String sku,
+            @RequestParam(required = false) String codExt,
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) String tituloWeb,
+
+            // =======================
             // 2) BOOLEANOS / NUMÉRICOS
             // =======================
             @RequestParam(required = false) Boolean esCombo,
@@ -45,6 +53,18 @@ public class ProductoController {
             @RequestParam(required = false) Boolean esMaquina,
             @RequestParam(required = false) Boolean tieneMla,
             @RequestParam(required = false) Boolean activo,
+
+            // =======================
+            // 2.1) FILTROS MLA
+            // =======================
+            @RequestParam(required = false) String mla,
+            @RequestParam(required = false) String mlau,
+            @RequestParam(required = false) BigDecimal precioEnvioMin,
+            @RequestParam(required = false) BigDecimal precioEnvioMax,
+            @RequestParam(required = false) BigDecimal comisionPorcentajeMin,
+            @RequestParam(required = false) BigDecimal comisionPorcentajeMax,
+            @RequestParam(required = false) Boolean tieneComision,
+            @RequestParam(required = false) Boolean tienePrecioEnvio,
 
             // =======================
             // 3) MANY-TO-ONE
@@ -101,11 +121,27 @@ public class ProductoController {
         ProductoFilter filter = new ProductoFilter(
                 null,  // productoId
                 search,
+                // Filtros de texto dedicados
+                sku,
+                codExt,
+                descripcion,
+                tituloWeb,
+                // Booleanos/Numéricos
                 esCombo,
                 uxb,
                 esMaquina,
                 tieneMla,
                 activo,
+                // Filtros MLA
+                mla,
+                mlau,
+                precioEnvioMin,
+                precioEnvioMax,
+                comisionPorcentajeMin,
+                comisionPorcentajeMax,
+                tieneComision,
+                tienePrecioEnvio,
+                // Many-to-One
                 marcaId,
                 origenId,
                 tipoId,

@@ -662,8 +662,14 @@ interface ProductoFilter {
   // Filtro por ID
   productoId?: number;
 
-  // Búsqueda por texto (SKU, descripción, título)
+  // Búsqueda por texto (parcial en SKU, codExt, descripción, títuloWeb, MLA, MLAU)
   search?: string;
+
+  // Filtros de texto dedicados (exacto para sku/codExt, parcial para descripcion/tituloWeb)
+  sku?: string;          // SKU exacto (case insensitive)
+  codExt?: string;       // Código externo exacto (case insensitive)
+  descripcion?: string;  // Descripción parcial (case insensitive)
+  tituloWeb?: string;    // Título web parcial (case insensitive)
 
   // Booleanos / Numéricos
   esCombo?: boolean;
@@ -671,6 +677,16 @@ interface ProductoFilter {
   esMaquina?: boolean;
   tieneMla?: boolean;
   activo?: boolean;
+
+  // Filtros MLA (requieren que el producto tenga MLA asignado)
+  mla?: string;                     // Código MLA exacto (case insensitive)
+  mlau?: string;                    // Código MLAU exacto (case insensitive)
+  precioEnvioMin?: number;          // Precio de envío mínimo
+  precioEnvioMax?: number;          // Precio de envío máximo
+  comisionPorcentajeMin?: number;   // Comisión porcentaje mínima
+  comisionPorcentajeMax?: number;   // Comisión porcentaje máxima
+  tieneComision?: boolean;          // true = tiene comisionPorcentaje != null
+  tienePrecioEnvio?: boolean;       // true = tiene precioEnvio != null
 
   // Many-to-One (IDs)
   marcaId?: number;
@@ -2587,7 +2603,9 @@ interface ProductoResumenDTO {
    - `ingresoNetoVendedor`, `ganancia`
    - `margenSobreIngreso`, `margenSobrePvp`, `markup`
 
-   **Otros campos:** `mla`, `esMaquina`, `costo`
+   **Campos MLA:** `mla`, `mlau`, `comisionPorcentaje`, `precioEnvio`
+
+   **Campos de relaciones:** `esMaquina`
 
    ```
    GET /api/precios?sort=ganancia,desc                       # MAX ganancia de todos los canales

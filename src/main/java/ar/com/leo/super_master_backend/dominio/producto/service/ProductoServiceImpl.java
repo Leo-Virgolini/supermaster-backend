@@ -151,6 +151,14 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.textoLike(filter.search()),
 
                 // =======================
+                // 1.1) FILTROS DE TEXTO DEDICADOS
+                // =======================
+                ProductoSpecifications.sku(filter.sku()),
+                ProductoSpecifications.codExt(filter.codExt()),
+                ProductoSpecifications.descripcion(filter.descripcion()),
+                ProductoSpecifications.tituloWeb(filter.tituloWeb()),
+
+                // =======================
                 // 2) BOOLEANOS / NÚMEROS
                 // =======================
                 ProductoSpecifications.esCombo(filter.esCombo()),
@@ -158,6 +166,18 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+
+                // =======================
+                // 2.1) FILTROS MLA
+                // =======================
+                ProductoSpecifications.mla(filter.mla()),
+                ProductoSpecifications.mlau(filter.mlau()),
+                ProductoSpecifications.precioEnvioMin(filter.precioEnvioMin()),
+                ProductoSpecifications.precioEnvioMax(filter.precioEnvioMax()),
+                ProductoSpecifications.comisionPorcentajeMin(filter.comisionPorcentajeMin()),
+                ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
+                ProductoSpecifications.tieneComision(filter.tieneComision()),
+                ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
 
                 // =======================
                 // 3) MANY-TO-ONE
@@ -224,12 +244,26 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.productoId(filter.productoId()),
                 // Texto
                 ProductoSpecifications.textoLike(filter.search()),
+                // Filtros de texto dedicados
+                ProductoSpecifications.sku(filter.sku()),
+                ProductoSpecifications.codExt(filter.codExt()),
+                ProductoSpecifications.descripcion(filter.descripcion()),
+                ProductoSpecifications.tituloWeb(filter.tituloWeb()),
                 // Booleanos/Numéricos
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+                // Filtros MLA
+                ProductoSpecifications.mla(filter.mla()),
+                ProductoSpecifications.mlau(filter.mlau()),
+                ProductoSpecifications.precioEnvioMin(filter.precioEnvioMin()),
+                ProductoSpecifications.precioEnvioMax(filter.precioEnvioMax()),
+                ProductoSpecifications.comisionPorcentajeMin(filter.comisionPorcentajeMin()),
+                ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
+                ProductoSpecifications.tieneComision(filter.tieneComision()),
+                ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
                 // Many-to-One
                 ProductoSpecifications.marcaId(filter.marcaId()),
                 ProductoSpecifications.origenId(filter.origenId()),
@@ -369,9 +403,13 @@ public class ProductoServiceImpl implements ProductoService {
      * Lista de campos que requieren ordenamiento especial (en memoria).
      */
     private static final Set<String> CAMPOS_SORT_ESPECIAL = Set.of(
+            // Campos de precios calculados
             "pvp", "pvpinflado", "costoproducto", "costosventa", "ingresonetovendedor",
             "ganancia", "margensobreingreso", "margensobrepvp", "markup",
-            "mla", "esmaquina", "costo"
+            // Campos de MLA
+            "mla", "mlau", "comisionporcentaje", "precioenvio",
+            // Campos de relaciones
+            "esmaquina"
     );
 
     /**
@@ -413,18 +451,29 @@ public class ProductoServiceImpl implements ProductoService {
             Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto) {
 
         return switch (sortBy.toLowerCase()) {
-            case "costo" -> Comparator.comparing(
-                    ProductoConPreciosDTO::costo,
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
+            // Campos de MLA
             case "mla" -> Comparator.comparing(
                     ProductoConPreciosDTO::mla,
                     Comparator.nullsLast(Comparator.naturalOrder())
             );
+            case "mlau" -> Comparator.comparing(
+                    ProductoConPreciosDTO::mlau,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "comisionporcentaje" -> Comparator.comparing(
+                    ProductoConPreciosDTO::comisionPorcentaje,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "precioenvio" -> Comparator.comparing(
+                    ProductoConPreciosDTO::precioEnvio,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            // Campos de relaciones
             case "esmaquina" -> Comparator.comparing(
                     ProductoConPreciosDTO::esMaquina,
                     Comparator.nullsLast(Comparator.naturalOrder())
             );
+            // Campos de precios calculados
             case "pvp" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getPvp);
             case "pvpinflado" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getPvpInflado);
             case "costoproducto" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getCostoProducto);
@@ -492,11 +541,27 @@ public class ProductoServiceImpl implements ProductoService {
         Specification<Producto> spec = Specification.allOf(
                 ProductoSpecifications.productoId(filter.productoId()),
                 ProductoSpecifications.textoLike(filter.search()),
+                // Filtros de texto dedicados
+                ProductoSpecifications.sku(filter.sku()),
+                ProductoSpecifications.codExt(filter.codExt()),
+                ProductoSpecifications.descripcion(filter.descripcion()),
+                ProductoSpecifications.tituloWeb(filter.tituloWeb()),
+                // Booleanos/Numéricos
                 ProductoSpecifications.esCombo(filter.esCombo()),
                 ProductoSpecifications.uxb(filter.uxb()),
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+                // Filtros MLA
+                ProductoSpecifications.mla(filter.mla()),
+                ProductoSpecifications.mlau(filter.mlau()),
+                ProductoSpecifications.precioEnvioMin(filter.precioEnvioMin()),
+                ProductoSpecifications.precioEnvioMax(filter.precioEnvioMax()),
+                ProductoSpecifications.comisionPorcentajeMin(filter.comisionPorcentajeMin()),
+                ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
+                ProductoSpecifications.tieneComision(filter.tieneComision()),
+                ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
+                // Many-to-One
                 ProductoSpecifications.marcaId(filter.marcaId()),
                 ProductoSpecifications.origenId(filter.origenId()),
                 ProductoSpecifications.tipoId(filter.tipoId()),

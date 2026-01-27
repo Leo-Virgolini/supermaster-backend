@@ -46,6 +46,37 @@ public class ProductoSpecifications {
         };
     }
 
+    /* ==========================================================
+       1.1) FILTROS DE TEXTO DEDICADOS (exacto, case insensitive)
+       ========================================================== */
+    public static Specification<Producto> sku(String sku) {
+        return (root, query, cb) -> {
+            if (sku == null || sku.isBlank()) return null;
+            return cb.equal(cb.lower(root.get("sku")), sku.toLowerCase());
+        };
+    }
+
+    public static Specification<Producto> codExt(String codExt) {
+        return (root, query, cb) -> {
+            if (codExt == null || codExt.isBlank()) return null;
+            return cb.equal(cb.lower(root.get("codExt")), codExt.toLowerCase());
+        };
+    }
+
+    public static Specification<Producto> descripcion(String descripcion) {
+        return (root, query, cb) -> {
+            if (descripcion == null || descripcion.isBlank()) return null;
+            return cb.like(cb.lower(root.get("descripcion")), "%" + descripcion.toLowerCase() + "%");
+        };
+    }
+
+    public static Specification<Producto> tituloWeb(String tituloWeb) {
+        return (root, query, cb) -> {
+            if (tituloWeb == null || tituloWeb.isBlank()) return null;
+            return cb.like(cb.lower(root.get("tituloWeb")), "%" + tituloWeb.toLowerCase() + "%");
+        };
+    }
+
     /* ================================
        2) FILTROS BOOLEANOS Y NUMÉRICOS
        ================================ */
@@ -340,6 +371,112 @@ public class ProductoSpecifications {
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /* ============================================
+       8) FILTROS MLA: mla, mlau, precioEnvio, comisionPorcentaje
+       ============================================ */
+
+    /**
+     * Filtra por código MLA exacto (case insensitive).
+     */
+    public static Specification<Producto> mla(String mla) {
+        return (root, query, cb) -> {
+            if (mla == null || mla.isBlank()) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.equal(cb.lower(mlaJoin.get("mla")), mla.toLowerCase());
+        };
+    }
+
+    /**
+     * Filtra por código MLAU exacto (case insensitive).
+     */
+    public static Specification<Producto> mlau(String mlau) {
+        return (root, query, cb) -> {
+            if (mlau == null || mlau.isBlank()) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.equal(cb.lower(mlaJoin.get("mlau")), mlau.toLowerCase());
+        };
+    }
+
+    /**
+     * Filtra por precio de envío mínimo.
+     */
+    public static Specification<Producto> precioEnvioMin(BigDecimal min) {
+        return (root, query, cb) -> {
+            if (min == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.ge(mlaJoin.get("precioEnvio"), min);
+        };
+    }
+
+    /**
+     * Filtra por precio de envío máximo.
+     */
+    public static Specification<Producto> precioEnvioMax(BigDecimal max) {
+        return (root, query, cb) -> {
+            if (max == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.le(mlaJoin.get("precioEnvio"), max);
+        };
+    }
+
+    /**
+     * Filtra por comisión porcentaje mínima.
+     */
+    public static Specification<Producto> comisionPorcentajeMin(BigDecimal min) {
+        return (root, query, cb) -> {
+            if (min == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.ge(mlaJoin.get("comisionPorcentaje"), min);
+        };
+    }
+
+    /**
+     * Filtra por comisión porcentaje máxima.
+     */
+    public static Specification<Producto> comisionPorcentajeMax(BigDecimal max) {
+        return (root, query, cb) -> {
+            if (max == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.INNER);
+            return cb.le(mlaJoin.get("comisionPorcentaje"), max);
+        };
+    }
+
+    /**
+     * Filtra productos que tienen o no tienen comisionPorcentaje.
+     */
+    public static Specification<Producto> tieneComision(Boolean tieneComision) {
+        return (root, query, cb) -> {
+            if (tieneComision == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.LEFT);
+            if (tieneComision) {
+                return cb.isNotNull(mlaJoin.get("comisionPorcentaje"));
+            } else {
+                return cb.or(
+                        cb.isNull(root.get("mla")),
+                        cb.isNull(mlaJoin.get("comisionPorcentaje"))
+                );
+            }
+        };
+    }
+
+    /**
+     * Filtra productos que tienen o no tienen precioEnvio.
+     */
+    public static Specification<Producto> tienePrecioEnvio(Boolean tienePrecioEnvio) {
+        return (root, query, cb) -> {
+            if (tienePrecioEnvio == null) return null;
+            Join<Producto, ?> mlaJoin = root.join("mla", JoinType.LEFT);
+            if (tienePrecioEnvio) {
+                return cb.isNotNull(mlaJoin.get("precioEnvio"));
+            } else {
+                return cb.or(
+                        cb.isNull(root.get("mla")),
+                        cb.isNull(mlaJoin.get("precioEnvio"))
+                );
+            }
         };
     }
 
