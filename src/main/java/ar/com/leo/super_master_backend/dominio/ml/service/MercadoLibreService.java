@@ -2,13 +2,14 @@ package ar.com.leo.super_master_backend.dominio.ml.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.ml.HttpRetryHandler;
+import ar.com.leo.super_master_backend.dominio.common.exception.ServiceNotConfiguredException;
+import ar.com.leo.super_master_backend.dominio.ml.RestClientRetryHandler;
+import ar.com.leo.super_master_backend.dominio.ml.config.MercadoLibreProperties;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaMasivoResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
 import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
-import org.springframework.scheduling.annotation.Async;
 import ar.com.leo.super_master_backend.dominio.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.dominio.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.dominio.ml.model.Producto;
@@ -21,29 +22,25 @@ import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaReposi
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 @Slf4j
 @Service
@@ -59,7 +56,8 @@ public class MercadoLibreService {
     private final ConfiguracionMlService configuracionMlService;
     private final CalculoPrecioService calculoPrecioService;
     private final RecalculoPrecioFacade recalculoPrecioFacade;
-    private final HttpClient httpClient;
+    private final RestClient restClient;
+    private final MercadoLibreProperties properties;
     private final Object tokenLock = new Object();
 
     // Control de ejecución masiva - Costo de Envío
@@ -80,16 +78,11 @@ public class MercadoLibreService {
 
     // Auto-inyección para que las llamadas internas pasen por el proxy de Spring
     // y respeten @Transactional
-    @org.springframework.context.annotation.Lazy
-    @org.springframework.beans.factory.annotation.Autowired
+    @Lazy
+    @Autowired
     private MercadoLibreService self;
 
-    @Value("${mercadolibre.secrets-dir}")
-    private String secretsDir;
-
-    private Path credentialsFile;
-    private Path tokenFile;
-    private HttpRetryHandler retryHandler;
+    private RestClientRetryHandler retryHandler;
     private MLCredentials credentials;
     private TokensML tokens;
     private String cachedUserId;
@@ -100,7 +93,9 @@ public class MercadoLibreService {
                                CanalRepository canalRepository,
                                ConfiguracionMlService configuracionMlService,
                                CalculoPrecioService calculoPrecioService,
-                               RecalculoPrecioFacade recalculoPrecioFacade) {
+                               RecalculoPrecioFacade recalculoPrecioFacade,
+                               RestClient mercadoLibreRestClient,
+                               MercadoLibreProperties properties) {
         this.objectMapper = objectMapper;
         this.mlaRepository = mlaRepository;
         this.productoRepository = productoRepository;
@@ -108,15 +103,18 @@ public class MercadoLibreService {
         this.configuracionMlService = configuracionMlService;
         this.calculoPrecioService = calculoPrecioService;
         this.recalculoPrecioFacade = recalculoPrecioFacade;
-        this.httpClient = HttpClient.newHttpClient();
+        this.restClient = mercadoLibreRestClient;
+        this.properties = properties;
     }
 
     @PostConstruct
     public void init() {
-        Path baseDir = Paths.get(secretsDir);
-        this.credentialsFile = baseDir.resolve("ml_credentials.json");
-        this.tokenFile = baseDir.resolve("ml_tokens.json");
-        this.retryHandler = new HttpRetryHandler(httpClient, 2000L, this::verificarTokens);
+        this.retryHandler = new RestClientRetryHandler(
+                restClient,
+                properties.retryBaseWaitMs(),
+                properties.rateLimitPerSecond(),
+                this::verificarTokens
+        );
         cargarCredentials();
         cargarTokens();
     }
@@ -341,36 +339,25 @@ public class MercadoLibreService {
         BigDecimal precio = BigDecimal.valueOf(productoMl.price).setScale(2, RoundingMode.HALF_UP);
 
         // Consultar API de costos de venta
-        String url = String.format(
-                "https://api.mercadolibre.com/sites/%s/listing_prices?" +
-                        "category_id=%s" +
-                        "&price=%s" +
-                        "&currency_id=%s" +
-                        "&logistic_type=%s",
+        String uri = String.format(
+                "/sites/%s/listing_prices?category_id=%s&price=%s&currency_id=%s&logistic_type=%s",
                 productoMl.siteId,
                 productoMl.categoryId,
                 productoMl.price,
                 "ARS",
                 productoMl.shipping.logisticType);
 
-        Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + tokens.accessToken)
-                .GET()
-                .build();
+        String responseBody = retryHandler.get(uri, tokens.accessToken);
 
-        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
-
-        if (response == null || response.statusCode() != 200) {
-            log.warn("ML - Error al obtener costos de venta para MLA {}: {}",
-                    mlaCode, response != null ? response.body() : "null");
+        if (responseBody == null) {
+            log.warn("ML - Error al obtener costos de venta para MLA {}", mlaCode);
             return new CostoVentaResponseDTO(mlaCode, status, precio, null, null, null, null, null,
                     productoMl.listingTypeId, null, "Error al consultar costos de venta");
         }
 
         try {
-            JsonNode json = objectMapper.readTree(response.body());
-            log.info("ML - Costos de venta para MLA {}: {}", mlaCode, response.body());
+            JsonNode json = objectMapper.readTree(responseBody);
+            log.info("ML - Costos de venta para MLA {}: {}", mlaCode, responseBody);
 
             // Buscar el listing_type correspondiente
             BigDecimal comisionVentaTotal = BigDecimal.ZERO;
@@ -839,37 +826,21 @@ public class MercadoLibreService {
         final String condition = producto.condition;
         final String logisticType = producto.shipping.logisticType;
         final String zipCode = producto.sellerAddress.zipCode;
-        final boolean verbose = true;
 
-        final String url = String.format(
-                "https://api.mercadolibre.com/users/%s/shipping_options/free?" +
-                        "item_id=%s" +
-                        "&item_price=%s" +
-                        "&listing_type_id=%s" +
-                        "&mode=%s" +
-                        "&condition=%s" +
-                        "&logistic_type=%s" +
-                        "&zip_code=%s" +
-                        "&verbose=%s",
-                userId, itemId, itemPrice, listingType, mode, condition, logisticType, zipCode, verbose);
+        final String uri = String.format(
+                "/users/%s/shipping_options/free?item_id=%s&item_price=%s&listing_type_id=%s&mode=%s&condition=%s&logistic_type=%s&zip_code=%s&verbose=true",
+                userId, itemId, itemPrice, listingType, mode, condition, logisticType, zipCode);
 
-        final Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + tokens.accessToken)
-                .GET()
-                .build();
+        String responseBody = retryHandler.get(uri, tokens.accessToken);
 
-        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
-
-        if (response == null || response.statusCode() != 200) {
-            log.warn("ML - Error al obtener el costo de envío del producto {}: {}",
-                    itemId, response != null ? response.body() : "null");
+        if (responseBody == null) {
+            log.warn("ML - Error al obtener el costo de envío del producto {}", itemId);
             return BigDecimal.ZERO;
         }
 
         try {
-            JsonNode json = objectMapper.readTree(response.body());
-            log.info("ML - API Response para precio {}: {}", itemPrice, response.body());
+            JsonNode json = objectMapper.readTree(responseBody);
+            log.info("ML - API Response para precio {}: {}", itemPrice, responseBody);
             double cost = json.path("coverage").path("all_country").path("list_cost").asDouble(0);
             return BigDecimal.valueOf(cost);
         } catch (Exception e) {
@@ -884,26 +855,10 @@ public class MercadoLibreService {
     public Producto getItemByMLA(String itemId) {
         verificarTokens();
 
-        final String url = "https://api.mercadolibre.com/items/" + itemId;
-
-        final Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + tokens.accessToken)
-                .GET()
-                .build();
-
-        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
-
-        if (response == null || response.statusCode() != 200) {
-            log.warn("ML - No se pudo obtener item {}: {}",
-                    itemId, response != null ? response.body() : "null");
-            return null;
-        }
-
         try {
-            return objectMapper.readValue(response.body(), Producto.class);
+            return retryHandler.get("/items/" + itemId, tokens.accessToken, Producto.class);
         } catch (Exception e) {
-            log.error("Error parseando producto de ML", e);
+            log.warn("ML - No se pudo obtener item {}: {}", itemId, e.getMessage());
             return null;
         }
     }
@@ -919,23 +874,14 @@ public class MercadoLibreService {
 
         verificarTokens();
 
-        final String url = "https://api.mercadolibre.com/users/me";
+        String responseBody = retryHandler.get("/users/me", tokens.accessToken);
 
-        final Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Bearer " + tokens.accessToken)
-                .GET()
-                .build();
-
-        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
-
-        if (response == null || response.statusCode() != 200) {
-            throw new IOException("Error al obtener el user ID de ML: " +
-                    (response != null ? response.body() : "null"));
+        if (responseBody == null) {
+            throw new IOException("Error al obtener el user ID de ML");
         }
 
         try {
-            cachedUserId = objectMapper.readTree(response.body()).get("id").asString();
+            cachedUserId = objectMapper.readTree(responseBody).get("id").asString();
             return cachedUserId;
         } catch (Exception e) {
             throw new IOException("Error parseando userId de ML", e);
@@ -946,7 +892,7 @@ public class MercadoLibreService {
 
     private void cargarCredentials() {
         try {
-            File credFile = credentialsFile.toFile();
+            File credFile = properties.getCredentialsFile().toFile();
             if (credFile.exists()) {
                 credentials = objectMapper.readValue(credFile, MLCredentials.class);
                 log.info("ML - Credenciales cargadas desde {}", credFile.getAbsolutePath());
@@ -965,8 +911,8 @@ public class MercadoLibreService {
             log.warn("ML - Tokens no inicializados. Intentando cargar...");
             cargarTokens();
             if (tokens == null) {
-                throw new IllegalStateException("ML - No hay tokens disponibles. " +
-                        "Genera los tokens manualmente primero.");
+                throw new ServiceNotConfiguredException("MercadoLibre",
+                        "No hay tokens disponibles. Debe generar los tokens de autenticación primero.");
             }
             return;
         }
@@ -980,6 +926,12 @@ public class MercadoLibreService {
                 return;
             }
 
+            if (credentials == null) {
+                throw new ServiceNotConfiguredException("MercadoLibre",
+                        "No hay credenciales configuradas para renovar el token expirado. " +
+                        "Verifique el archivo ml_credentials.json");
+            }
+
             log.info("ML - Access token expirado, renovando...");
             try {
                 tokens = refreshAccessToken(tokens.refreshToken);
@@ -990,14 +942,16 @@ public class MercadoLibreService {
                 log.info("ML - Token renovado correctamente.");
             } catch (Exception e) {
                 log.error("ML - Error al renovar token", e);
-                throw new RuntimeException("No se pudo renovar el token de ML", e);
+                throw new ServiceNotConfiguredException("MercadoLibre",
+                        "Error al renovar el token: " + e.getMessage() + ". " +
+                        "Es posible que el refresh_token haya expirado y necesite re-autenticarse.");
             }
         }
     }
 
     private void cargarTokens() {
         try {
-            File file = tokenFile.toFile();
+            File file = properties.getTokenFile().toFile();
             if (file.exists()) {
                 tokens = objectMapper.readValue(file, TokensML.class);
                 log.info("ML - Tokens cargados desde {}", file.getAbsolutePath());
@@ -1011,7 +965,7 @@ public class MercadoLibreService {
 
     private void guardarTokens(TokensML tokens) {
         try {
-            File file = tokenFile.toFile();
+            File file = properties.getTokenFile().toFile();
             file.getParentFile().mkdirs();
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, tokens);
             log.info("ML - Tokens guardados en {}", file.getAbsolutePath());
@@ -1022,27 +976,23 @@ public class MercadoLibreService {
 
     private TokensML refreshAccessToken(String refreshToken) {
         if (credentials == null) {
-            throw new IllegalStateException("ML - No hay credenciales configuradas para renovar el token");
+            throw new ServiceNotConfiguredException("MercadoLibre",
+                    "No hay credenciales configuradas para renovar el token. " +
+                    "Verifique el archivo ml_credentials.json");
         }
 
-        Supplier<HttpRequest> requestBuilder = () -> HttpRequest.newBuilder()
-                .uri(URI.create("https://api.mercadolibre.com/oauth/token"))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(
-                        "grant_type=refresh_token" +
-                                "&client_id=" + credentials.clientId +
-                                "&client_secret=" + credentials.clientSecret +
-                                "&refresh_token=" + refreshToken))
-                .build();
+        String formBody = String.format(
+                "grant_type=refresh_token&client_id=%s&client_secret=%s&refresh_token=%s",
+                credentials.clientId, credentials.clientSecret, refreshToken);
 
-        HttpResponse<String> response = retryHandler.sendWithRetry(requestBuilder);
-        if (response == null || response.statusCode() != 200) {
-            throw new RuntimeException("Error al refrescar access_token: " +
-                    (response != null ? response.body() : "null"));
+        String responseBody = retryHandler.postForm("/oauth/token", formBody);
+
+        if (responseBody == null) {
+            throw new RuntimeException("Error al refrescar access_token");
         }
 
         try {
-            TokensML newTokens = objectMapper.readValue(response.body(), TokensML.class);
+            TokensML newTokens = objectMapper.readValue(responseBody, TokensML.class);
             newTokens.issuedAt = System.currentTimeMillis();
             return newTokens;
         } catch (Exception e) {

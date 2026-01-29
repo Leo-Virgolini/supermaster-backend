@@ -37,6 +37,14 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ex.getMessage(), request.getDescription(false)));
     }
 
+    @ExceptionHandler(ServiceNotConfiguredException.class)
+    public ResponseEntity<ErrorResponse> handleServiceNotConfigured(ServiceNotConfiguredException ex, WebRequest request) {
+        String mensaje = String.format("[%s] %s", ex.getServicio(), ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of(mensaje, request.getDescription(false)));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
         String mensaje = "Error de integridad de datos";

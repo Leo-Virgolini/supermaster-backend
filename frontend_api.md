@@ -23,6 +23,8 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Atributos Maestros](#atributos-maestros)
    - [Excel](#excel-importexport)
    - [MercadoLibre (ML)](#mercadolibre-ml)
+   - [DUX ERP](#dux-erp)
+   - [Configuración Automatización](#configuración-automatización)
 
 ---
 
@@ -1112,6 +1114,110 @@ interface ProcesoMasivoEstado {
   iniciadoEn: string | null;       // ISO DateTime
   finalizadoEn: string | null;     // ISO DateTime
   mensaje: string | null;          // Mensaje descriptivo
+}
+```
+
+### Configuración Automatización
+
+```typescript
+interface ConfigAutomatizacion {
+  id: number;
+  clave: string;           // Identificador único de la configuración
+  valor: string;           // Valor de la configuración
+  descripcion: string | null;  // Descripción opcional
+}
+
+interface ConfigAutomatizacionCreate {
+  clave: string;           // @NotBlank, max 50, unique
+  valor: string;           // @NotBlank, max 100
+  descripcion?: string;    // max 255
+}
+
+interface ConfigAutomatizacionUpdate {
+  clave?: string;          // max 50
+  valor?: string;          // max 100
+  descripcion?: string;    // max 255
+}
+```
+
+### DUX ERP
+
+```typescript
+// Status del servicio
+interface DuxStatus {
+  configurado: boolean;
+  servicio: string;
+}
+
+// Producto de DUX
+interface DuxItem {
+  codItem: string;
+  item: string;
+  codigosBarra: string[] | null;
+  rubro: DuxRubro | null;
+  subRubro: DuxSubRubro | null;
+  marca: DuxMarca | null;
+  proveedor: DuxProveedor | null;
+  costo: string;
+  porcIva: string;
+  precios: DuxPrecio[] | null;
+  stock: DuxStock[] | null;
+  idDetItem: string;
+  talle: string | null;
+  color: string | null;
+  habilitado: string;
+  codigoExterno: string | null;
+  fechaCreacion: string | null;
+  imagenUrl: string | null;
+}
+
+interface DuxRubro {
+  id: string;
+  nombre: string;
+  subRubro: DuxSubRubro | null;
+}
+
+interface DuxSubRubro {
+  id: string;
+  nombre: string;
+}
+
+interface DuxMarca {
+  codigoMarca: string;
+  marca: string;
+}
+
+interface DuxProveedor {
+  idProveedor: number;
+  proveedor: string;
+  tipoDoc: string | null;
+  nroDoc: string | null;
+  // ... otros campos de contacto
+}
+
+interface DuxPrecio {
+  id: number;
+  nombre: string;
+  precio: string;
+}
+
+interface DuxStock {
+  id: number;
+  nombre: string;
+  ctdDisponible: string;
+  stockReal: string;
+  stockReservado: string;
+  stockDisponible: string;
+}
+
+// Request para actualizar precios
+// IMPORTANTE: El campo "tipo" es OBLIGATORIO.
+// Si no se envía el tipo correcto, DUX desconfigura el producto
+// y puede perder componentes (en caso de combos).
+interface DuxProductoPrecioRequest {
+  sku: string;             // Código del producto (cod_item en DUX)
+  tipo: 'SIMPLE' | 'COMBO'; // Tipo de producto - OBLIGATORIO
+  precio: number;
 }
 ```
 
@@ -2386,6 +2492,156 @@ const cancelar = async () => {
   await fetch('http://localhost:8080/api/ml/costo-venta/cancelar', { method: 'POST' });
 };
 ```
+
+---
+
+### DUX ERP
+
+Módulo para integración con DUX ERP: consulta de productos, listas de precios y actualización de precios.
+
+**Límite de rate:** 1 request cada 5 segundos (0.2 req/seg)
+
+#### Status
+
+```http
+GET /api/dux/status
+```
+**Response:**
+```json
+{
+  "configurado": true,
+  "servicio": "DUX ERP"
+}
+```
+
+#### Productos
+
+```http
+GET /api/dux/productos
+```
+**Response:** `DuxItem[]`
+
+Obtiene todos los productos de DUX con paginación automática. Puede tardar varios minutos debido al límite de rate.
+
+```http
+GET /api/dux/productos/{codItem}
+```
+**Response:** `DuxItem` o `404 Not Found`
+
+#### Listas de Precios
+
+```http
+GET /api/dux/listas-precios
+```
+**Response:** JSON con todas las listas de precios de venta
+
+```http
+GET /api/dux/listas-precios/{nombre}/id
+```
+**Response:**
+```json
+{
+  "nombre": "KT GASTRO",
+  "id": 123
+}
+```
+
+#### Actualizar Precios
+
+```http
+POST /api/dux/listas-precios/{idLista}/precios
+Content-Type: application/json
+
+[
+  { "sku": "SKU001", "tipo": "SIMPLE", "precio": 1500.00 },
+  { "sku": "SKU002", "tipo": "COMBO", "precio": 2500.00 }
+]
+```
+
+**⚠️ IMPORTANTE:** El campo `tipo` es **OBLIGATORIO**. Si no se envía el tipo correcto (`SIMPLE` o `COMBO`), DUX desconfigura el producto y puede perder su configuración de componentes.
+
+**Response:**
+```json
+{
+  "idProceso": 12345,
+  "mensaje": "Proceso de actualización iniciado"
+}
+```
+
+#### Estado de Proceso
+
+```http
+GET /api/dux/procesos/{idProceso}/estado
+```
+**Response:**
+```json
+{
+  "idProceso": 12345,
+  "estado": "..."
+}
+```
+
+---
+
+### Configuración Automatización
+
+CRUD para configuraciones clave-valor usadas por procesos de automatización de precios.
+
+#### Listar
+
+```http
+GET /api/config-automatizacion
+GET /api/config-automatizacion?search=texto
+GET /api/config-automatizacion?page=0&size=20
+```
+**Response:** `Page<ConfigAutomatizacion>`
+
+#### Obtener
+
+```http
+GET /api/config-automatizacion/{id}
+```
+**Response:** `ConfigAutomatizacion` o `404`
+
+```http
+GET /api/config-automatizacion/clave/{clave}
+```
+**Response:** `ConfigAutomatizacion` o `404`
+
+#### Crear
+
+```http
+POST /api/config-automatizacion
+Content-Type: application/json
+
+{
+  "clave": "MI_CONFIG",
+  "valor": "valor123",
+  "descripcion": "Descripción opcional"
+}
+```
+**Response:** `201 Created` + `ConfigAutomatizacion`
+**Error:** `409 Conflict` si la clave ya existe
+
+#### Actualizar
+
+```http
+PUT /api/config-automatizacion/{id}
+Content-Type: application/json
+
+{
+  "valor": "nuevo_valor",
+  "descripcion": "Nueva descripción"
+}
+```
+**Response:** `ConfigAutomatizacion`
+
+#### Eliminar
+
+```http
+DELETE /api/config-automatizacion/{id}
+```
+**Response:** `204 No Content`
 
 ---
 
