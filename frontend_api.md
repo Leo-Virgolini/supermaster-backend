@@ -2082,7 +2082,25 @@ interface ImportResult {
 
 ### MercadoLibre (ML)
 
-Módulo para integración con MercadoLibre: configuración y cálculo de costos de envío.
+Módulo para integración con la **API de MercadoLibre**.
+
+**¿Qué hace?**
+- **Calcula costos de envío:** Determina cuánto cuesta el envío gratis que absorbe el vendedor, según el PVP del producto
+- **Obtiene comisiones:** Consulta el porcentaje de comisión que cobra ML por cada venta
+- **Recalcula precios:** Cuando cambian los costos de envío o comisiones, recalcula automáticamente los PVP
+
+**¿Por qué es necesario?**
+- MercadoLibre ofrece "envío gratis" pero el vendedor paga ese costo
+- El costo de envío depende del precio del producto (tiers)
+- La comisión de ML varía según categoría y tipo de publicación
+- Estos costos deben incluirse en el cálculo del PVP para mantener el margen deseado
+
+**Flujo típico:**
+1. Se calcula el PVP base del producto
+2. Se determina el costo de envío según el tier de precio
+3. Se recalcula el PVP incluyendo el costo de envío
+4. Si el nuevo PVP cambia de tier, se repite hasta estabilizar
+5. Se guarda el costo de envío y se recalculan todos los precios
 
 **Cuotas utilizadas en los cálculos:**
 | Cálculo | Cuotas | Descripción |
@@ -2497,9 +2515,20 @@ const cancelar = async () => {
 
 ### DUX ERP
 
-Módulo para integración con DUX ERP: consulta de productos, listas de precios y actualización de precios.
+Módulo para integración con **DUX Software ERP** (sistema de gestión empresarial externo).
 
-**Límite de rate:** 1 request cada 5 segundos (0.2 req/seg)
+**¿Qué hace?**
+- **Sincroniza productos:** Permite consultar el catálogo de productos cargados en DUX
+- **Actualiza precios:** Envía los precios calculados por este sistema a las listas de precios de DUX
+- **Consulta estado:** Verifica si los procesos de actualización en DUX terminaron correctamente
+
+**Flujo típico:**
+1. El sistema calcula los PVP de los productos
+2. Se envían los precios a DUX mediante `POST /listas-precios/{id}/precios`
+3. DUX procesa los precios en segundo plano (devuelve un `idProceso`)
+4. Se consulta el estado del proceso hasta que termine
+
+**Límite de rate:** 1 request cada 5 segundos (0.2 req/seg) - impuesto por DUX
 
 #### Status
 
@@ -2585,7 +2614,22 @@ GET /api/dux/procesos/{idProceso}/estado
 
 ### Configuración Automatización
 
-CRUD para configuraciones clave-valor usadas por procesos de automatización de precios.
+Módulo para gestionar **configuraciones clave-valor** usadas por procesos externos de automatización.
+
+**¿Qué hace?**
+- Almacena parámetros de configuración que controlan cómo se ejecutan los procesos automáticos de actualización de precios
+- Permite al usuario modificar estos parámetros desde el frontend sin tocar código
+- Los valores son strings genéricos que el proceso de automatización interpreta según su lógica
+
+**Ejemplos de uso:**
+| Clave | Valor | Descripción |
+|-------|-------|-------------|
+| `MARGEN_MINIMO_ML` | `15` | Margen mínimo % para publicar en MercadoLibre |
+| `LISTA_DUX_GASTRO` | `KT GASTRO` | Nombre de la lista de precios en DUX |
+| `REDONDEO_PVP` | `100` | Redondear PVP al múltiplo más cercano |
+| `EJECUTAR_AUTOMATICO` | `true` | Habilitar/deshabilitar ejecución automática |
+
+**Nota:** Esta tabla es independiente de `configuracion_ml`. Aquella tiene campos tipados específicos para ML, mientras que esta es genérica clave-valor.
 
 #### Listar
 
