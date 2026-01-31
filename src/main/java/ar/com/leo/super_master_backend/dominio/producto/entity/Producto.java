@@ -169,7 +169,7 @@ public class Producto {
     private Set<ProductoCliente> productoClientes = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
-    private Set<ProductoCanalPromocion> productoCanalPromociones = new LinkedHashSet<>();
+    private Set<ProductoCanalPrecioInflado> productoCanalPreciosInflados = new LinkedHashSet<>();
 
     @Column(name = "fecha_creacion", updatable = false, nullable = false)
     private LocalDateTime fechaCreacion;

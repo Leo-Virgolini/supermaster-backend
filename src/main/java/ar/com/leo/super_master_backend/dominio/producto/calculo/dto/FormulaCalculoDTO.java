@@ -4,8 +4,9 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public record FormulaCalculoDTO(
-        String nombreCanal,
-        Integer numeroCuotas,
+        String canalNombre,
+        Integer cuotas,
+        String descripcionCuotas,
         String formulaGeneral,
         List<PasoCalculo> pasos,
         BigDecimal resultadoFinal

@@ -7,7 +7,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
 import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescuento;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -67,7 +67,7 @@ public class Canal {
     private Set<CanalConceptoCuota> canalConceptoCuotas = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "canal")
-    private Set<ProductoCanalPromocion> productoCanalPromociones = new LinkedHashSet<>();
+    private Set<ProductoCanalPrecioInflado> productoCanalPreciosInflados = new LinkedHashSet<>();
 
     public Canal(Integer idCanal) {
         this.id = idCanal;

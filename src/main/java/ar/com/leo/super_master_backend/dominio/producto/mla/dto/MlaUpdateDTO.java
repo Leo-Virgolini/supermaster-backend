@@ -12,6 +12,8 @@ public record MlaUpdateDTO(
         @PositiveOrZero(message = "El precio de envío debe ser mayor o igual a 0")
         BigDecimal precioEnvio,
         @PositiveOrZero(message = "El porcentaje de comisión debe ser mayor o igual a 0")
-        BigDecimal comisionPorcentaje
+        BigDecimal comisionPorcentaje,
+        @PositiveOrZero(message = "El tope de promoción debe ser mayor o igual a 0")
+        Integer topePromocion
 ) {
 }

@@ -5,11 +5,7 @@ import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.ServiceNotConfiguredException;
 import ar.com.leo.super_master_backend.dominio.ml.RestClientRetryHandler;
 import ar.com.leo.super_master_backend.dominio.ml.config.MercadoLibreProperties;
-import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioMasivoResponseDTO;
-import ar.com.leo.super_master_backend.dominio.ml.dto.CostoEnvioResponseDTO;
-import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaMasivoResponseDTO;
-import ar.com.leo.super_master_backend.dominio.ml.dto.CostoVentaResponseDTO;
-import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.ml.dto.*;
 import ar.com.leo.super_master_backend.dominio.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.dominio.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.dominio.ml.model.Producto;
@@ -121,13 +117,13 @@ public class MercadoLibreService {
 
     /**
      * Calcula el costo de envío para el vendedor de un producto de ML.
-     *
+     * <p>
      * - PVP >= umbral ($33,000): Consulta API ML para obtener costo real de envío gratis
      * - PVP < umbral: Usa tiers fijos:
-     *   - PVP < $15,000 → $1,115
-     *   - $15,000 <= PVP < $25,000 → $2,300
-     *   - $25,000 <= PVP < $33,000 → $2,810
-     *
+     * - PVP < $15,000 → $1,115
+     * - $15,000 <= PVP < $25,000 → $2,300
+     * - $25,000 <= PVP < $33,000 → $2,810
+     * <p>
      * El cálculo es iterativo: al agregar el costo de envío, el PVP puede cambiar
      * de tier, requiriendo recalcular hasta estabilizar.
      */
@@ -448,6 +444,7 @@ public class MercadoLibreService {
 
     /**
      * Inicia el cálculo de costo de venta para todos los MLAs de forma asincrónica.
+     *
      * @return true si se inició el proceso, false si ya había uno en ejecución
      */
     public boolean iniciarCalculoCostoVentaTodos() {
@@ -572,6 +569,7 @@ public class MercadoLibreService {
 
     /**
      * Cancela el proceso masivo de cálculo de costos de venta en ejecución.
+     *
      * @return true si había un proceso en ejecución que fue marcado para cancelar
      */
     public boolean cancelarProcesoMasivoCostoVenta() {
@@ -586,6 +584,7 @@ public class MercadoLibreService {
 
     /**
      * Obtiene el estado actual del proceso masivo de costo de venta.
+     *
      * @return DTO con el estado del proceso
      */
     public ProcesoMasivoEstadoDTO obtenerEstadoProcesoMasivoCostoVenta() {
@@ -594,6 +593,7 @@ public class MercadoLibreService {
 
     /**
      * Obtiene el resultado del último proceso masivo de costo de venta completado.
+     *
      * @return DTO con los resultados o null si no hay resultados disponibles
      */
     public CostoVentaMasivoResponseDTO obtenerResultadoProcesoMasivoCostoVenta() {
@@ -602,6 +602,7 @@ public class MercadoLibreService {
 
     /**
      * Verifica si hay un proceso masivo de costo de venta en ejecución.
+     *
      * @return true si hay un proceso en ejecución
      */
     public boolean isProcesoMasivoCostoVentaEnEjecucion() {
@@ -614,6 +615,7 @@ public class MercadoLibreService {
 
     /**
      * Inicia el cálculo de costo de envío para todos los MLAs de forma asincrónica.
+     *
      * @return true si se inició el proceso, false si ya había uno en ejecución
      */
     public boolean iniciarCalculoCostoEnvioTodos() {
@@ -729,6 +731,7 @@ public class MercadoLibreService {
 
     /**
      * Cancela el proceso masivo de cálculo de costos de envío en ejecución.
+     *
      * @return true si había un proceso en ejecución que fue marcado para cancelar
      */
     public boolean cancelarProcesoMasivo() {
@@ -743,6 +746,7 @@ public class MercadoLibreService {
 
     /**
      * Obtiene el estado actual del proceso masivo.
+     *
      * @return DTO con el estado del proceso
      */
     public ProcesoMasivoEstadoDTO obtenerEstadoProcesoMasivo() {
@@ -751,6 +755,7 @@ public class MercadoLibreService {
 
     /**
      * Obtiene el resultado del último proceso masivo completado.
+     *
      * @return DTO con los resultados o null si no hay resultados disponibles
      */
     public CostoEnvioMasivoResponseDTO obtenerResultadoProcesoMasivo() {
@@ -759,6 +764,7 @@ public class MercadoLibreService {
 
     /**
      * Verifica si hay un proceso masivo en ejecución.
+     *
      * @return true si hay un proceso en ejecución
      */
     public boolean isProcesoMasivoEnEjecucion() {
@@ -929,7 +935,7 @@ public class MercadoLibreService {
             if (credentials == null) {
                 throw new ServiceNotConfiguredException("MercadoLibre",
                         "No hay credenciales configuradas para renovar el token expirado. " +
-                        "Verifique el archivo ml_credentials.json");
+                                "Verifique el archivo ml_credentials.json");
             }
 
             log.info("ML - Access token expirado, renovando...");
@@ -944,7 +950,7 @@ public class MercadoLibreService {
                 log.error("ML - Error al renovar token", e);
                 throw new ServiceNotConfiguredException("MercadoLibre",
                         "Error al renovar el token: " + e.getMessage() + ". " +
-                        "Es posible que el refresh_token haya expirado y necesite re-autenticarse.");
+                                "Es posible que el refresh_token haya expirado y necesite re-autenticarse.");
             }
         }
     }
@@ -978,7 +984,7 @@ public class MercadoLibreService {
         if (credentials == null) {
             throw new ServiceNotConfiguredException("MercadoLibre",
                     "No hay credenciales configuradas para renovar el token. " +
-                    "Verifique el archivo ml_credentials.json");
+                            "Verifique el archivo ml_credentials.json");
         }
 
         String formBody = String.format(

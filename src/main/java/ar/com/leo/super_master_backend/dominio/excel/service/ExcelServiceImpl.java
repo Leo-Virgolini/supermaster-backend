@@ -1,16 +1,18 @@
 package ar.com.leo.super_master_backend.dominio.excel.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConcepto;
 import ar.com.leo.super_master_backend.dominio.canal.entity.CanalConceptoCuota;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoCuotaRepository;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSobre;
 import ar.com.leo.super_master_backend.dominio.catalogo.entity.Catalogo;
 import ar.com.leo.super_master_backend.dominio.catalogo.repository.CatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
-import ar.com.leo.super_master_backend.dominio.common.util.CuotasUtil;
 import ar.com.leo.super_master_backend.dominio.excel.dto.*;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
@@ -26,11 +28,13 @@ import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDT
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCatalogo;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla;
 import ar.com.leo.super_master_backend.dominio.producto.mla.repository.MlaRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioInfladoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCatalogoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
@@ -49,9 +53,7 @@ import org.apache.poi.ss.util.AreaReference;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.RegionUtil;
 import org.apache.poi.ss.util.CellReference;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFTable;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.*;
 import org.hibernate.AssertionFailure;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
@@ -107,6 +109,8 @@ public class ExcelServiceImpl implements ExcelService {
     private final ProductoCatalogoRepository productoCatalogoRepository;
     private final ProductoMargenRepository productoMargenRepository;
     private final ReglaDescuentoRepository reglaDescuentoRepository;
+    private final CanalConceptoRepository canalConceptoRepository;
+    private final ProductoCanalPrecioInfladoRepository productoCanalPrecioInfladoRepository;
     private final ProductoService productoService;
     private final RecalculoPrecioFacade recalculoPrecioFacade;
 
@@ -2669,26 +2673,27 @@ public class ExcelServiceImpl implements ExcelService {
         }
     }
 
-    // Campos de precio por cada canal/cuota
+    // Campos de precio base por cada canal/cuota (PVP_INFLADO/COD_PROMO condicionales, FECHA_CALCULO siempre al final)
     private static final String[] CAMPOS_PRECIO = {
-            "PVP", "PVP_INFLADO", "COSTO_PRODUCTO", "COSTOS_VENTA", "INGRESO_NETO", "GANANCIA", "MARGEN_INGRESO", "MARGEN_PVP", "MARKUP_PCT", "FECHA_CALCULO"
+            "PVP", "COSTO_PRODUCTO", "COSTOS_VENTA", "INGRESO_NETO", "GANANCIA", "MARGEN_INGRESO", "MARGEN_PVP", "MARKUP_PCT"
     };
 
     // Colores para distinguir canales
+    // Colores saturados para headers de canales (fila 0, super headers)
     private static final short[] COLORES_CANALES = {
-            IndexedColors.LIGHT_BLUE.getIndex(),
-            IndexedColors.LIGHT_GREEN.getIndex(),
-            IndexedColors.LIGHT_YELLOW.getIndex(),
-            IndexedColors.LIGHT_ORANGE.getIndex(),
-            IndexedColors.LAVENDER.getIndex(),
-            IndexedColors.LIGHT_TURQUOISE.getIndex(),
-            IndexedColors.ROSE.getIndex(),
-            IndexedColors.TAN.getIndex(),
-            IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(),
-            IndexedColors.LEMON_CHIFFON.getIndex()
+            IndexedColors.ROYAL_BLUE.getIndex(),
+            IndexedColors.GREEN.getIndex(),
+            IndexedColors.DARK_YELLOW.getIndex(),
+            IndexedColors.ORANGE.getIndex(),
+            IndexedColors.VIOLET.getIndex(),
+            IndexedColors.TEAL.getIndex(),
+            IndexedColors.PLUM.getIndex(),
+            IndexedColors.BROWN.getIndex(),
+            IndexedColors.BLUE.getIndex(),
+            IndexedColors.DARK_GREEN.getIndex()
     };
 
-    // Colores para distinguir cuotas dentro de un canal
+    // Colores pasteles para headers de cuotas (fila 1)
     private static final short[] COLORES_CUOTAS = {
             IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(),
             IndexedColors.LIGHT_GREEN.getIndex(),
@@ -2760,6 +2765,29 @@ public class ExcelServiceImpl implements ExcelService {
         }
         log.info("Canales con descuentos: {}", descuentosPorCanal.keySet());
 
+        // Detectar canales con precio inflado (tienen concepto FLAG_APLICAR_PRECIO_INFLADO)
+        Set<String> canalesConPrecioInflado = new HashSet<>();
+        for (Map.Entry<String, Integer> entry2 : canalIdPorNombre.entrySet()) {
+            String canalNombre = entry2.getKey();
+            Integer canalId = entry2.getValue();
+            boolean tienePrecioInflado = canalConceptoRepository.findByCanalId(canalId).stream()
+                    .anyMatch(cc -> cc.getConcepto() != null
+                            && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
+            if (tienePrecioInflado) {
+                canalesConPrecioInflado.add(canalNombre);
+            }
+        }
+
+        // Cargar códigos de precio inflado activos: "productoId_canalId" -> codigo
+        Map<String, String> codigosPrecioInflado = new HashMap<>();
+        List<ProductoCanalPrecioInflado> preciosInfladosActivos = productoCanalPrecioInfladoRepository.findByActivaTrue();
+        for (ProductoCanalPrecioInflado pcp : preciosInfladosActivos) {
+            if (pcp.getProducto() != null && pcp.getCanal() != null && pcp.getPrecioInflado() != null) {
+                String key = pcp.getProducto().getId() + "_" + pcp.getCanal().getId();
+                codigosPrecioInflado.put(key, pcp.getPrecioInflado().getCodigo());
+            }
+        }
+
         // Obtener descripciones de cuotas desde canal_concepto_cuota
         // Mapa: "canalNombre_cuotas" -> descripcion
         Map<String, String> descripcionesCuotas = new HashMap<>();
@@ -2793,14 +2821,16 @@ public class ExcelServiceImpl implements ExcelService {
             // Índice donde termina FECHA_MODIFICACION (0-based): último header fijo
             int colPvpMax = headersFijos.length - 1;
 
-            // Calcular columnas por canal (CAMPOS_PRECIO + 1 columna por cada descuento del canal)
+            // Calcular columnas por canal (CAMPOS_PRECIO + columnas de precio inflado + columnas de descuento)
             // Mapa: canalNombre -> número de columnas por cuota
             Map<String, Integer> columnasPorCuotaPorCanal = new LinkedHashMap<>();
             for (String canalNombre : canalesCuotas.keySet()) {
                 int numDescuentos = descuentosPorCanal.containsKey(canalNombre)
                         ? descuentosPorCanal.get(canalNombre).size()
                         : 0;
-                columnasPorCuotaPorCanal.put(canalNombre, CAMPOS_PRECIO.length + numDescuentos);
+                int colsPrecioInflado = canalesConPrecioInflado.contains(canalNombre) ? 2 : 0; // PVP_INFLADO + COD_PROMO
+                int colsFechaCalculo = 1; // FECHA_CALCULO siempre al final
+                columnasPorCuotaPorCanal.put(canalNombre, CAMPOS_PRECIO.length + colsPrecioInflado + numDescuentos + colsFechaCalculo);
             }
 
             // Calcular total de columnas dinámicas
@@ -2815,8 +2845,9 @@ public class ExcelServiceImpl implements ExcelService {
             // Crear estilos base
             CellStyle headerDatosStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.LIGHT_GREEN.getIndex(), false);
 
-            // Estilos para filas pares (sin fondo) e impares (con fondo azul claro - TableStyleLight1)
-            short colorFilaAlternada = IndexedColors.GREY_25_PERCENT.getIndex();
+            // Estilos para filas pares (sin fondo) e impares (con fondo gris claro)
+            XSSFColor colorFilaAlternada = new XSSFColor(new byte[]{(byte) 234, (byte) 234, (byte) 234}, null);
+            XSSFColor colorVerdePvp = new XSSFColor(new byte[]{(byte) 24, (byte) 106, (byte) 59}, null);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle dataStyleAlt = crearEstiloDataCentradoConFondo(workbook, colorFilaAlternada);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
@@ -2827,6 +2858,12 @@ public class ExcelServiceImpl implements ExcelService {
             CellStyle porcentajeStyleAlt = crearEstiloPorcentajeConFondo(workbook, colorFilaAlternada);
             CellStyle porcentajeBordeStyle = crearEstiloPorcentajeBorde(workbook);
             CellStyle porcentajeBordeStyleAlt = crearEstiloPorcentajeBordeConFondo(workbook, colorFilaAlternada);
+
+            // Estilos PVP: negrita + fuente verde
+            CellStyle pvpStyle = crearEstiloPrecioPvp(workbook, colorVerdePvp);
+            CellStyle pvpStyleAlt = crearEstiloPrecioPvpConFondo(workbook, colorVerdePvp, colorFilaAlternada);
+            CellStyle pvpBordeStyle = crearEstiloPrecioPvpBorde(workbook, colorVerdePvp);
+            CellStyle pvpBordeStyleAlt = crearEstiloPrecioPvpBordeConFondo(workbook, colorVerdePvp, colorFilaAlternada);
 
             // Crear estilos por canal (con colores diferentes)
             List<String> nombresCanales = new ArrayList<>(canalesCuotas.keySet());
@@ -2848,6 +2885,7 @@ public class ExcelServiceImpl implements ExcelService {
                 estilosDataBordePorCanal.put(canal, crearEstiloDataConBordeGruesoCentrado(workbook));
                 estilosDataPorCanalAlt.put(canal, crearEstiloDataCentradoConFondo(workbook, colorFilaAlternada));
                 estilosDataBordePorCanalAlt.put(canal, crearEstiloDataConBordeGruesoCentradoConFondo(workbook, colorFilaAlternada));
+
             }
 
             // ========== FILA 0: Super headers (headers datos + un header por canal) ==========
@@ -2905,9 +2943,8 @@ public class ExcelServiceImpl implements ExcelService {
 
                 for (int cuotaIndex = 0; cuotaIndex < cuotasList.size(); cuotaIndex++) {
                     Integer cuotas = cuotasList.get(cuotaIndex);
-                    // Obtener descripción del repositorio, fallback a CuotasUtil si no existe
                     String key = canalNombre + "_" + cuotas;
-                    String descripcionCuotas = descripcionesCuotas.getOrDefault(key, CuotasUtil.describir(cuotas));
+                    String descripcionCuotas = descripcionesCuotas.getOrDefault(key, "");
 
                     // Color diferente para cada cuota
                     short colorCuota = COLORES_CUOTAS[cuotaIndex % COLORES_CUOTAS.length];
@@ -2980,11 +3017,22 @@ public class ExcelServiceImpl implements ExcelService {
 
                     int colInicioCuota = colIndex;
 
-                    // Columnas de precio base
+                    // Columnas de precio base (con PVP_INFLADO y COD_PROMO después de PVP si corresponde)
+                    boolean canalTienePrecioInflado = canalesConPrecioInflado.contains(canalNombre);
                     for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                         Cell cell = headerRow.createCell(colIndex++);
                         cell.setCellValue(CAMPOS_PRECIO[i]);
                         cell.setCellStyle(estiloHeaderCuota);
+
+                        // Después de PVP (index 0), insertar PVP_INFLADO y COD_PROMO
+                        if (i == 0 && canalTienePrecioInflado) {
+                            Cell cellPvpInf = headerRow.createCell(colIndex++);
+                            cellPvpInf.setCellValue("PVP_INFLADO");
+                            cellPvpInf.setCellStyle(estiloHeaderCuota);
+                            Cell cellCodPromo = headerRow.createCell(colIndex++);
+                            cellCodPromo.setCellValue("COD_PROMO");
+                            cellCodPromo.setCellStyle(estiloHeaderCuota);
+                        }
                     }
 
                     // Columnas de descuento (solo si el canal tiene descuentos)
@@ -2999,6 +3047,11 @@ public class ExcelServiceImpl implements ExcelService {
                             cellDesc.setCellStyle(estiloHeaderCuota);
                         }
                     }
+
+                    // FECHA_CALCULO siempre al final de cada cuota
+                    Cell cellFecha = headerRow.createCell(colIndex++);
+                    cellFecha.setCellValue("FECHA_CALCULO");
+                    cellFecha.setCellStyle(estiloHeaderCuota);
 
                     int colFinCuota = colIndex - 1;
                     rangosCuotasFila2.add(new CellRangeAddress(2, 2, colInicioCuota, colFinCuota));
@@ -3102,33 +3155,63 @@ public class ExcelServiceImpl implements ExcelService {
                         PrecioDTO precio = preciosPorCanal.getOrDefault(canalNombre, new HashMap<>())
                                 .get(cuotas);
 
-                        // Columnas de precio base
+                        // Columnas de precio base (con PVP_INFLADO y COD_PROMO después de PVP si corresponde)
+                        boolean canalTienePrecioInfladoData = canalesConPrecioInflado.contains(canalNombre);
+                        CellStyle currentPrecioStyle2 = esFilaAlternada ? precioStyleAlt : precioStyle;
+                        CellStyle currentDataStyle2 = esFilaAlternada ? estilosDataPorCanalAlt.get(canalNombre) : estilosDataPorCanal.get(canalNombre);
+
                         for (int i = 0; i < CAMPOS_PRECIO.length; i++) {
                             Cell cell = row.createCell(cellIndex++);
                             // Primera columna de CADA cuota usa borde grueso izquierdo
                             boolean primerColumnDeCuota = (i == 0);
                             CellStyle styleToUse = primerColumnDeCuota ? estiloDataBorde : estiloData;
-                            // Usar estilo de precio para columnas de valores monetarios (0-5)
                             CellStyle stylePrecioToUse = primerColumnDeCuota ? currentPrecioBordeStyle : currentPrecioStyle;
-                            // Usar estilo de porcentaje para columnas 6-8
                             CellStyle stylePorcentajeToUse = primerColumnDeCuota ? currentPorcentajeBordeStyle : currentPorcentajeStyle;
+                            CellStyle stylePvpToUse = primerColumnDeCuota
+                                    ? (esFilaAlternada ? pvpBordeStyleAlt : pvpBordeStyle)
+                                    : (esFilaAlternada ? pvpStyleAlt : pvpStyle);
 
                             if (precio != null) {
                                 switch (i) {
-                                    case 0 -> setCellValue(cell, precio.pvp(), stylePrecioToUse);
-                                    case 1 -> setCellValue(cell, precio.pvpInflado(), stylePrecioToUse);
-                                    case 2 -> setCellValue(cell, precio.costoProducto(), stylePrecioToUse);
-                                    case 3 -> setCellValue(cell, precio.costosVenta(), stylePrecioToUse);
-                                    case 4 -> setCellValue(cell, precio.ingresoNetoVendedor(), stylePrecioToUse);
-                                    case 5 -> setCellValue(cell, precio.ganancia(), stylePrecioToUse);
-                                    case 6 -> setCellValue(cell, precio.margenSobreIngresoNeto(), stylePorcentajeToUse);
-                                    case 7 -> setCellValue(cell, precio.margenSobrePvp(), stylePorcentajeToUse);
-                                    case 8 -> setCellValue(cell, precio.markupPorcentaje(), stylePorcentajeToUse);
-                                    case 9 -> setCellValueDate(cell, precio.fechaUltimoCalculo(), styleToUse, dtf);
+                                    case 0 -> setCellValue(cell, precio.pvp(), stylePvpToUse);
+                                    case 1 -> setCellValue(cell, precio.costoProducto(), stylePrecioToUse);
+                                    case 2 -> setCellValue(cell, precio.costosVenta(), stylePrecioToUse);
+                                    case 3 -> setCellValue(cell, precio.ingresoNetoVendedor(), stylePrecioToUse);
+                                    case 4 -> setCellValue(cell, precio.ganancia(), stylePrecioToUse);
+                                    case 5 -> setCellValue(cell, precio.margenSobreIngresoNeto(), stylePorcentajeToUse);
+                                    case 6 -> setCellValue(cell, precio.margenSobrePvp(), stylePorcentajeToUse);
+                                    case 7 -> setCellValue(cell, precio.markupPorcentaje(), stylePorcentajeToUse);
                                 }
                             } else {
                                 cell.setBlank();
                                 cell.setCellStyle(styleToUse);
+                            }
+
+                            // Después de PVP (index 0), insertar PVP_INFLADO y COD_PROMO
+                            if (i == 0 && canalTienePrecioInfladoData) {
+                                Cell cellPvpInf = row.createCell(cellIndex++);
+                                if (precio != null && precio.pvpInflado() != null) {
+                                    setCellValue(cellPvpInf, precio.pvpInflado(), currentPrecioStyle2);
+                                } else {
+                                    cellPvpInf.setBlank();
+                                    cellPvpInf.setCellStyle(currentPrecioStyle2);
+                                }
+
+                                Cell cellCodPromo = row.createCell(cellIndex++);
+                                if (precio != null) {
+                                    Integer canalId = canalIdPorNombre.get(canalNombre);
+                                    String keyPromo = producto.id() + "_" + canalId;
+                                    String codigo = codigosPrecioInflado.get(keyPromo);
+                                    if (codigo != null) {
+                                        setCellValue(cellCodPromo, codigo, currentDataStyle2);
+                                    } else {
+                                        cellCodPromo.setBlank();
+                                        cellCodPromo.setCellStyle(currentDataStyle2);
+                                    }
+                                } else {
+                                    cellCodPromo.setBlank();
+                                    cellCodPromo.setCellStyle(currentDataStyle2);
+                                }
                             }
                         }
 
@@ -3150,12 +3233,22 @@ public class ExcelServiceImpl implements ExcelService {
                                 }
                             }
                         }
+
+                        // FECHA_CALCULO siempre al final de cada cuota
+                        Cell cellFechaCalculo = row.createCell(cellIndex++);
+                        if (precio != null) {
+                            setCellValueDate(cellFechaCalculo, precio.fechaUltimoCalculo(),
+                                    esFilaAlternada ? estilosDataPorCanalAlt.get(canalNombre) : estilosDataPorCanal.get(canalNombre), dtf);
+                        } else {
+                            cellFechaCalculo.setBlank();
+                            cellFechaCalculo.setCellStyle(esFilaAlternada ? estilosDataPorCanalAlt.get(canalNombre) : estilosDataPorCanal.get(canalNombre));
+                        }
                     }
                 }
             }
 
-            // Auto-ajustar ancho de columnas (limitado para performance)
-            for (int i = 0; i < Math.min(totalColumnas, 50); i++) {
+            // Auto-ajustar ancho de columnas
+            for (int i = 0; i < totalColumnas; i++) {
                 sheet.autoSizeColumn(i);
             }
 
@@ -3173,6 +3266,7 @@ public class ExcelServiceImpl implements ExcelService {
         Font font = workbook.createFont();
         font.setBold(true);
         font.setFontHeightInPoints((short) 12);
+        font.setColor(IndexedColors.WHITE.getIndex());
         style.setFont(font);
         style.setFillForegroundColor(colorIndex);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
@@ -3309,9 +3403,9 @@ public class ExcelServiceImpl implements ExcelService {
 
     // ========== ESTILOS CON FONDO PARA FILAS ALTERNADAS (TableStyleLight1) ==========
 
-    private CellStyle crearEstiloDataCentradoConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloDataCentradoConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3322,9 +3416,9 @@ public class ExcelServiceImpl implements ExcelService {
         return style;
     }
 
-    private CellStyle crearEstiloDataConBordeGruesoCentradoConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloDataConBordeGruesoCentradoConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3335,9 +3429,9 @@ public class ExcelServiceImpl implements ExcelService {
         return style;
     }
 
-    private CellStyle crearEstiloPrecioConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloPrecioConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3350,9 +3444,9 @@ public class ExcelServiceImpl implements ExcelService {
         return style;
     }
 
-    private CellStyle crearEstiloPrecioBordeConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloPrecioBordeConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3365,9 +3459,9 @@ public class ExcelServiceImpl implements ExcelService {
         return style;
     }
 
-    private CellStyle crearEstiloPorcentajeConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloPorcentajeConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3380,9 +3474,9 @@ public class ExcelServiceImpl implements ExcelService {
         return style;
     }
 
-    private CellStyle crearEstiloPorcentajeBordeConFondo(XSSFWorkbook workbook, short colorIndex) {
-        CellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(colorIndex);
+    private XSSFCellStyle crearEstiloPorcentajeBordeConFondo(XSSFWorkbook workbook, XSSFColor color) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color);
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
@@ -3392,6 +3486,45 @@ public class ExcelServiceImpl implements ExcelService {
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         DataFormat format = workbook.createDataFormat();
         style.setDataFormat(format.getFormat("0.00\"%\""));
+        return style;
+    }
+
+    // ========== ESTILOS PVP: NEGRITA + FUENTE VERDE ==========
+
+    private XSSFCellStyle crearEstiloPrecioPvp(XSSFWorkbook workbook, XSSFColor colorFuente) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        DataFormat format = workbook.createDataFormat();
+        style.setDataFormat(format.getFormat("\"$\"#,##0.00"));
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(colorFuente);
+        style.setFont(font);
+        return style;
+    }
+
+    private XSSFCellStyle crearEstiloPrecioPvpConFondo(XSSFWorkbook workbook, XSSFColor colorFuente, XSSFColor colorFondo) {
+        XSSFCellStyle style = crearEstiloPrecioPvp(workbook, colorFuente);
+        style.setFillForegroundColor(colorFondo);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private XSSFCellStyle crearEstiloPrecioPvpBorde(XSSFWorkbook workbook, XSSFColor colorFuente) {
+        XSSFCellStyle style = crearEstiloPrecioPvp(workbook, colorFuente);
+        style.setBorderLeft(BorderStyle.THICK);
+        return style;
+    }
+
+    private XSSFCellStyle crearEstiloPrecioPvpBordeConFondo(XSSFWorkbook workbook, XSSFColor colorFuente, XSSFColor colorFondo) {
+        XSSFCellStyle style = crearEstiloPrecioPvpBorde(workbook, colorFuente);
+        style.setFillForegroundColor(colorFondo);
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         return style;
     }
 
@@ -3697,9 +3830,12 @@ public class ExcelServiceImpl implements ExcelService {
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
+            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                    .map(CanalConceptoCuota::getDescripcion)
+                    .findFirst().orElse(String.valueOf(cuotas));
             throw new IllegalArgumentException(
-                    String.format("No existen precios para el canal '%s' %s",
-                            canal.getCanal(), CuotasUtil.describirConPreposicion(cuotas)));
+                    String.format("No existen precios para el canal '%s' con cuotas '%s'",
+                            canal.getCanal(), descCuotas));
         }
 
         // Filtrar productos válidos y recolectar advertencias
@@ -3798,9 +3934,12 @@ public class ExcelServiceImpl implements ExcelService {
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
+            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                    .map(CanalConceptoCuota::getDescripcion)
+                    .findFirst().orElse(String.valueOf(cuotas));
             throw new IllegalArgumentException(
-                    String.format("No existen precios para el canal '%s' %s",
-                            canal.getCanal(), CuotasUtil.describirConPreposicion(cuotas)));
+                    String.format("No existen precios para el canal '%s' con cuotas '%s'",
+                            canal.getCanal(), descCuotas));
         }
 
         // Filtrar productos válidos y recolectar advertencias

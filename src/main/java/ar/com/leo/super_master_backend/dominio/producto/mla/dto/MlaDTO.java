@@ -10,5 +10,6 @@ public record MlaDTO(
         BigDecimal precioEnvio,
         LocalDateTime fechaCalculoEnvio,
         BigDecimal comisionPorcentaje,
-        LocalDateTime fechaCalculoComision
+        LocalDateTime fechaCalculoComision,
+        Integer topePromocion
 ) {}

@@ -46,6 +46,10 @@ public class Mla {
     @Column(name = "fecha_calculo_comision")
     private LocalDateTime fechaCalculoComision;
 
+    @NotNull
+    @Column(name = "tope_promocion", nullable = false)
+    private Integer topePromocion = 0;
+
     // Relación inversa: un MLA puede estar en varios productos
     @OneToMany(mappedBy = "mla")
     private Set<Producto> productos = new LinkedHashSet<>();

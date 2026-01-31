@@ -1,7 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.mapper;
 
 import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
-import ar.com.leo.super_master_backend.dominio.common.util.CuotasUtil;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
@@ -241,21 +240,6 @@ public interface ProductoMapper {
                 return descripcion;
             }
         }
-        return generarDescripcionCuota(cuotas);
-    }
-
-    /**
-     * Genera una descripción por defecto basada en el número de cuotas.
-     */
-    default String generarDescripcionCuota(Integer cuotas) {
-        if (cuotas == null || cuotas == CuotasUtil.CONTADO) {
-            return "Contado";
-        } else if (cuotas == CuotasUtil.TRANSFERENCIA) {
-            return "Transferencia";
-        } else if (cuotas == 1) {
-            return "1 cuota";
-        } else {
-            return cuotas + " cuotas";
-        }
+        return null;
     }
 }

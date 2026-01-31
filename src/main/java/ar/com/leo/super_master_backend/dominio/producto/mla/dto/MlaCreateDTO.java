@@ -12,6 +12,8 @@ public record MlaCreateDTO(
         @Size(max = 20, message = "El código MLAU no puede exceder 20 caracteres")
         String mlau,
         @PositiveOrZero(message = "El precio de envío debe ser mayor o igual a 0")
-        BigDecimal precioEnvio
+        BigDecimal precioEnvio,
+        @PositiveOrZero(message = "El tope de promoción debe ser mayor o igual a 0")
+        Integer topePromocion
 ) {
 }

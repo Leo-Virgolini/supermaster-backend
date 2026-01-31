@@ -20,11 +20,11 @@ import ar.com.leo.super_master_backend.dominio.regla_descuento.entity.ReglaDescu
 import ar.com.leo.super_master_backend.dominio.regla_descuento.repository.ReglaDescuentoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
-import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPromocion;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.repository.*;
-import ar.com.leo.super_master_backend.dominio.promocion.entity.Promocion;
-import ar.com.leo.super_master_backend.dominio.promocion.entity.TipoPromocionTabla;
+import ar.com.leo.super_master_backend.dominio.precio_inflado.entity.PrecioInflado;
+import ar.com.leo.super_master_backend.dominio.precio_inflado.entity.TipoPrecioInflado;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,7 +45,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private final ProductoRepository productoRepository;
     private final ProductoMargenRepository productoMargenRepository;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
-    private final ProductoCanalPromocionRepository productoCanalPromocionRepository;
+    private final ProductoCanalPrecioInfladoRepository productoCanalPrecioInfladoRepository;
     private final CanalRepository canalRepository;
     private final CanalConceptoRepository canalConceptoRepository;
     private final CanalConceptoReglaRepository canalConceptoReglaRepository;
@@ -187,7 +187,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * 9. Gastos sobre PVP: Conceptos con aplica_sobre='PVP' + %CUOTAS (si aplica) - se aplican como divisores
      * 10. RECARGO_CUPON/DESCUENTO: Conceptos con aplica_sobre='RECARGO_CUPON' (divisor que aumenta precio) o 'DESCUENTO' (multiplicador que reduce precio)
      * 11. INFLACION: Conceptos con aplica_sobre='INFLACION' (divisor: PVP / (1 - INFLACION/100))
-     * 12. Promociones: Promociones de producto_canal_promocion
+     * 12. Precio inflado: Precios inflados de producto_canal_precio_inflado
      *
      * @param producto       El producto para calcular el precio
      * @param productoMargen La relación producto-canal con configuración específica
@@ -347,8 +347,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         boolean aplicaIva = conceptosPorTipo.containsKey(AplicaSobre.FLAG_APLICAR_IVA);
         BigDecimal ivaAplicar = aplicaIva ? iva : BigDecimal.ZERO;
 
-        // Las promociones solo se aplican si existe un concepto con aplicaSobre=PROMOCION para el canal
-        boolean usaPromociones = conceptosPorTipo.containsKey(AplicaSobre.FLAG_APLICAR_PROMOCIONES);
+        // Los precios inflados solo se aplican si existe un concepto con FLAG_APLICAR_PRECIO_INFLADO para el canal
+        boolean usaPrecioInflado = conceptosPorTipo.containsKey(AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
 
         List<CanalConcepto> gastosSobreImp = conceptosPorTipo.getOrDefault(AplicaSobre.IMPUESTO_ADICIONAL, List.of());
         BigDecimal gastosSobreImpTotal = calcularGastosPorcentaje(gastosSobreImp);
@@ -498,14 +498,16 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             }
         }
 
-        BigDecimal pvpSinPromocion = pvp.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        BigDecimal pvpSinInflar = pvp.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         // ============================================
-        // PASO 15: Promociones (solo si el canal tiene concepto PROMOCION habilitado)
+        // PASO 15: Precio inflado (solo si el canal tiene concepto FLAG_APLICAR_PRECIO_INFLADO habilitado)
         // ============================================
-        BigDecimal pvpInflado = aplicarPromocionSinInflacion(producto.getId(), idCanal,
-                pvpSinPromocion, usaPromociones);
-        pvpInflado = pvpInflado.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), idCanal,
+                pvpSinInflar, usaPrecioInflado);
+        pvpInfladoCalc = pvpInfladoCalc.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        // Si no hubo precio inflado, pvpInflado queda null (no tiene sentido mostrar el mismo valor que pvp)
+        BigDecimal pvpInflado = pvpInfladoCalc.compareTo(pvpSinInflar) != 0 ? pvpInfladoCalc : null;
 
         // ============================================
         // PASO 16: Calcular nuevas métricas contables
@@ -520,21 +522,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Incluye EMBALAJE ya que tiene AplicaSobre=PVP
         BigDecimal comisionMlParaMetricas = (producto.getMla() != null && producto.getMla().getComisionPorcentaje() != null)
                 ? producto.getMla().getComisionPorcentaje() : BigDecimal.ZERO;
-        BigDecimal costosVenta = calcularCostosVenta(pvpSinPromocion, conceptos, numeroCuotas, idCanal, comisionMlParaMetricas);
+        BigDecimal costosVenta = calcularCostosVenta(pvpSinInflar, conceptos, numeroCuotas, idCanal, comisionMlParaMetricas);
 
         // montoIva = PVP × (IVA / (100 + IVA)) -- extrae IVA incluido en PVP
         // ivaAplicar ya está definida arriba
         BigDecimal montoIva = BigDecimal.ZERO;
         if (ivaAplicar.compareTo(BigDecimal.ZERO) > 0) {
-            montoIva = pvpSinPromocion.multiply(ivaAplicar)
+            montoIva = pvpSinInflar.multiply(ivaAplicar)
                     .divide(CIEN.add(ivaAplicar), PRECISION_CALCULO, RoundingMode.HALF_UP);
         }
 
         // montoImpuestos = Σ conceptos con AplicaSobre = IMP (IIBB, etc.)
-        BigDecimal montoImpuestos = calcularMontoImpuestos(pvpSinPromocion, conceptos, ivaAplicar);
+        BigDecimal montoImpuestos = calcularMontoImpuestos(pvpSinInflar, conceptos, ivaAplicar);
 
         // ingresoNetoVendedor = PVP - IVA - impuestos - costosVenta
-        BigDecimal ingresoNetoVendedor = pvpSinPromocion
+        BigDecimal ingresoNetoVendedor = pvpSinInflar
                 .subtract(montoIva)
                 .subtract(montoImpuestos)
                 .subtract(costosVenta)
@@ -553,9 +555,9 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // margenSobrePvp = (ganancia / pvp) × 100
         BigDecimal margenSobrePvp = BigDecimal.ZERO;
-        if (pvpSinPromocion.compareTo(BigDecimal.ZERO) > 0) {
+        if (pvpSinInflar.compareTo(BigDecimal.ZERO) > 0) {
             margenSobrePvp = ganancia.multiply(CIEN)
-                    .divide(pvpSinPromocion, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                    .divide(pvpSinInflar, PRECISION_RESULTADO, RoundingMode.HALF_UP);
         }
 
         // markupPorcentaje = (ganancia / costoProductoMetrica) × 100
@@ -569,7 +571,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 idCanal,
                 canalActual != null ? canalActual.getCanal() : null,
                 numeroCuotas,
-                pvpSinPromocion,
+                pvpSinInflar,
                 pvpInflado,
                 costoProductoMetrica,
                 costosVenta,
@@ -613,7 +615,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     .filter(cc -> cc.getConcepto() != null
                             && cc.getConcepto().getAplicaSobre() == AplicaSobre.CALCULO_SOBRE_CANAL_BASE)
                     .collect(Collectors.toList());
-            return generarFormulaSobrePvpBase(producto, conceptosSobrePvpBase, idCanal);
+            return generarFormulaSobrePvpBase(producto, conceptosSobrePvpBase, idCanal, numeroCuotas);
         }
 
         // Paso 1: COSTO BASE
@@ -794,10 +796,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_IVA);
         BigDecimal ivaAplicar = aplicaIva ? ivaProducto : BigDecimal.ZERO;
 
-        // Las promociones solo se aplican si existe un concepto con aplicaSobre=PROMOCION para el canal
-        boolean usaPromociones = conceptos.stream()
+        // Los precios inflados solo se aplican si existe un concepto con FLAG_APLICAR_PRECIO_INFLADO para el canal
+        boolean usaPrecioInflado = conceptos.stream()
                 .anyMatch(cc -> cc.getConcepto() != null
-                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PROMOCIONES);
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
 
         List<CanalConcepto> gastosSobreImp = conceptos.stream()
                 .filter(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.IMPUESTO_ADICIONAL)
@@ -1021,15 +1023,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.INFLACION_DIVISOR)
                 .collect(Collectors.toList());
 
-        BigDecimal pvpSinPromocion = pvp.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        BigDecimal pvpSinInflar = pvp.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         if (!conceptosInflacion.isEmpty()) {
             BigDecimal porcentajeInflacion = calcularGastosPorcentaje(conceptosInflacion);
             if (porcentajeInflacion.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal divisor = BigDecimal.ONE.subtract(porcentajeInflacion.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP));
                 if (divisor.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal pvpAntesInflacion = pvpSinPromocion;
-                    pvpSinPromocion = pvpSinPromocion.divide(divisor, PRECISION_CALCULO, RoundingMode.HALF_UP)
+                    BigDecimal pvpAntesInflacion = pvpSinInflar;
+                    pvpSinInflar = pvpSinInflar.divide(divisor, PRECISION_CALCULO, RoundingMode.HALF_UP)
                             .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
                     List<String> nombresConceptosInflacion = obtenerNombresConceptos(conceptos, AplicaSobre.INFLACION_DIVISOR);
                     String nombresInflacionFormateados = formatearNombresConceptos(nombresConceptosInflacion);
@@ -1037,42 +1039,42 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar INFLACION",
                             String.format("PVP = PVP / (1 - (%s)/100)", nombresInflacionFormateados),
-                            rd(pvpSinPromocion),
+                            rd(pvpSinInflar),
                             String.format("%s / (1 - (%s)/100) = %s", fmt(pvpAntesInflacion),
                                     detalleConceptosInflacion.isEmpty() ? fmt(porcentajeInflacion)
                                             : detalleConceptosInflacion,
-                                    fmt(pvpSinPromocion))));
+                                    fmt(pvpSinInflar))));
                 }
             }
         } else {
             pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                    "PVP sin promociones",
-                    "PVP_SIN_PROMOCION",
-                    rd(pvpSinPromocion),
-                    String.format("PVP sin promociones: $%s", fmt(pvpSinPromocion))));
+                    "PVP sin inflar",
+                    "PVP_SIN_INFLAR",
+                    rd(pvpSinInflar),
+                    String.format("PVP sin inflar: $%s", fmt(pvpSinInflar))));
         }
 
-        // Paso 14: Promociones (solo si el canal tiene concepto PROMOCION habilitado)
-        BigDecimal pvpInflado = aplicarPromocionSinInflacion(producto.getId(), idCanal,
-                pvpSinPromocion, usaPromociones);
+        // Paso 14: Precio inflado (solo si el canal tiene concepto FLAG_APLICAR_PRECIO_INFLADO habilitado)
+        BigDecimal pvpInflado = aplicarPrecioInflado(producto.getId(), idCanal,
+                pvpSinInflar, usaPrecioInflado);
         pvpInflado = pvpInflado.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-        if (pvpInflado.compareTo(pvpSinPromocion) != 0) {
-            Optional<ProductoCanalPromocion> promocionOpt = productoCanalPromocionRepository
+        if (pvpInflado.compareTo(pvpSinInflar) != 0) {
+            Optional<ProductoCanalPrecioInflado> precioInfladoOpt = productoCanalPrecioInfladoRepository
                     .findByProductoIdAndCanalId(producto.getId(), idCanal);
 
-            if (promocionOpt.isPresent() && promocionOpt.get().getActiva() != null && promocionOpt.get().getActiva()) {
-                Promocion promocionMaestra = promocionOpt.get().getPromocion();
-                if (promocionMaestra != null) {
-                    TipoPromocionTabla tipo = promocionMaestra.getTipo();
-                    BigDecimal valor = promocionMaestra.getValor();
-                    String tipoPromocion = tipo.toString();
+            if (precioInfladoOpt.isPresent() && precioInfladoOpt.get().getActiva() != null && precioInfladoOpt.get().getActiva()) {
+                PrecioInflado precioInfladoMaestro = precioInfladoOpt.get().getPrecioInflado();
+                if (precioInfladoMaestro != null) {
+                    TipoPrecioInflado tipo = precioInfladoMaestro.getTipo();
+                    BigDecimal valor = precioInfladoMaestro.getValor();
+                    String tipoPrecioInflado = tipo.toString();
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
-                            "Aplicar promoción",
-                            String.format("PVP_INFLADO = aplicarPromocion(PVP_SIN_PROMOCION, tipo=%s, valor=%s)",
-                                    tipoPromocion, fmt(valor)),
+                            "Aplicar precio inflado",
+                            String.format("PVP_INFLADO = aplicarPrecioInflado(PVP_SIN_INFLAR, tipo=%s, valor=%s)",
+                                    tipoPrecioInflado, fmt(valor)),
                             rd(pvpInflado),
-                            String.format("Promoción %s: %s → %s", tipoPromocion, fmt(pvpSinPromocion), fmt(pvpInflado))));
+                            String.format("Precio inflado %s: %s → %s", tipoPrecioInflado, fmt(pvpSinInflar), fmt(pvpInflado))));
                 }
             }
         }
@@ -1114,14 +1116,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             List<String> nombresInflacion = obtenerNombresConceptos(conceptos, AplicaSobre.INFLACION_DIVISOR);
             formulaGeneral.append(" / (1 - ").append(formatearNombresConceptos(nombresInflacion)).append("/100)");
         }
-        formulaGeneral.append(" + PROMOCIONES");
+        formulaGeneral.append(" + PRECIO_INFLADO");
 
         Canal canal = canalRepository.findById(idCanal)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
+        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst()
+                .orElse(null);
+
         return new FormulaCalculoDTO(
                 canal.getCanal(),
                 numeroCuotas,
+                descripcionCuotas,
                 formulaGeneral.toString(),
                 pasos,
                 pvpInflado);
@@ -1257,12 +1265,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     .divide(costoProducto, PRECISION_RESULTADO, RoundingMode.HALF_UP);
         }
 
+        // Aplicar precio inflado si existe
+        boolean usaPrecioInflado = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
+        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), idCanal, pvp, usaPrecioInflado)
+                .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+        BigDecimal pvpInflado = pvpInfladoCalc.compareTo(pvp) != 0 ? pvpInfladoCalc : null;
+
         return new PrecioCalculadoDTO(
                 idCanal,
                 canalActual.getCanal(),
                 numeroCuotas,
-                pvp,        // pvp sin promoción
-                pvp,        // pvp con promoción (igual en este caso)
+                pvp,
+                pvpInflado,
                 costoProducto,
                 costosVenta,
                 ingresoNetoVendedor,
@@ -1281,12 +1297,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * @param producto              El producto
      * @param conceptosSobrePvpBase Conceptos con SOBRE_PVP_BASE (puede ser vacío)
      * @param idCanal               ID del canal actual
+     * @param numeroCuotas          Número de cuotas (-1=transferencia, 0=contado, >0=cuotas)
      * @return DTO con los pasos de la fórmula
      */
     private FormulaCalculoDTO generarFormulaSobrePvpBase(
             Producto producto,
             List<CanalConcepto> conceptosSobrePvpBase,
-            Integer idCanal) {
+            Integer idCanal,
+            Integer numeroCuotas) {
 
         List<FormulaCalculoDTO.PasoCalculo> pasos = new ArrayList<>();
         int pasoNumero = 1;
@@ -1347,9 +1365,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ? String.format("PVP = PVP_%s", nombreCanalBase)
                 : String.format("PVP = PVP_%s * factores", nombreCanalBase);
 
+        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst()
+                .orElse(null);
+
         return new FormulaCalculoDTO(
                 canalActual != null ? canalActual.getCanal() : "Canal",
-                null, // sin cuotas
+                numeroCuotas,
+                descripcionCuotas,
                 formulaGeneral,
                 pasos,
                 pvp);
@@ -1788,51 +1812,51 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     }
 
     /**
-     * Aplica promociones sin incluir porcentaje_inflacion (que ahora es un concepto).
-     * Solo aplica promociones de producto_canal_promocion si el canal tiene habilitadas las promociones.
+     * Aplica precio inflado sin incluir porcentaje_inflacion (que ahora es un concepto).
+     * Solo aplica precios inflados de producto_canal_precio_inflado si el canal tiene habilitado FLAG_APLICAR_PRECIO_INFLADO.
      *
      * @param productoId     ID del producto
      * @param canalId        ID del canal
-     * @param pvp            Precio calculado antes de aplicar promociones
-     * @param usaPromociones true si el canal tiene un concepto con aplicaSobre=PROMOCION
-     * @return Precio con promociones aplicadas (o el mismo pvp si no usa promociones)
+     * @param pvp            Precio calculado antes de aplicar precio inflado
+     * @param usaPrecioInflado true si el canal tiene un concepto con aplicaSobre=FLAG_APLICAR_PRECIO_INFLADO
+     * @return Precio con precio inflado aplicado (o el mismo pvp si no usa precio inflado)
      */
-    private BigDecimal aplicarPromocionSinInflacion(Integer productoId, Integer canalId, BigDecimal pvp, boolean usaPromociones) {
+    private BigDecimal aplicarPrecioInflado(Integer productoId, Integer canalId, BigDecimal pvp, boolean usaPrecioInflado) {
         BigDecimal resultado = pvp;
 
-        // Si el canal no tiene habilitadas las promociones, retornar el pvp sin cambios
-        if (!usaPromociones) {
+        // Si el canal no tiene habilitado el precio inflado, retornar el pvp sin cambios
+        if (!usaPrecioInflado) {
             return resultado;
         }
 
-        // Aplicar promoción de producto_canal_promocion (si existe y está activa)
-        Optional<ProductoCanalPromocion> promocionOpt = Optional.empty();
+        // Aplicar precio inflado de producto_canal_precio_inflado (si existe y está activo)
+        Optional<ProductoCanalPrecioInflado> precioInfladoOpt = Optional.empty();
         if (canalId != null) {
-            promocionOpt = productoCanalPromocionRepository
+            precioInfladoOpt = productoCanalPrecioInfladoRepository
                     .findByProductoIdAndCanalId(productoId, canalId);
         }
 
-        if (promocionOpt.isPresent()) {
-            ProductoCanalPromocion promocion = promocionOpt.get();
+        if (precioInfladoOpt.isPresent()) {
+            ProductoCanalPrecioInflado precioInfladoAsignado = precioInfladoOpt.get();
 
-            // Verificar que la promoción esté activa
-            if (promocion.getActiva() != null && promocion.getActiva()) {
+            // Verificar que el precio inflado esté activo
+            if (precioInfladoAsignado.getActiva() != null && precioInfladoAsignado.getActiva()) {
                 // Verificar rango de fechas si está configurado
                 LocalDate hoy = LocalDate.now();
                 boolean fechaValida = true;
-                if (promocion.getFechaDesde() != null && hoy.isBefore(promocion.getFechaDesde())) {
-                    fechaValida = false; // Promoción aún no iniciada
+                if (precioInfladoAsignado.getFechaDesde() != null && hoy.isBefore(precioInfladoAsignado.getFechaDesde())) {
+                    fechaValida = false; // Precio inflado aún no iniciado
                 }
-                if (promocion.getFechaHasta() != null && hoy.isAfter(promocion.getFechaHasta())) {
-                    fechaValida = false; // Promoción ya expiró
+                if (precioInfladoAsignado.getFechaHasta() != null && hoy.isAfter(precioInfladoAsignado.getFechaHasta())) {
+                    fechaValida = false; // Precio inflado ya expiró
                 }
 
                 if (fechaValida) {
-                    // Obtener la promoción de la tabla maestra
-                    Promocion promocionMaestra = promocion.getPromocion();
-                    if (promocionMaestra != null) {
-                        TipoPromocionTabla tipo = promocionMaestra.getTipo();
-                        BigDecimal valor = promocionMaestra.getValor();
+                    // Obtener el precio inflado de la tabla maestra
+                    PrecioInflado precioInfladoMaestro = precioInfladoAsignado.getPrecioInflado();
+                    if (precioInfladoMaestro != null) {
+                        TipoPrecioInflado tipo = precioInfladoMaestro.getTipo();
+                        BigDecimal valor = precioInfladoMaestro.getValor();
 
                         switch (tipo) {
                             case MULTIPLICADOR:
@@ -1849,8 +1873,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                                 // Si valor = 10 (10%): precio / (1 - 0.10) = precio / 0.90 (incrementa ~11.11%)
                                 // Fórmula: resultado = resultado / (1 - valor/100)
                                 if (valor.compareTo(BigDecimal.ZERO) > 0 && valor.compareTo(CIEN) < 0) {
-                                    BigDecimal promocionFrac = valor.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                                    BigDecimal denominador = BigDecimal.ONE.subtract(promocionFrac);
+                                    BigDecimal precioInfladoFrac = valor.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                                    BigDecimal denominador = BigDecimal.ONE.subtract(precioInfladoFrac);
                                     if (denominador.compareTo(BigDecimal.ZERO) > 0) {
                                         resultado = resultado.divide(denominador, PRECISION_CALCULO, RoundingMode.HALF_UP);
                                     }
@@ -1891,9 +1915,21 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         Producto producto = obtenerProducto(idProducto);
         ProductoMargen productoMargen = obtenerProductoMargen(idProducto);
 
+        Canal canal = canalRepository.findById(idCanal)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + idCanal));
+
+        // Validar que las cuotas existen para este canal (si se especificaron)
+        if (numeroCuotas != null) {
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            if (!cuotasDisponibles.contains(numeroCuotas)) {
+                throw new NotFoundException(
+                        "Cuotas " + numeroCuotas + " no configuradas para el canal '" + canal.getCanal() + "'. " +
+                                "Cuotas disponibles: " + cuotasDisponibles
+                );
+            }
+        }
+
         // Obtener todos los conceptos que aplican al canal según los filtros
-        // Sistema unificado: todos los conceptos se obtienen dinámicamente desde canal_concepto
-        // y se filtran por reglas de canal_concepto_regla según el producto
         List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
 
         List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);

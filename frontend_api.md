@@ -18,7 +18,7 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Canales](#canales)
    - [Conceptos de Cálculo](#conceptos-de-cálculo)
    - [Reglas de Descuento](#reglas-de-descuento)
-   - [Promociones](#promociones)
+   - [Precios Inflados](#precios-inflados)
    - [Catálogos y Clientes](#catálogos-y-clientes)
    - [Atributos Maestros](#atributos-maestros)
    - [Excel](#excel-importexport)
@@ -203,7 +203,7 @@ PVP_HIJO = PVP_PADRE × (1 + CALCULO_SOBRE_CANAL_BASE% / 100)
 | `RECARGO_CUPON` | Divisor adicional sobre PVP | Cupones +5% |
 | `DESCUENTO_PORCENTUAL` | Descuento final sobre PVP | Promo -10% |
 | `INFLACION_DIVISOR` | Divisor de inflación | Inflación +8% |
-| `FLAG_APLICAR_PROMOCIONES` | Flag: aplicar promociones | |
+| `FLAG_APLICAR_PRECIO_INFLADO` | Flag: aplicar precios inflados | |
 
 **Detalle de cómo se aplican los conceptos:**
 
@@ -236,7 +236,7 @@ Donde:
 - `FLAG_APLICAR_IVA`: Habilita aplicar el IVA del producto
 - `FLAG_USAR_MARGEN_MINORISTA`: Usa el margen minorista del producto
 - `FLAG_USAR_MARGEN_MAYORISTA`: Usa el margen mayorista del producto
-- `FLAG_APLICAR_PROMOCIONES`: Habilita promociones asignadas al producto-canal
+- `FLAG_APLICAR_PRECIO_INFLADO`: Habilita precios inflados asignadas al producto-canal
 - `CALCULO_SOBRE_CANAL_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
 - `FLAG_FINANCIACION_PROVEEDOR`: Usa el % financiación del proveedor del producto
 - `FLAG_INCLUIR_ENVIO`: Usa mla.precio_envio como costo de envío
@@ -335,14 +335,14 @@ Resultado: Solo las cafeteras tienen el descuento gastro, los demás productos n
 
 Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `POST /api/precios/calcular` si el canal tiene reglas de descuento configuradas.
 
-#### 9. `promociones` - Promociones Globales
+#### 9. `precios_inflados` - Precios Inflados
 | Campo | Descripción |
 |-------|-------------|
 | `codigo` | Código único |
 | `tipo` | MULTIPLICADOR, DESCUENTO_PORC, DIVISOR, PRECIO_FIJO |
 | `valor` | Valor según el tipo |
 
-**Tipos de promoción y cómo afectan el PVP:**
+**Tipos de precio inflado y cómo afectan el PVP:**
 
 | Tipo | Fórmula | Ejemplo | Resultado |
 |------|---------|---------|-----------|
@@ -352,8 +352,8 @@ Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `
 | `PRECIO_FIJO` | valor | PVP=$1000, valor=500 | $500 (fijo) |
 
 **Notas:**
-- Las promociones se asignan a producto+canal específico mediante `producto_canal_promocion`
-- Solo aplican si el canal tiene el concepto `PROMOCION` asignado
+- Los precios inflados se asignan a producto+canal específico mediante `producto_canal_precio_inflado`
+- Solo aplican si el canal tiene el concepto `FLAG_APLICAR_PRECIO_INFLADO` asignado
 - `DESCUENTO_PORC` usa la fórmula del Excel original: divide por (1-porcentaje), lo que **incrementa** el precio
 
 #### 10. `mlas` - Datos de Mercado Libre
@@ -361,7 +361,11 @@ Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `
 |-------|-------------|
 | `mla` | Código MLA (ej: "MLA123456") |
 | `mlau` | Código MLAU (variante) |
-| `precio_envio` | Costo de envío para concepto ENVIO |
+| `precio_envio` | Costo de envío sin IVA para concepto ENVIO |
+| `fecha_calculo_envio` | Fecha del último cálculo de envío |
+| `comision_porcentaje` | Porcentaje de comisión ML (ej: 14.35) |
+| `fecha_calculo_comision` | Fecha del último cálculo de comisión |
+| `tope_promocion` | Tope para promociones ML (default 0, usado por programa externo) |
 
 ### Tablas de Clasificación (Maestros)
 
@@ -452,7 +456,7 @@ La mayoría de los endpoints de listado soportan un parámetro `search` para fil
 - `/api/aptos` - busca en nombre
 - `/api/clasif-gral` - busca en nombre
 - `/api/clasif-gastro` - busca en nombre
-- `/api/promociones` - busca en código y descripción
+- `/api/precios-inflados` - busca en código y descripción
 - `/api/mlas` - busca en MLA y MLAU
 
 **Ejemplo:**
@@ -578,6 +582,7 @@ interface ProductoConPrecios {
   mla: string | null;
   mlau: string | null;
   precioEnvio: number | null;
+  fechaCalculoEnvio: string | null;   // ISO DateTime
   comisionPorcentaje: number | null;  // porcentaje de comisión ML (ej: 14.35)
 
   codExt: string | null;
@@ -810,7 +815,7 @@ type AplicaSobre =
   | 'RECARGO_CUPON'               // Recargo como divisor sobre PVP
   | 'DESCUENTO_PORCENTUAL'        // Descuento que reduce PVP
   | 'INFLACION_DIVISOR'           // Inflación como divisor
-  | 'FLAG_APLICAR_PROMOCIONES';   // Flag: habilita promociones
+  | 'FLAG_APLICAR_PRECIO_INFLADO';   // Flag: habilita precios inflados
 
 // NOTA: AJUSTE_MARGEN_PUNTOS y AJUSTE_MARGEN_PROPORCIONAL usan el signo del porcentaje:
 //   - Porcentaje positivo (+25): aumenta el margen
@@ -882,6 +887,8 @@ interface CanalConceptoReglaCreate {
 }
 
 interface CanalConceptoReglaUpdate {
+  canalId?: number;             // @Positive (debe coincidir si se envía)
+  conceptoId?: number;          // @Positive (debe coincidir si se envía)
   tipoRegla?: 'INCLUIR' | 'EXCLUIR';
   tipoId?: number;              // @Positive
   clasifGastroId?: number;      // @Positive
@@ -932,43 +939,61 @@ interface ReglaDescuentoUpdate {
 }
 ```
 
-### Promoción
+### Precio Inflado
 
 ```typescript
-interface Promocion {
+interface PrecioInflado {
   id: number;
   codigo: string;
-  tipo: TipoPromocion;
+  tipo: TipoPrecioInflado;
   valor: number;
 }
 
-interface PromocionCreate {
+interface PrecioInfladoCreate {
   codigo: string;               // @NotBlank, max 20
-  tipo: TipoPromocion;          // @NotNull
+  tipo: TipoPrecioInflado;          // @NotNull
   valor: number;                // @NotNull, >= 0
 }
 
-interface PromocionUpdate {
+interface PrecioInfladoUpdate {
   codigo?: string;              // max 20
-  tipo?: TipoPromocion;
+  tipo?: TipoPrecioInflado;
   valor?: number;               // >= 0
 }
 
-type TipoPromocion = 'MULTIPLICADOR' | 'DESCUENTO_PORC' | 'DIVISOR' | 'PRECIO_FIJO';
+type TipoPrecioInflado = 'MULTIPLICADOR' | 'DESCUENTO_PORC' | 'DIVISOR' | 'PRECIO_FIJO';
 ```
 
-### Producto-Canal Promoción
+### Producto-Canal Precio Inflado
 
 ```typescript
-interface ProductoCanalPromocion {
+interface ProductoCanalPrecioInflado {
   id: number;
   productoId: number;
   canalId: number;
-  promocion: Promocion;
+  precioInflado: PrecioInflado;
   activa: boolean;
   fechaDesde: string | null;  // ISO date
   fechaHasta: string | null;
   notas: string | null;
+}
+
+interface ProductoCanalPrecioInfladoCreate {
+  productoId: number;             // @NotNull, debe coincidir con path
+  canalId: number;                // @NotNull, debe coincidir con path
+  precioInfladoId: number;        // @NotNull, > 0
+  activa?: boolean;
+  fechaDesde?: string;            // ISO date
+  fechaHasta?: string;
+  notas?: string;                 // max 255
+}
+
+interface ProductoCanalPrecioInfladoUpdate {
+  precioInfladoId?: number;       // > 0
+  activa?: boolean;
+  fechaDesde?: string;            // ISO date
+  fechaHasta?: string;
+  notas?: string;                 // max 255
 }
 ```
 
@@ -990,8 +1015,9 @@ interface ProductoMargen {
 
 ```typescript
 interface FormulaCalculo {
-  nombreCanal: string;
-  numeroCuotas: number;      // ahora es requerido
+  canalNombre: string;
+  cuotas: number;
+  descripcionCuotas: string;   // "contado", "transferencia", "3 cuotas", etc.
   formulaGeneral: string;
   pasos: PasoCalculo[];
   resultadoFinal: number;
@@ -1017,12 +1043,14 @@ interface Mla {
   fechaCalculoEnvio: string | null;     // ISO DateTime
   comisionPorcentaje: number | null;    // porcentaje de comisión ML (ej: 14.35)
   fechaCalculoComision: string | null;  // ISO DateTime
+  topePromocion: number;                // tope para promociones ML (default 0)
 }
 
 interface MlaCreate {
   mla: string;                    // @NotBlank, max 20
   mlau?: string;                  // max 20
   precioEnvio?: number;           // >= 0
+  topePromocion?: number;         // >= 0, default 0
 }
 
 interface MlaUpdate {
@@ -1030,6 +1058,7 @@ interface MlaUpdate {
   mlau?: string;                  // max 20
   precioEnvio?: number;           // >= 0
   comisionPorcentaje?: number;    // >= 0
+  topePromocion?: number;         // >= 0
 }
 ```
 
@@ -1071,7 +1100,7 @@ interface CostoEnvioResponse {
 }
 
 interface CostoEnvioMasivoResponse {
-  totalMlas: number;
+  totalProcesados: number;
   exitosos: number;
   errores: number;
   omitidos: number;
@@ -1110,7 +1139,7 @@ interface ProcesoMasivoEstado {
   procesados: number;              // MLAs procesados hasta ahora
   exitosos: number;                // Procesados exitosamente
   errores: number;                 // Procesados con error
-  estado: 'IDLE' | 'EN_EJECUCION' | 'CANCELADO' | 'COMPLETADO' | 'ERROR';
+  estado: 'idle' | 'ejecutando' | 'completado' | 'cancelado';
   iniciadoEn: string | null;       // ISO DateTime
   finalizadoEn: string | null;     // ISO DateTime
   mensaje: string | null;          // Mensaje descriptivo
@@ -1493,37 +1522,39 @@ DELETE /api/productos/{productoId}/margen
 
 ---
 
-### Producto - Promociones por Canal
+### Producto - Precios Inflados por Canal
 
-#### Obtener promoción
+#### Obtener precio inflado
 ```http
-GET /api/productos/{productoId}/canales/{canalId}/promociones
+GET /api/productos/{productoId}/canales/{canalId}/precios-inflados
 ```
-**Response:** `ProductoCanalPromocion`
+**Response:** `ProductoCanalPrecioInflado`
 
-#### Crear promoción
+#### Crear precio inflado
 ```http
-POST /api/productos/{productoId}/canales/{canalId}/promociones
+POST /api/productos/{productoId}/canales/{canalId}/precios-inflados
 Content-Type: application/json
 
 {
-  "promocionId": 1,
+  "productoId": 1,
+  "canalId": 2,
+  "precioInfladoId": 1,
   "activa": true,
   "fechaDesde": "2025-01-01",
   "fechaHasta": "2025-12-31",
   "notas": "Promo verano"
 }
 ```
-**Response:** `201 Created` + `ProductoCanalPromocion`
+**Response:** `201 Created` + `ProductoCanalPrecioInflado`
 
-#### Actualizar promoción
+#### Actualizar precio inflado
 ```http
-PUT /api/productos/{productoId}/canales/{canalId}/promociones
+PUT /api/productos/{productoId}/canales/{canalId}/precios-inflados
 ```
 
-#### Eliminar promoción
+#### Eliminar precio inflado
 ```http
-DELETE /api/productos/{productoId}/canales/{canalId}/promociones
+DELETE /api/productos/{productoId}/canales/{canalId}/precios-inflados
 ```
 **Response:** `204 No Content`
 
@@ -1630,8 +1661,9 @@ GET /api/precios/formula?productoId=1&canalId=2&cuotas=0
 **Ejemplo respuesta:**
 ```json
 {
-  "nombreCanal": "KT GASTRO",
-  "numeroCuotas": 0,
+  "canalNombre": "KT GASTRO",
+  "cuotas": 0,
+  "descripcionCuotas": "contado",
   "formulaGeneral": "PVP = ((COSTO * (1 + GANANCIA/100)) * IMP / (1 - GTML[%]/100)",
   "pasos": [
     {
@@ -1869,18 +1901,18 @@ DELETE /api/reglas-descuento/{id}               # Eliminar
 
 ---
 
-### Promociones
+### Precios Inflados
 
 ```http
-GET    /api/promociones                    # Listar todas
-GET    /api/promociones/{id}               # Obtener por ID
-GET    /api/promociones/codigo/{codigo}    # Obtener por código
-POST   /api/promociones                    # Crear
-PUT    /api/promociones/{id}               # Actualizar
-DELETE /api/promociones/{id}               # Eliminar
+GET    /api/precios-inflados                    # Listar todas
+GET    /api/precios-inflados/{id}               # Obtener por ID
+GET    /api/precios-inflados/codigo/{codigo}    # Obtener por código
+POST   /api/precios-inflados                    # Crear
+PUT    /api/precios-inflados/{id}               # Actualizar
+DELETE /api/precios-inflados/{id}               # Eliminar
 ```
 
-**Crear promoción:**
+**Crear precio inflado:**
 ```json
 {
   "codigo": "VERANO25",
@@ -2782,9 +2814,9 @@ Al eliminar estas entidades, **se eliminan automáticamente** sus registros rela
 
 | Al eliminar... | Se eliminan automáticamente... |
 |----------------|-------------------------------|
-| **Producto** | ProductoApto, ProductoCatalogo, ProductoCliente, ProductoCanalPrecio, ProductoCanalPromocion, ProductoMargen |
+| **Producto** | ProductoApto, ProductoCatalogo, ProductoCliente, ProductoCanalPrecio, ProductoCanalPrecioInflado, ProductoMargen |
 | **Catálogo** | ProductoCatalogo (relaciones con productos), ReglaDescuento |
-| **Canal** | ProductoCanalPrecio, ProductoCanalPromocion, CanalConceptoCuota, CanalConceptoRegla, ReglaDescuento |
+| **Canal** | ProductoCanalPrecio, ProductoCanalPrecioInflado, CanalConceptoCuota, CanalConceptoRegla, ReglaDescuento |
 | **ConceptoCalculo** | CanalConcepto, CanalConceptoRegla |
 | **Apto** | ProductoApto (relaciones con productos) |
 | **Cliente** | ProductoCliente (relaciones con productos) |
@@ -2820,7 +2852,7 @@ Al eliminar estas entidades, los registros relacionados **mantienen su FK en NUL
 | **Proveedor** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Material** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
 | **Mla** | Producto | "No se puede eliminar porque tiene registros relacionados en: Productos" |
-| **Promocion** | ProductoCanalPromocion | "No se puede eliminar porque tiene registros relacionados en: Producto canal promocion" |
+| **PrecioInflado** | ProductoCanalPrecioInflado | "No se puede eliminar porque tiene registros relacionados en: Producto canal precio inflado" |
 
 ### Formato de error 409 (Conflict)
 
@@ -2897,7 +2929,7 @@ interface ProductoResumenDTO {
    | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
    | Canal (canalBase) | Todos los productos del canal cuyo canalBase cambió |
    | Proveedor (porcentaje financiación) | Todos los productos de ese proveedor |
-   | Promoción (asignar/desasignar) | Ese producto en ese canal |
+   | Precio inflado (asignar/desasignar) | Ese producto en ese canal |
    | MLA (precioEnvio) | Todos los productos con ese MLA |
    | ClasifGastro (esMaquina) | Todos los productos de esa clasificación en todos sus canales |
    | **POST /api/ml/costo-envio** | Calcula costo de envío y recalcula precios de productos afectados |
@@ -2932,7 +2964,7 @@ interface ProductoResumenDTO {
 
 5. **Decimales:** Se manejan con 2 decimales de precisión para precios y porcentajes.
 
-6. **Conceptos flag:** Algunos conceptos (`FLAG_APLICAR_IVA`, `FLAG_USAR_MARGEN_MINORISTA`, `FLAG_USAR_MARGEN_MAYORISTA`, `FLAG_APLICAR_PROMOCIONES`, `FLAG_FINANCIACION_PROVEEDOR`, `FLAG_INCLUIR_ENVIO`) actúan como flags. Solo importa si están asignados al canal o no, el porcentaje se ignora.
+6. **Conceptos flag:** Algunos conceptos (`FLAG_APLICAR_IVA`, `FLAG_USAR_MARGEN_MINORISTA`, `FLAG_USAR_MARGEN_MAYORISTA`, `FLAG_APLICAR_PRECIO_INFLADO`, `FLAG_FINANCIACION_PROVEEDOR`, `FLAG_INCLUIR_ENVIO`) actúan como flags. Solo importa si están asignados al canal o no, el porcentaje se ignora.
 
 7. **Cuotas:** El sistema de cuotas usa:
    - `cuotas = -1` → Transferencia (generalmente con descuento)
@@ -2953,8 +2985,9 @@ interface ProductoResumenDTO {
     - Canales con reglas activas → `descuentos: [...]`
     - Canales sin reglas → `descuentos: null`
 
-11. **Cálculo masivo ML asíncrono:** Para el cálculo masivo de costos de envío, se recomienda usar los endpoints async:
-    - `POST /api/ml/costo-envio/async` → Inicia en segundo plano
+11. **Cálculo masivo ML asíncrono:** Para el cálculo masivo de costos de envío/venta, llamar al endpoint sin parámetros:
+    - `POST /api/ml/costo-envio` (sin params) → Inicia en segundo plano (`202 Accepted`)
     - `GET /api/ml/costo-envio/estado` → Monitorear progreso
     - `POST /api/ml/costo-envio/cancelar` → Cancelar si es necesario
     - `GET /api/ml/costo-envio/resultado` → Obtener resultado final
+    - Misma lógica para `/api/ml/costo-venta` y sus sub-endpoints

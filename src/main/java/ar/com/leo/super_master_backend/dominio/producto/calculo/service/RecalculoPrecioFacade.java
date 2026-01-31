@@ -99,12 +99,12 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula cuando cambia una promoción o se asigna/desasigna.
+     * Recalcula cuando cambia un precio inflado o se asigna/desasigna.
      * Alcance: Ese producto en ese canal.
      */
     @Transactional
-    public void recalcularPorCambioPromocion(Integer idProducto, Integer idCanal) {
-        log.info("Recalculando precios por cambio en promoción: producto={}, canal={}", idProducto, idCanal);
+    public void recalcularPorCambioPrecioInflado(Integer idProducto, Integer idCanal) {
+        log.info("Recalculando precios por cambio en precio inflado: producto={}, canal={}", idProducto, idCanal);
 
         calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal);
     }

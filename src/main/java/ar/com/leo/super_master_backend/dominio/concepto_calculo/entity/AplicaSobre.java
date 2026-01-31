@@ -128,10 +128,10 @@ public enum AplicaSobre {
     INFLACION_DIVISOR,
 
     /**
-     * Flag: habilita la aplicación de promociones para el canal.
-     * Si existe este concepto, se aplican las promociones de producto_canal_promocion.
-     * Si NO existe, NO se aplican promociones.
+     * Flag: habilita la aplicación de precio inflado para el canal.
+     * Si existe este concepto, se aplican los precios inflados de producto_canal_precio_inflado.
+     * Si NO existe, NO se aplican precios inflados.
      * Solo actúa como habilitador, el porcentaje del concepto se ignora.
      */
-    FLAG_APLICAR_PROMOCIONES
+    FLAG_APLICAR_PRECIO_INFLADO
 }
