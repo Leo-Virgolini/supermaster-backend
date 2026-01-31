@@ -3950,8 +3950,19 @@ public class ExcelServiceImpl implements ExcelService {
                             canal.getCanal(), descCuotas));
         }
 
+        // Verificar que el canal tenga FLAG_APLICAR_PRECIO_INFLADO (requisito para este formato)
+        boolean usaPrecioInflado = canalConceptoRepository.findByCanalId(canal.getId()).stream()
+                .anyMatch(cc -> cc.getConcepto() != null
+                        && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
+
         // Filtrar productos válidos y recolectar advertencias
         List<String> advertencias = new ArrayList<>();
+
+        if (!usaPrecioInflado) {
+            advertencias.add("El canal '" + canal.getCanal() + "' no tiene el concepto FLAG_APLICAR_PRECIO_INFLADO. " +
+                    "Los productos no tendrán PVP Inflado calculado.");
+        }
+
         List<String> productosConPvpInvalido = new ArrayList<>();
         List<String> productosConPvpInfladoInvalido = new ArrayList<>();
         List<ProductoCanalPrecio> preciosValidos = new ArrayList<>();
