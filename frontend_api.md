@@ -1972,17 +1972,18 @@ Todos siguen el patrón CRUD estándar:
 GET /api/excel/exportar-precios
 GET /api/excel/exportar-precios?formato=completo    # default
 GET /api/excel/exportar-precios?formato=mercadolibre&cuotas=0
-GET /api/excel/exportar-precios?formato=nube&cuotas=0
+GET /api/excel/exportar-precios?formato=kt-hogar&cuotas=0
+GET /api/excel/exportar-precios?formato=kt-gastro&cuotas=0
 ```
 **Query params:**
-- `formato` (optional, default=completo): Formato de exportación (completo, mercadolibre, nube)
+- `formato` (optional, default=completo): Formato de exportación (completo, mercadolibre, kt-hogar, kt-gastro)
 - Para formato `completo`: acepta todos los params de `ProductoFilter`
-- Para formato `mercadolibre` y `nube`: requiere `cuotas` (-1=transferencia, 0=contado, >0=cuotas)
+- Para formato `mercadolibre`, `kt-hogar` y `kt-gastro`: requiere `cuotas` (-1=transferencia, 0=contado, >0=cuotas)
 
 **Response:** Archivo Excel (application/octet-stream)
 - Headers fijos (freeze panes): los headers permanecen visibles al hacer scroll
 - Formato `completo`: super headers con bordes gruesos, canales separados visualmente con bordes
-- Formatos `mercadolibre` y `nube` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
+- Formatos `mercadolibre`, `kt-hogar` y `kt-gastro` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
 
 **Columnas del formato `completo`:**
 
@@ -1996,20 +1997,28 @@ GET /api/excel/exportar-precios?formato=nube&cuotas=0
 | Configuración | Valor |
 |---------------|-------|
 | Canal | `ML` (hardcodeado) |
-| Columnas | SKU, PRECIO (pvpInflado), MLA |
+| Columnas | SKU, PRECIO (pvpInflado o pvp como fallback), MLA |
 | Nombre hoja | "MercadoLibre" |
-| Validaciones | Excluye productos sin MLA o con pvpInflado <= 0 |
+| Validaciones | Excluye productos sin MLA o con precio <= 0 |
 
-**Formato `nube`:**
+**Formato `kt-hogar`:**
 | Configuración | Valor |
 |---------------|-------|
 | Canal | `KT HOGAR` (hardcodeado) |
-| Columnas | SKU, PVP_NUBE (pvp), PVP_INFLADO |
-| Nombre hoja | "Nube" |
+| Columnas | SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO |
+| Nombre hoja | "KT HOGAR" |
 | Validaciones | Excluye productos con pvp <= 0 o pvpInflado <= 0 |
 
+**Formato `kt-gastro`:**
+| Configuración | Valor |
+|---------------|-------|
+| Canal | `KT GASTRO` (hardcodeado) |
+| Columnas | SKU, PVP_GASTRO_S_IVA (pvp / (1 + iva/100)) |
+| Nombre hoja | "KT GASTRO" |
+| Validaciones | Excluye productos con pvp <= 0 o sin IVA definido |
+
 **Importante - Prioridad de parámetros:**
-- Si se pasa `formato=mercadolibre` o `formato=nube`, el parámetro `canalId` es **ignorado**. Siempre se usa el canal hardcodeado (ML o KT HOGAR respectivamente).
+- Si se pasa `formato=mercadolibre`, `formato=kt-hogar` o `formato=kt-gastro`, el parámetro `canalId` es **ignorado**. Siempre se usa el canal hardcodeado (ML, KT HOGAR o KT GASTRO respectivamente).
 - El parámetro `canalId` solo aplica cuando `formato=completo` (o no se especifica formato).
 
 #### Exportar catálogo a Excel

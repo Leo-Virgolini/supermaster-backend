@@ -92,14 +92,25 @@ public interface ExcelService {
     ExportResultDTO exportarMercadoLibre(Integer cuotas) throws IOException;
 
     /**
-     * Exporta datos para subir a Tienda Nube.
+     * Exporta datos para KT HOGAR.
      * Usa el canal "KT HOGAR" internamente.
-     * Columnas: SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado)
+     * Columnas: SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO (pvp_inflado)
      *
      * @param cuotas Cantidad de cuotas (null = sin cuotas)
      * @return ExportResultDTO con el archivo y advertencias
      * @throws IOException Si hay error generando el archivo
      */
-    ExportResultDTO exportarNube(Integer cuotas) throws IOException;
+    ExportResultDTO exportarKtHogar(Integer cuotas) throws IOException;
+
+    /**
+     * Exporta datos para KT GASTRO.
+     * Usa el canal "KT GASTRO" internamente.
+     * Columnas: SKU, PVP_GASTRO_S_IVA (pvp sin IVA del producto)
+     *
+     * @param cuotas Cantidad de cuotas (null = sin cuotas)
+     * @return ExportResultDTO con el archivo y advertencias
+     * @throws IOException Si hay error generando el archivo
+     */
+    ExportResultDTO exportarKtGastro(Integer cuotas) throws IOException;
 }
 

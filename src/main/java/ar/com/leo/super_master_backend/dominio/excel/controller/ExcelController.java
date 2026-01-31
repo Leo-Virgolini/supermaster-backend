@@ -121,9 +121,10 @@ public class ExcelController {
      * - completo (default): Incluye columnas fijas del producto y columnas dinámicas por canal/cuotas.
      *                       Acepta los mismos filtros que GET /api/precios.
      * - mercadolibre: Columnas SKU, PRECIO (pvp_inflado), MLA. Usa canal "ML" internamente.
-     * - nube: Columnas SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado). Usa canal "KT HOGAR" internamente.
+     * - kt-hogar: Columnas SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO (pvp_inflado). Usa canal "KT HOGAR" internamente.
+     * - kt-gastro: Columnas SKU, PVP_GASTRO_S_IVA (pvp sin IVA del producto). Usa canal "KT GASTRO" internamente.
      *
-     * @param formato Formato de exportación: completo (default), mercadolibre, nube
+     * @param formato Formato de exportación: completo (default), mercadolibre, kt-hogar, kt-gastro
      * @return Archivo Excel descargable
      */
     @GetMapping("/exportar-precios")
@@ -208,15 +209,15 @@ public class ExcelController {
     ) {
         try {
             // Validar formato
-            if (!formato.equals("completo") && !formato.equals("mercadolibre") && !formato.equals("nube")) {
+            if (!formato.equals("completo") && !formato.equals("mercadolibre") && !formato.equals("kt-hogar") && !formato.equals("kt-gastro")) {
                 return ResponseEntity.badRequest()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(Map.of("message", "Formato inválido. Valores permitidos: completo, mercadolibre, nube",
+                        .body(Map.of("message", "Formato inválido. Valores permitidos: completo, mercadolibre, kt-hogar, kt-gastro",
                                 "path", "/api/excel/exportar-precios"));
             }
 
-            // Formatos específicos (mercadolibre, nube) requieren el parámetro cuotas
-            if (formato.equals("mercadolibre") || formato.equals("nube")) {
+            // Formatos específicos requieren el parámetro cuotas
+            if (formato.equals("mercadolibre") || formato.equals("kt-hogar") || formato.equals("kt-gastro")) {
                 if (cuotas == null) {
                     return ResponseEntity.badRequest()
                             .contentType(MediaType.APPLICATION_JSON)
@@ -226,7 +227,10 @@ public class ExcelController {
                 if (formato.equals("mercadolibre")) {
                     return exportarFormatoMercadoLibre(cuotas);
                 }
-                return exportarFormatoNube(cuotas);
+                if (formato.equals("kt-hogar")) {
+                    return exportarFormatoKtHogar(cuotas);
+                }
+                return exportarFormatoKtGastro(cuotas);
             }
 
             // Formato completo: usar filtros
@@ -420,14 +424,14 @@ public class ExcelController {
     }
 
     /**
-     * Método privado para exportar formato Tienda Nube.
-     * Columnas: SKU, PVP_NUBE (pvp), PVP_INFLADO (pvp_inflado)
+     * Método privado para exportar formato KT HOGAR.
+     * Columnas: SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO (pvp_inflado)
      */
-    private ResponseEntity<?> exportarFormatoNube(Integer cuotas) {
+    private ResponseEntity<?> exportarFormatoKtHogar(Integer cuotas) {
         try {
-            ExportResultDTO result = excelService.exportarNube(cuotas);
+            ExportResultDTO result = excelService.exportarKtHogar(cuotas);
 
-            String filename = String.format("nube_%s.xlsx",
+            String filename = String.format("kt_hogar_%s.xlsx",
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
@@ -446,20 +450,61 @@ public class ExcelController {
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
-            log.error("Error de validación al exportar para Tienda Nube: {}", e.getMessage(), e);
+            log.error("Error de validación al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
         } catch (IOException e) {
-            log.error("Error de I/O al exportar para Tienda Nube: {}", e.getMessage(), e);
+            log.error("Error de I/O al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
         } catch (Exception e) {
-            log.error("Error inesperado al exportar para Tienda Nube: {}", e.getMessage(), e);
+            log.error("Error inesperado al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=nube"));
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
+        }
+    }
+
+    /**
+     * Método privado para exportar formato KT GASTRO.
+     * Columnas: SKU, PVP_GASTRO_S_IVA (pvp sin IVA del producto)
+     */
+    private ResponseEntity<?> exportarFormatoKtGastro(Integer cuotas) {
+        try {
+            ExportResultDTO result = excelService.exportarKtGastro(cuotas);
+
+            String filename = String.format("kt_gastro_%s.xlsx",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(result.archivo().length);
+
+            if (result.tieneAdvertencias()) {
+                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
+                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
+                log.warn("Advertencias en exportación: {}", result.advertencias());
+            }
+
+            return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            log.error("Error de validación al exportar para KT GASTRO: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
+        } catch (IOException e) {
+            log.error("Error de I/O al exportar para KT GASTRO: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
+        } catch (Exception e) {
+            log.error("Error inesperado al exportar para KT GASTRO: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
         }
     }
 }

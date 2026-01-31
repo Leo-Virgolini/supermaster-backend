@@ -3855,9 +3855,12 @@ public class ExcelServiceImpl implements ExcelService {
                 continue;
             }
 
-            // Verificar precio válido
-            BigDecimal pvpInflado = precio.getPvpInflado();
-            if (pvpInflado == null || pvpInflado.compareTo(BigDecimal.ZERO) <= 0) {
+            // Verificar precio válido: usar pvpInflado si existe, sino pvp
+            BigDecimal precioExportar = precio.getPvpInflado();
+            if (precioExportar == null || precioExportar.compareTo(BigDecimal.ZERO) <= 0) {
+                precioExportar = precio.getPvp();
+            }
+            if (precioExportar == null || precioExportar.compareTo(BigDecimal.ZERO) <= 0) {
                 productosConPrecioInvalido.add(producto.getSku());
                 continue;
             }
@@ -3901,9 +3904,14 @@ public class ExcelServiceImpl implements ExcelService {
                 Producto producto = precio.getProducto();
                 String mla = producto.getMla().getMla();
 
+                BigDecimal precioML = precio.getPvpInflado();
+                if (precioML == null || precioML.compareTo(BigDecimal.ZERO) <= 0) {
+                    precioML = precio.getPvp();
+                }
+
                 Row row = sheet.createRow(rowIndex++);
                 setCellValue(row.createCell(0), producto.getSku(), dataStyle);
-                setCellValue(row.createCell(1), precio.getPvpInflado(), precioStyle);
+                setCellValue(row.createCell(1), precioML, precioStyle);
                 setCellValue(row.createCell(2), mla, dataStyle);
             }
 
@@ -3923,8 +3931,8 @@ public class ExcelServiceImpl implements ExcelService {
 
     @Override
     @Transactional(readOnly = true)
-    public ExportResultDTO exportarNube(Integer cuotas) throws IOException {
-        log.info("Iniciando exportación para Tienda Nube con cuotas {}", cuotas);
+    public ExportResultDTO exportarKtHogar(Integer cuotas) throws IOException {
+        log.info("Iniciando exportación para KT HOGAR con cuotas {}", cuotas);
 
         // Buscar canal KT HOGAR
         Canal canal = canalRepository.findByCanalIgnoreCase("KT HOGAR")
@@ -3985,15 +3993,15 @@ public class ExcelServiceImpl implements ExcelService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet("Nube");
+            XSSFSheet sheet = workbook.createSheet("KT HOGAR");
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
 
-            // Headers: SKU, PVP_NUBE (pvp), PVP_INFLADO
+            // Headers: SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"SKU", "PVP_NUBE", "PVP_INFLADO"};
+            String[] headers = {"SKU", "PVP_KT_HOGAR", "PVP_INFLADO"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
@@ -4019,7 +4027,105 @@ public class ExcelServiceImpl implements ExcelService {
             sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
-            log.info("Exportación para Tienda Nube completada: {} filas exportadas, {} advertencias",
+            log.info("Exportación para KT HOGAR completada: {} filas exportadas, {} advertencias",
+                    rowIndex - 1, advertencias.size());
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ExportResultDTO exportarKtGastro(Integer cuotas) throws IOException {
+        log.info("Iniciando exportación para KT GASTRO con cuotas {}", cuotas);
+
+        Canal canal = canalRepository.findByCanalIgnoreCase("KT GASTRO")
+                .orElseThrow(() -> new IllegalArgumentException("Canal 'KT GASTRO' no encontrado en la base de datos"));
+
+        List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
+
+        if (precios.isEmpty()) {
+            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                    .map(CanalConceptoCuota::getDescripcion)
+                    .findFirst().orElse(String.valueOf(cuotas));
+            throw new IllegalArgumentException(
+                    String.format("No existen precios para el canal '%s' con cuotas '%s'",
+                            canal.getCanal(), descCuotas));
+        }
+
+        List<String> advertencias = new ArrayList<>();
+        List<String> productosConPvpInvalido = new ArrayList<>();
+        List<String> productosSinIva = new ArrayList<>();
+        List<ProductoCanalPrecio> preciosValidos = new ArrayList<>();
+
+        for (ProductoCanalPrecio precio : precios) {
+            Producto producto = precio.getProducto();
+            if (producto == null) continue;
+
+            BigDecimal pvp = precio.getPvp();
+            if (pvp == null || pvp.compareTo(BigDecimal.ZERO) <= 0) {
+                productosConPvpInvalido.add(producto.getSku());
+                continue;
+            }
+
+            if (producto.getIva() == null) {
+                productosSinIva.add(producto.getSku());
+                continue;
+            }
+
+            preciosValidos.add(precio);
+        }
+
+        if (!productosConPvpInvalido.isEmpty()) {
+            advertencias.add("Productos con PVP inválido (<=0): " + String.join(", ", productosConPvpInvalido));
+        }
+        if (!productosSinIva.isEmpty()) {
+            advertencias.add("Productos sin IVA definido: " + String.join(", ", productosSinIva));
+        }
+
+        if (preciosValidos.isEmpty()) {
+            throw new IllegalArgumentException("No hay productos válidos para exportar (todos con precios inválidos o sin IVA)");
+        }
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            XSSFSheet sheet = workbook.createSheet("KT GASTRO");
+
+            CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
+            CellStyle dataStyle = crearEstiloDataCentrado(workbook);
+            CellStyle precioStyle = crearEstiloPrecio(workbook);
+
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"SKU", "PVP_GASTRO_S_IVA"};
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowIndex = 1;
+            for (ProductoCanalPrecio precio : preciosValidos) {
+                Producto producto = precio.getProducto();
+                BigDecimal pvp = precio.getPvp();
+                BigDecimal iva = producto.getIva();
+
+                // pvpSinIva = pvp / (1 + iva/100)
+                BigDecimal divisor = BigDecimal.ONE.add(iva.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+                BigDecimal pvpSinIva = pvp.divide(divisor, 2, RoundingMode.HALF_UP);
+
+                Row row = sheet.createRow(rowIndex++);
+                setCellValue(row.createCell(0), producto.getSku(), dataStyle);
+                setCellValue(row.createCell(1), pvpSinIva, precioStyle);
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            sheet.createFreezePane(0, 1);
+
+            workbook.write(outputStream);
+            log.info("Exportación para KT GASTRO completada: {} filas exportadas, {} advertencias",
                     rowIndex - 1, advertencias.size());
             return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
         }
