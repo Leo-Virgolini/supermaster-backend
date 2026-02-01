@@ -198,7 +198,8 @@ PVP_HIJO = PVP_PADRE × (1 + CALCULO_SOBRE_CANAL_BASE% / 100)
 | `GASTO_POST_IMPUESTOS` | Gasto después de aplicar impuestos | |
 | `FLAG_INCLUIR_ENVIO` | Flag: incluir precio envío del MLA | Envío gratis |
 | `COMISION_SOBRE_PVP` | Comisión como divisor sobre PVP | Comisión ML -13% |
-| `FLAG_COMISION_ML` | Flag: usa comisión ML del MLA | mla.comision_porcentaje |
+| `FLAG_COMISION_ML` | Flag: usa comisión ML del MLA (es costo de venta) | mla.comision_porcentaje |
+| `FLAG_INFLACION_ML` | Flag: usa comisión ML del MLA como inflación (no es costo de venta) | mla.comision_porcentaje |
 | `CALCULO_SOBRE_CANAL_BASE` | Calcula sobre PVP del canal base | |
 | `RECARGO_CUPON` | Divisor adicional sobre PVP | Cupones +5% |
 | `DESCUENTO_PORCENTUAL` | Descuento final sobre PVP | Promo -10% |
@@ -216,7 +217,7 @@ Donde:
 - COSTO_AJUSTADO = costo × (1 + Σ GASTO_SOBRE_COSTO%) × (1 + FLAG_FINANCIACION_PROVEEDOR%)
 - MARGEN = margen_base + Σ AJUSTE_MARGEN_PUNTOS ± (margen_base × AJUSTE_MARGEN_PROPORCIONAL%)
 - FACTOR_IMP = (1 + FLAG_APLICAR_IVA%) × (1 + Σ IMPUESTO_ADICIONAL%)
-- COMISIONES_PVP = Σ conceptos con COMISION_SOBRE_PVP + FLAG_COMISION_ML (mla.comision_porcentaje)
+- COMISIONES_PVP = Σ conceptos con COMISION_SOBRE_PVP + FLAG_COMISION_ML + FLAG_INFLACION_ML (mla.comision_porcentaje)
 ```
 
 | Tipo | Efecto | Fórmula |
@@ -230,7 +231,8 @@ Donde:
 | `DESCUENTO_PORCENTUAL` | Descuento sobre PVP | `PVP × (1 - %/100)` |
 | `INFLACION_DIVISOR` | Calcula PVP_INFLADO | `PVP / (1 - %/100)` |
 | `FLAG_INCLUIR_ENVIO` | Agrega precio_envio del MLA | `PVP += mla.precio_envio` |
-| `FLAG_COMISION_ML` | Comisión ML del MLA como divisor | `PVP / (1 - mla.comision_porcentaje/100)` |
+| `FLAG_COMISION_ML` | Comisión ML del MLA como divisor (es costo de venta) | `PVP / (1 - mla.comision_porcentaje/100)` |
+| `FLAG_INFLACION_ML` | Inflación ML del MLA como divisor (no es costo de venta) | `PVP / (1 - mla.comision_porcentaje/100)` |
 
 **Conceptos tipo FLAG (el % se ignora, solo importa si está asignado):**
 - `FLAG_APLICAR_IVA`: Habilita aplicar el IVA del producto
@@ -240,7 +242,8 @@ Donde:
 - `CALCULO_SOBRE_CANAL_BASE`: Calcula sobre PVP del canal padre (ver sección canales)
 - `FLAG_FINANCIACION_PROVEEDOR`: Usa el % financiación del proveedor del producto
 - `FLAG_INCLUIR_ENVIO`: Usa mla.precio_envio como costo de envío
-- `FLAG_COMISION_ML`: Usa mla.comision_porcentaje como comisión sobre PVP
+- `FLAG_COMISION_ML`: Usa mla.comision_porcentaje como comisión sobre PVP (se cuenta como costo de venta)
+- `FLAG_INFLACION_ML`: Usa mla.comision_porcentaje como inflación sobre PVP (NO se cuenta como costo de venta)
 
 #### 5. `canal_concepto` - Conceptos Asignados a Canales
 Tabla intermedia que relaciona qué conceptos aplican a cada canal.
@@ -809,6 +812,7 @@ type AplicaSobre =
   | 'FLAG_INCLUIR_ENVIO'          // Flag: incluye mla.precioEnvio
   | 'COMISION_SOBRE_PVP'          // Comisión que divide el PVP
   | 'FLAG_COMISION_ML'            // Flag: usa mla.comisionPorcentaje como comisión sobre PVP
+  | 'FLAG_INFLACION_ML'           // Flag: usa mla.comisionPorcentaje como inflación (no es costo de venta)
   | 'CALCULO_SOBRE_CANAL_BASE'    // Calcula sobre PVP del canal base
 
   // ===== ETAPA: POST_PRECIO =====
@@ -1985,6 +1989,12 @@ GET /api/excel/exportar-precios?formato=kt-gastro&cuotas=0
 - Formato `completo`: super headers con bordes gruesos, canales separados visualmente con bordes
 - Formatos `mercadolibre`, `kt-hogar` y `kt-gastro` incluyen header `X-Advertencias-Count` si hay advertencias (el detalle se registra en el log del servidor)
 
+**Nombre del archivo descargado:**
+- Formato `completo`: `PRECIOS_{CANAL}_{CUOTAS}_{filtros}_{timestamp}.xlsx` (canal y cuotas usan nombres descriptivos, ej: `PRECIOS_ML_CONTADO_20260131_120000.xlsx`)
+- Formato `mercadolibre`: `PRECIOS_MERCADOLIBRE_{CUOTAS}_{timestamp}.xlsx`
+- Formato `kt-hogar`: `PRECIOS_KT_HOGAR_{CUOTAS}_{timestamp}.xlsx`
+- Formato `kt-gastro`: `PRECIOS_KT_GASTRO_{CUOTAS}_{timestamp}.xlsx`
+
 **Columnas del formato `completo`:**
 
 | Grupo | Columnas | Formato |
@@ -1997,24 +2007,24 @@ GET /api/excel/exportar-precios?formato=kt-gastro&cuotas=0
 | Configuración | Valor |
 |---------------|-------|
 | Canal | `ML` (hardcodeado) |
-| Columnas | SKU, PRECIO (pvpInflado o pvp como fallback), MLA |
-| Nombre hoja | "MercadoLibre" |
+| Columnas | SKU, PRECIO ({descCuotas}) (pvpInflado o pvp como fallback), MLA |
+| Nombre hoja | "MercadoLibre ({descCuotas})" |
 | Validaciones | Excluye productos sin MLA o con precio <= 0 |
 
 **Formato `kt-hogar`:**
 | Configuración | Valor |
 |---------------|-------|
 | Canal | `KT HOGAR` (hardcodeado) |
-| Columnas | SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO |
-| Nombre hoja | "KT HOGAR" |
+| Columnas | SKU, PVP_KT_HOGAR ({descCuotas}) (pvp), PVP_INFLADO ({descCuotas}) |
+| Nombre hoja | "KT HOGAR ({descCuotas})" |
 | Validaciones | Excluye productos con pvp <= 0 o pvpInflado <= 0 |
 
 **Formato `kt-gastro`:**
 | Configuración | Valor |
 |---------------|-------|
 | Canal | `KT GASTRO` (hardcodeado) |
-| Columnas | SKU, PVP_GASTRO_S_IVA (pvp / (1 + iva/100)) |
-| Nombre hoja | "KT GASTRO" |
+| Columnas | SKU, PVP_GASTRO_S_IVA ({descCuotas}) (pvp / (1 + iva/100)) |
+| Nombre hoja | "KT GASTRO ({descCuotas})" |
 | Validaciones | Excluye productos con pvp <= 0 o sin IVA definido |
 
 **Importante - Prioridad de parámetros:**
@@ -2037,6 +2047,7 @@ GET /api/excel/exportar-catalogo?catalogoId=4&canalId=1&cuotas=0
 - `ordenarPor` (optional): Campos de ordenamiento separados por coma
 
 **Response:** Archivo Excel (application/octet-stream)
+- Nombre archivo: `CATALOGO_{CANAL}-{CATALOGO}_{CUOTAS}_{timestamp}.xlsx` (nombres descriptivos en mayúsculas)
 
 #### Importar costos (actualizar productos existentes)
 ```http
@@ -2630,13 +2641,15 @@ Content-Type: application/json
 
 **⚠️ IMPORTANTE:** El campo `tipo` es **OBLIGATORIO**. Si no se envía el tipo correcto (`SIMPLE` o `COMBO`), DUX desconfigura el producto y puede perder su configuración de componentes.
 
-**Response:**
+**Response (200):**
 ```json
 {
   "idProceso": 12345,
   "mensaje": "Proceso de actualización iniciado"
 }
 ```
+
+**Response (400):** `{ "message": "No se pudo iniciar el proceso de actualización", "path": "/api/dux/listas-precios/{idLista}/precios" }`
 
 #### Estado de Proceso
 

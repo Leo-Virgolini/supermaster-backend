@@ -100,6 +100,14 @@ public enum AplicaSobre {
     FLAG_COMISION_ML,
 
     /**
+     * Flag: usa mla.comisionPorcentaje como inflación sobre PVP.
+     * Funciona igual que FLAG_COMISION_ML en el cálculo del PVP (divisor),
+     * pero NO se cuenta como costo de venta en las métricas.
+     * Efecto: infla el PVP sin reducir la ganancia.
+     */
+    FLAG_INFLACION_ML,
+
+    /**
      * Calcula el PVP basándose en el PVP del canal base (canalBase).
      * Si existe este concepto, se omite el cálculo normal y se usa:
      * PVP = PVP_CANAL_BASE × (1 + porcentaje/100)

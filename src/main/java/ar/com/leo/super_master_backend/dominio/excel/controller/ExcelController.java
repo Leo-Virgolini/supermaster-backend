@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.excel.controller;
 
+import ar.com.leo.super_master_backend.dominio.common.response.ErrorResponse;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ExportCatalogoResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ExportResultDTO;
 import ar.com.leo.super_master_backend.dominio.excel.dto.ImportCompletoResultDTO;
@@ -42,7 +43,7 @@ public class ExcelController {
      * @return Resultado de la importación completa con estadísticas por hoja
      */
     @PostMapping("/importar-migracion")
-    public ResponseEntity<ImportCompletoResultDTO> importarMigracion(
+    public ResponseEntity<?> importarMigracion(
             @RequestParam("archivo") MultipartFile file
     ) {
         try {
@@ -57,18 +58,12 @@ public class ExcelController {
             );
         } catch (IOException e) {
             log.error("Error de I/O al importar migración: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCompletoResultDTO.withErrors(0, 0, 1,
-                            new HashMap<>(),
-                            List.of("Error de lectura/escritura: " + e.getMessage()))
-            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of("Error al procesar el archivo Excel: " + e.getMessage(), "/api/excel/importar-migracion"));
         } catch (Exception e) {
             log.error("Error inesperado al importar migración: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCompletoResultDTO.withErrors(0, 0, 1,
-                            new HashMap<>(),
-                            List.of("Error inesperado: " + e.getMessage()))
-            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/importar-migracion"));
         }
     }
 
@@ -90,7 +85,7 @@ public class ExcelController {
      * @return Resultado de la importación con estadísticas
      */
     @PostMapping("/importar-costos")
-    public ResponseEntity<ImportCostosResultDTO> importarCostos(
+    public ResponseEntity<?> importarCostos(
             @RequestParam("archivo") MultipartFile file
     ) {
         try {
@@ -103,14 +98,12 @@ public class ExcelController {
             );
         } catch (IOException e) {
             log.error("Error de I/O al importar costos: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCostosResultDTO.withErrors(List.of("Error de lectura: " + e.getMessage()))
-            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of("Error al procesar el archivo Excel: " + e.getMessage(), "/api/excel/importar-costos"));
         } catch (Exception e) {
             log.error("Error inesperado al importar costos: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ImportCostosResultDTO.withErrors(List.of("Error inesperado: " + e.getMessage()))
-            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/importar-costos"));
         }
     }
 
@@ -211,18 +204,16 @@ public class ExcelController {
             // Validar formato
             if (!formato.equals("completo") && !formato.equals("mercadolibre") && !formato.equals("kt-hogar") && !formato.equals("kt-gastro")) {
                 return ResponseEntity.badRequest()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(Map.of("message", "Formato inválido. Valores permitidos: completo, mercadolibre, kt-hogar, kt-gastro",
-                                "path", "/api/excel/exportar-precios"));
+                        .body(ErrorResponse.of("Formato inválido. Valores permitidos: completo, mercadolibre, kt-hogar, kt-gastro",
+                                "/api/excel/exportar-precios"));
             }
 
             // Formatos específicos requieren el parámetro cuotas
             if (formato.equals("mercadolibre") || formato.equals("kt-hogar") || formato.equals("kt-gastro")) {
                 if (cuotas == null) {
                     return ResponseEntity.badRequest()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(Map.of("message", "El parámetro 'cuotas' es requerido para el formato '" + formato + "'. Valores: -1 (transferencia), 0 (contado), o número de cuotas (3, 6, 12, etc.)",
-                                    "path", "/api/excel/exportar-precios?formato=" + formato));
+                            .body(ErrorResponse.of("El parámetro 'cuotas' es requerido para el formato '" + formato + "'. Valores: -1 (transferencia), 0 (contado), o número de cuotas (3, 6, 12, etc.)",
+                                    "/api/excel/exportar-precios?formato=" + formato));
                 }
                 if (formato.equals("mercadolibre")) {
                     return exportarFormatoMercadoLibre(cuotas);
@@ -293,7 +284,7 @@ public class ExcelController {
 
             // Construir nombre de archivo con parámetros de filtro
             String sufijo = excelService.construirSufijoArchivoPrecios(filter);
-            String filename = String.format("precios%s_%s.xlsx",
+            String filename = String.format("PRECIOS%s_%s.xlsx",
                     sufijo,
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
@@ -306,18 +297,15 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
+                    .body(ErrorResponse.of(e.getMessage(), "/api/excel/exportar-precios"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
+                    .body(ErrorResponse.of("Error al generar el archivo Excel: " + e.getMessage(), "/api/excel/exportar-precios"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar precios: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios"));
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-precios"));
         }
     }
 
@@ -351,7 +339,7 @@ public class ExcelController {
         try {
             ExportCatalogoResultDTO result = excelService.exportarCatalogo(catalogoId, canalId, cuotas, clasifGralId, clasifGastroId, tipoId, marcaId, esMaquina, ordenarPor);
 
-            String filename = String.format("%s_%s.xlsx",
+            String filename = String.format("CATALOGO_%s_%s.xlsx",
                     result.nombreArchivo(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
@@ -364,18 +352,15 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
+                    .body(ErrorResponse.of(e.getMessage(), "/api/excel/exportar-catalogo"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
+                    .body(ErrorResponse.of("Error al generar el archivo Excel: " + e.getMessage(), "/api/excel/exportar-catalogo"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar catálogo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-catalogo"));
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-catalogo"));
         }
     }
 
@@ -387,7 +372,8 @@ public class ExcelController {
         try {
             ExportResultDTO result = excelService.exportarMercadoLibre(cuotas);
 
-            String filename = String.format("mercadolibre_%s.xlsx",
+            String filename = String.format("PRECIOS_%s_%s.xlsx",
+                    result.nombreArchivo(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
@@ -408,18 +394,15 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
+                    .body(ErrorResponse.of(e.getMessage(), "/api/excel/exportar-precios?formato=mercadolibre"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
+                    .body(ErrorResponse.of("Error al generar el archivo Excel: " + e.getMessage(), "/api/excel/exportar-precios?formato=mercadolibre"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar para Mercado Libre: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=mercadolibre"));
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-precios?formato=mercadolibre"));
         }
     }
 
@@ -431,7 +414,8 @@ public class ExcelController {
         try {
             ExportResultDTO result = excelService.exportarKtHogar(cuotas);
 
-            String filename = String.format("kt_hogar_%s.xlsx",
+            String filename = String.format("PRECIOS_%s_%s.xlsx",
+                    result.nombreArchivo(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
@@ -452,18 +436,15 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
+                    .body(ErrorResponse.of(e.getMessage(), "/api/excel/exportar-precios?formato=kt-hogar"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
+                    .body(ErrorResponse.of("Error al generar el archivo Excel: " + e.getMessage(), "/api/excel/exportar-precios?formato=kt-hogar"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar para KT HOGAR: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-hogar"));
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-precios?formato=kt-hogar"));
         }
     }
 
@@ -475,7 +456,8 @@ public class ExcelController {
         try {
             ExportResultDTO result = excelService.exportarKtGastro(cuotas);
 
-            String filename = String.format("kt_gastro_%s.xlsx",
+            String filename = String.format("PRECIOS_%s_%s.xlsx",
+                    result.nombreArchivo(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
 
             HttpHeaders headers = new HttpHeaders();
@@ -493,18 +475,15 @@ public class ExcelController {
         } catch (IllegalArgumentException e) {
             log.error("Error de validación al exportar para KT GASTRO: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
+                    .body(ErrorResponse.of(e.getMessage(), "/api/excel/exportar-precios?formato=kt-gastro"));
         } catch (IOException e) {
             log.error("Error de I/O al exportar para KT GASTRO: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
+                    .body(ErrorResponse.of("Error al generar el archivo Excel: " + e.getMessage(), "/api/excel/exportar-precios?formato=kt-gastro"));
         } catch (Exception e) {
             log.error("Error inesperado al exportar para KT GASTRO: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("message", e.getMessage(), "path", "/api/excel/exportar-precios?formato=kt-gastro"));
+                    .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-precios?formato=kt-gastro"));
         }
     }
 }

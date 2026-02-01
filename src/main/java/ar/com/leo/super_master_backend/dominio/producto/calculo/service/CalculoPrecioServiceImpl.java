@@ -391,6 +391,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             gastosSobrePVPTotal = gastosSobrePVPTotal.add(producto.getMla().getComisionPorcentaje());
         }
 
+        // FLAG_INFLACION_ML: si existe, sumar comisionPorcentaje del MLA (infla PVP sin ser costo de venta)
+        List<CanalConcepto> conceptosInflacionMl = conceptosPorTipo.getOrDefault(AplicaSobre.FLAG_INFLACION_ML, List.of());
+        if (!conceptosInflacionMl.isEmpty() && producto.getMla() != null
+                && producto.getMla().getComisionPorcentaje() != null
+                && producto.getMla().getComisionPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+            gastosSobrePVPTotal = gastosSobrePVPTotal.add(producto.getMla().getComisionPorcentaje());
+        }
+
         // Obtener porcentaje de cuotas si aplica (ahora siempre aplica si hay cuotas)
         boolean aplicarCuotas = numeroCuotas != null;
 
@@ -878,6 +886,17 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             gastosSobrePVPTotal = gastosSobrePVPTotal.add(comisionMl);
         }
 
+        // FLAG_INFLACION_ML: si existe, sumar comisionPorcentaje del MLA (infla PVP sin ser costo de venta)
+        BigDecimal inflacionMl = BigDecimal.ZERO;
+        boolean tieneInflacionMl = conceptos.stream()
+                .anyMatch(cc -> cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_INFLACION_ML);
+        if (tieneInflacionMl && producto.getMla() != null
+                && producto.getMla().getComisionPorcentaje() != null
+                && producto.getMla().getComisionPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+            inflacionMl = producto.getMla().getComisionPorcentaje();
+            gastosSobrePVPTotal = gastosSobrePVPTotal.add(inflacionMl);
+        }
+
         BigDecimal porcentajeCuota = BigDecimal.ZERO;
 
         boolean aplicarCuotas = numeroCuotas != null;
@@ -886,6 +905,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         String detalleComisionMl = "";
         if (tieneComisionMl && comisionMl.compareTo(BigDecimal.ZERO) > 0) {
             detalleComisionMl = String.format("COMISION_ML(MLA)=%s%%", fmt(comisionMl));
+        }
+
+        // Preparar detalle de inflación ML para mostrar en fórmula
+        String detalleInflacionMl = "";
+        if (tieneInflacionMl && inflacionMl.compareTo(BigDecimal.ZERO) > 0) {
+            detalleInflacionMl = String.format("INFLACION_ML(MLA)=%s%%", fmt(inflacionMl));
         }
 
         if (aplicarCuotas) {
@@ -904,12 +929,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
                     List<String> nombresConceptosPVPCuotas = new ArrayList<>(obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP));
                     if (tieneComisionMl) nombresConceptosPVPCuotas.add("COMISION_ML");
+                    if (tieneInflacionMl) nombresConceptosPVPCuotas.add("INFLACION_ML");
                     String nombresPVPCuotasFormateados = formatearNombresConceptos(nombresConceptosPVPCuotas);
                     String detalleConceptosPVPCuotas = formatearDetalleConceptos(gastosSobrePVP);
                     if (!detalleComisionMl.isEmpty()) {
                         detalleConceptosPVPCuotas = detalleConceptosPVPCuotas.isEmpty()
                                 ? detalleComisionMl
                                 : detalleConceptosPVPCuotas + " + " + detalleComisionMl;
+                    }
+                    if (!detalleInflacionMl.isEmpty()) {
+                        detalleConceptosPVPCuotas = detalleConceptosPVPCuotas.isEmpty()
+                                ? detalleInflacionMl
+                                : detalleConceptosPVPCuotas + " + " + detalleInflacionMl;
                     }
                     pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                             "Aplicar cuotas (GTML[%])",
@@ -935,12 +966,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 costoConImpuestos = costoConImpuestos.divide(denominador, PRECISION_CALCULO, RoundingMode.HALF_UP);
                 List<String> nombresConceptosPVP = new ArrayList<>(obtenerNombresConceptos(conceptos, AplicaSobre.COMISION_SOBRE_PVP));
                 if (tieneComisionMl) nombresConceptosPVP.add("COMISION_ML");
+                if (tieneInflacionMl) nombresConceptosPVP.add("INFLACION_ML");
                 String nombresPVPFormateados = formatearNombresConceptos(nombresConceptosPVP);
                 String detalleConceptosPVP = formatearDetalleConceptos(gastosSobrePVP);
                 if (!detalleComisionMl.isEmpty()) {
                     detalleConceptosPVP = detalleConceptosPVP.isEmpty()
                             ? detalleComisionMl
                             : detalleConceptosPVP + " + " + detalleComisionMl;
+                }
+                if (!detalleInflacionMl.isEmpty()) {
+                    detalleConceptosPVP = detalleConceptosPVP.isEmpty()
+                            ? detalleInflacionMl
+                            : detalleConceptosPVP + " + " + detalleInflacionMl;
                 }
                 pasos.add(new FormulaCalculoDTO.PasoCalculo(pasoNumero++,
                         "Gastos sobre PVP",

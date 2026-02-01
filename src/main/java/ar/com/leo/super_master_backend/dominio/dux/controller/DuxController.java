@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.dux.controller;
 
+import ar.com.leo.super_master_backend.dominio.common.response.ErrorResponse;
 import ar.com.leo.super_master_backend.dominio.dux.model.Item;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService.ProductoPrecioData;
@@ -77,7 +78,7 @@ public class DuxController {
      * @param productos Lista de productos con SKU, tipo (SIMPLE/COMBO) y precio
      */
     @PostMapping("/listas-precios/{idLista}/precios")
-    public ResponseEntity<Map<String, Object>> modificarPrecios(
+    public ResponseEntity<?> modificarPrecios(
             @PathVariable long idLista,
             @RequestBody List<ProductoPrecioRequest> productos) {
 
@@ -89,9 +90,8 @@ public class DuxController {
         int idProceso = duxService.modificarListaPrecios(productosMap, idLista);
 
         if (idProceso == 0) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "mensaje", "No se pudo iniciar el proceso de actualización"
-            ));
+            return ResponseEntity.badRequest()
+                    .body(ErrorResponse.of("No se pudo iniciar el proceso de actualización", "/api/dux/listas-precios/" + idLista + "/precios"));
         }
 
         return ResponseEntity.ok(Map.of(

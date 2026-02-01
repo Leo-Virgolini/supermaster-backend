@@ -3601,29 +3601,37 @@ public class ExcelServiceImpl implements ExcelService {
         StringBuilder sb = new StringBuilder();
 
         if (filter.canalId() != null) {
-            sb.append("_canal").append(filter.canalId());
-        }
+            String canalNombre = canalRepository.findById(filter.canalId())
+                    .map(Canal::getCanal)
+                    .orElse(String.valueOf(filter.canalId()));
+            sb.append("_").append(canalNombre.toUpperCase().replaceAll("\\s+", "_"));
 
-        if (filter.cuotas() != null) {
-            sb.append("_").append(filter.cuotas()).append("cuotas");
+            if (filter.cuotas() != null) {
+                String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(filter.canalId(), filter.cuotas()).stream()
+                        .map(CanalConceptoCuota::getDescripcion)
+                        .findFirst().orElse(String.valueOf(filter.cuotas()));
+                sb.append("_").append(descCuotas.toUpperCase().replaceAll("\\s+", "_"));
+            }
+        } else if (filter.cuotas() != null) {
+            sb.append("_").append(filter.cuotas()).append("_CUOTAS");
         }
 
         if (filter.search() != null && !filter.search().isBlank()) {
-            String textoCorto = filter.search().replaceAll("[^a-zA-Z0-9]", "");
+            String textoCorto = filter.search().replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
             textoCorto = textoCorto.length() > 15 ? textoCorto.substring(0, 15) : textoCorto;
             sb.append("_").append(textoCorto);
         }
 
         if (filter.marcaId() != null) {
-            sb.append("_marca").append(filter.marcaId());
+            sb.append("_MARCA").append(filter.marcaId());
         }
 
         if (filter.proveedorId() != null) {
-            sb.append("_prov").append(filter.proveedorId());
+            sb.append("_PROV").append(filter.proveedorId());
         }
 
         if (filter.catalogoIds() != null && !filter.catalogoIds().isEmpty()) {
-            sb.append("_cat").append(filter.catalogoIds().get(0));
+            sb.append("_CAT").append(filter.catalogoIds().get(0));
         }
 
         return sb.toString();
@@ -3730,6 +3738,11 @@ public class ExcelServiceImpl implements ExcelService {
                             catalogo.getCatalogo(), canal.getCanal(), cuotasValue));
         }
 
+        // Obtener descripción de cuotas para nombre de archivo
+        String descCuotasCat = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canalId, cuotasValue).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst().orElse(String.valueOf(cuotasValue));
+
         // Construir nombre para hoja y archivo: canal-catalogo
         String nombreBase = canal.getCanal() + "-" + catalogo.getCatalogo();
 
@@ -3812,8 +3825,9 @@ public class ExcelServiceImpl implements ExcelService {
             sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
+            String nombreArchivo = (nombreBase + "_" + descCuotasCat).toUpperCase().replaceAll("\\s+", "_");
             log.info("Exportación de catálogo completada exitosamente");
-            return new ExportCatalogoResultDTO(outputStream.toByteArray(), nombreBase);
+            return new ExportCatalogoResultDTO(outputStream.toByteArray(), nombreArchivo);
         }
     }
 
@@ -3826,13 +3840,15 @@ public class ExcelServiceImpl implements ExcelService {
         Canal canal = canalRepository.findByCanalIgnoreCase("ML")
                 .orElseThrow(() -> new IllegalArgumentException("Canal 'ML' no encontrado en la base de datos"));
 
+        // Obtener descripción de cuotas
+        String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst().orElse(String.valueOf(cuotas));
+
         // Obtener todos los precios para el canal y cuotas
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
-            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
-                    .map(CanalConceptoCuota::getDescripcion)
-                    .findFirst().orElse(String.valueOf(cuotas));
             throw new IllegalArgumentException(
                     String.format("No existen precios para el canal '%s' con cuotas '%s'",
                             canal.getCanal(), descCuotas));
@@ -3883,15 +3899,15 @@ public class ExcelServiceImpl implements ExcelService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet("MercadoLibre");
+            XSSFSheet sheet = workbook.createSheet("MercadoLibre (" + descCuotas + ")");
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
 
-            // Headers: SKU, PRECIO, MLA
+            // Headers: SKU, PRECIO (descCuotas), MLA
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"SKU", "PRECIO", "MLA"};
+            String[] headers = {"SKU", "PRECIO (" + descCuotas + ")", "MLA"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
@@ -3923,9 +3939,10 @@ public class ExcelServiceImpl implements ExcelService {
             sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
+            String nombreArchivo = ("MERCADOLIBRE_" + descCuotas).toUpperCase().replaceAll("\\s+", "_");
             log.info("Exportación para Mercado Libre completada: {} filas exportadas, {} advertencias",
                     rowIndex - 1, advertencias.size());
-            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias, nombreArchivo);
         }
     }
 
@@ -3938,13 +3955,15 @@ public class ExcelServiceImpl implements ExcelService {
         Canal canal = canalRepository.findByCanalIgnoreCase("KT HOGAR")
                 .orElseThrow(() -> new IllegalArgumentException("Canal 'KT HOGAR' no encontrado en la base de datos"));
 
+        // Obtener descripción de cuotas
+        String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst().orElse(String.valueOf(cuotas));
+
         // Obtener todos los precios para el canal y cuotas
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
-            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
-                    .map(CanalConceptoCuota::getDescripcion)
-                    .findFirst().orElse(String.valueOf(cuotas));
             throw new IllegalArgumentException(
                     String.format("No existen precios para el canal '%s' con cuotas '%s'",
                             canal.getCanal(), descCuotas));
@@ -4004,15 +4023,15 @@ public class ExcelServiceImpl implements ExcelService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet("KT HOGAR");
+            XSSFSheet sheet = workbook.createSheet("KT HOGAR (" + descCuotas + ")");
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
 
-            // Headers: SKU, PVP_KT_HOGAR (pvp), PVP_INFLADO
+            // Headers: SKU, PVP_KT_HOGAR (descCuotas), PVP_INFLADO (descCuotas)
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"SKU", "PVP_KT_HOGAR", "PVP_INFLADO"};
+            String[] headers = {"SKU", "PVP_KT_HOGAR (" + descCuotas + ")", "PVP_INFLADO (" + descCuotas + ")"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
@@ -4038,9 +4057,10 @@ public class ExcelServiceImpl implements ExcelService {
             sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
+            String nombreArchivo = ("KT_HOGAR_" + descCuotas).toUpperCase().replaceAll("\\s+", "_");
             log.info("Exportación para KT HOGAR completada: {} filas exportadas, {} advertencias",
                     rowIndex - 1, advertencias.size());
-            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias, nombreArchivo);
         }
     }
 
@@ -4052,12 +4072,14 @@ public class ExcelServiceImpl implements ExcelService {
         Canal canal = canalRepository.findByCanalIgnoreCase("KT GASTRO")
                 .orElseThrow(() -> new IllegalArgumentException("Canal 'KT GASTRO' no encontrado en la base de datos"));
 
+        // Obtener descripción de cuotas
+        String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
+                .map(CanalConceptoCuota::getDescripcion)
+                .findFirst().orElse(String.valueOf(cuotas));
+
         List<ProductoCanalPrecio> precios = productoCanalPrecioRepository.findByCanalIdAndCuotas(canal.getId(), cuotas);
 
         if (precios.isEmpty()) {
-            String descCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canal.getId(), cuotas).stream()
-                    .map(CanalConceptoCuota::getDescripcion)
-                    .findFirst().orElse(String.valueOf(cuotas));
             throw new IllegalArgumentException(
                     String.format("No existen precios para el canal '%s' con cuotas '%s'",
                             canal.getCanal(), descCuotas));
@@ -4100,14 +4122,14 @@ public class ExcelServiceImpl implements ExcelService {
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            XSSFSheet sheet = workbook.createSheet("KT GASTRO");
+            XSSFSheet sheet = workbook.createSheet("KT GASTRO (" + descCuotas + ")");
 
             CellStyle headerStyle = crearEstiloHeaderCentrado(workbook, IndexedColors.GREY_25_PERCENT.getIndex(), false);
             CellStyle dataStyle = crearEstiloDataCentrado(workbook);
             CellStyle precioStyle = crearEstiloPrecio(workbook);
 
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"SKU", "PVP_GASTRO_S_IVA"};
+            String[] headers = {"SKU", "PVP_GASTRO_S_IVA (" + descCuotas + ")"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
@@ -4136,9 +4158,10 @@ public class ExcelServiceImpl implements ExcelService {
             sheet.createFreezePane(0, 1);
 
             workbook.write(outputStream);
+            String nombreArchivo = ("KT_GASTRO_" + descCuotas).toUpperCase().replaceAll("\\s+", "_");
             log.info("Exportación para KT GASTRO completada: {} filas exportadas, {} advertencias",
                     rowIndex - 1, advertencias.size());
-            return ExportResultDTO.of(outputStream.toByteArray(), advertencias);
+            return ExportResultDTO.of(outputStream.toByteArray(), advertencias, nombreArchivo);
         }
     }
 
