@@ -1252,6 +1252,28 @@ interface DuxProductoPrecioRequest {
   tipo: 'SIMPLE' | 'COMBO'; // Tipo de producto - OBLIGATORIO
   precio: number;
 }
+
+// Resultado de importación DUX → Local
+interface ImportDuxResult {
+  productosActualizados: number;
+  productosNoEncontrados: number;
+  proveedoresCreados: number;
+  totalProductosDux: number;
+  skusNoEncontrados: string[];
+  errores: string[];
+}
+
+// Request para exportación Local → DUX (body opcional)
+interface ExportDuxRequest {
+  skus?: string[];  // null/omitido = exportar todos
+}
+
+// Resultado de exportación Local → DUX
+interface ExportDuxResult {
+  productosEnviados: number;
+  idProceso: number;       // 0 si falló, usar GET /procesos/{id}/estado para monitorear
+  errores: string[];
+}
 ```
 
 ### Proveedor
@@ -2570,15 +2592,16 @@ const cancelar = async () => {
 Módulo para integración con **DUX Software ERP** (sistema de gestión empresarial externo).
 
 **¿Qué hace?**
-- **Sincroniza productos:** Permite consultar el catálogo de productos cargados en DUX
+- **Consulta productos:** Permite consultar el catálogo de productos cargados en DUX
 - **Actualiza precios:** Envía los precios calculados por este sistema a las listas de precios de DUX
+- **Importa productos (DUX → Local):** Actualiza productos locales con datos de DUX (costo, iva, proveedor, etc.)
+- **Exporta productos (Local → DUX):** Envía productos locales a DUX
 - **Consulta estado:** Verifica si los procesos de actualización en DUX terminaron correctamente
 
-**Flujo típico:**
-1. El sistema calcula los PVP de los productos
-2. Se envían los precios a DUX mediante `POST /listas-precios/{id}/precios`
-3. DUX procesa los precios en segundo plano (devuelve un `idProceso`)
-4. Se consulta el estado del proceso hasta que termine
+**Flujos típicos:**
+1. **Actualizar precios:** Calcular PVP → `POST /listas-precios/{id}/precios` → monitorear con `GET /procesos/{id}/estado`
+2. **Importar datos de DUX:** `POST /importar-productos` → actualiza productos locales y recalcula precios si cambiaron costo/iva/proveedor
+3. **Exportar a DUX:** `POST /exportar-productos` → monitorear con `GET /procesos/{id}/estado`
 
 **Límite de rate:** 1 request cada 5 segundos (0.2 req/seg) - impuesto por DUX
 
@@ -2661,6 +2684,52 @@ GET /api/dux/procesos/{idProceso}/estado
 {
   "idProceso": 12345,
   "estado": "..."
+}
+```
+
+#### Importar Productos (DUX → Local)
+
+```http
+POST /api/dux/importar-productos
+```
+
+Obtiene todos los productos de DUX y actualiza los productos locales existentes (match por SKU).
+Campos actualizados: `descripcion`, `costo`, `codExt`, `proveedor` (auto-crea si no existe), `iva`, `activo`.
+Si cambian `costo`, `iva` o `proveedor`, se recalculan precios automáticamente.
+
+**Response (200):** `ImportDuxResult`
+
+```json
+{
+  "productosActualizados": 150,
+  "productosNoEncontrados": 23,
+  "proveedoresCreados": 2,
+  "totalProductosDux": 5743,
+  "skusNoEncontrados": ["SKU999", "SKU888"],
+  "errores": []
+}
+```
+
+#### Exportar Productos (Local → DUX)
+
+```http
+POST /api/dux/exportar-productos
+Content-Type: application/json
+
+{ "skus": ["SKU001", "SKU002"] }
+```
+
+Body opcional. Si se omite o `skus` es null, se exportan todos los productos.
+Campos enviados: `cod_item`, `item`, `tipo_producto`, `habilitado`, `costo`, `codigo_externo`, `porc_iva`, `ctd_unidades_por_bulto`.
+DUX procesa en segundo plano; usar `GET /procesos/{id}/estado` para monitorear.
+
+**Response (200):** `ExportDuxResult`
+
+```json
+{
+  "productosEnviados": 2,
+  "idProceso": 12345,
+  "errores": []
 }
 ```
 

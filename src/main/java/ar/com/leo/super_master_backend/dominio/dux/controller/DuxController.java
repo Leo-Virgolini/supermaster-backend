@@ -1,6 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.dux.controller;
 
 import ar.com.leo.super_master_backend.dominio.common.response.ErrorResponse;
+import ar.com.leo.super_master_backend.dominio.dux.dto.ExportDuxRequestDTO;
+import ar.com.leo.super_master_backend.dominio.dux.dto.ExportDuxResultDTO;
+import ar.com.leo.super_master_backend.dominio.dux.dto.ImportDuxResultDTO;
 import ar.com.leo.super_master_backend.dominio.dux.model.Item;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService.ProductoPrecioData;
@@ -111,6 +114,24 @@ public class DuxController {
                 "idProceso", idProceso,
                 "estado", estado
         ));
+    }
+
+    // =====================================================
+    // SINCRONIZACIÓN
+    // =====================================================
+
+    @PostMapping("/importar-productos")
+    public ResponseEntity<ImportDuxResultDTO> importarProductos() {
+        ImportDuxResultDTO resultado = duxService.importarProductosDesdeDux();
+        return ResponseEntity.ok(resultado);
+    }
+
+    @PostMapping("/exportar-productos")
+    public ResponseEntity<ExportDuxResultDTO> exportarProductos(
+            @RequestBody(required = false) ExportDuxRequestDTO request) {
+        List<String> skus = request != null ? request.skus() : null;
+        ExportDuxResultDTO resultado = duxService.exportarProductosADux(skus);
+        return ResponseEntity.ok(resultado);
     }
 
     // =====================================================
