@@ -87,50 +87,43 @@ public class TiendaNubeService {
     /**
      * Obtiene todas las ventas pagadas, abiertas y sin empaquetar de una tienda Nube.
      * Filtra client-side por fulfillment_orders con status UNPACKED.
+     * Usa el header Link para paginación (recomendado por la API de Tiendanube).
      */
     private List<VentaNubeDTO> obtenerVentas(StoreCredentials store, String label) {
         verificarCredenciales();
 
         List<VentaNubeDTO> ventas = new ArrayList<>();
-        int page = 1;
-        final int perPage = 200;
-        boolean hasMore = true;
+        String uri = String.format(
+                "/%s/orders?payment_status=paid&shipping_status=unpacked&status=open&aggregates=fulfillment_orders&per_page=200",
+                store.getStoreId());
 
-        while (hasMore) {
-            String uri = String.format(
-                    "/%s/orders?payment_status=paid&shipping_status=unpacked&status=open&aggregates=fulfillment_orders&per_page=%d&page=%d",
-                    store.getStoreId(), perPage, page);
-
-            String response;
+        while (uri != null) {
+            NubeRetryHandler.HttpResponse httpResponse;
             try {
-                response = retryHandler.get(uri, store.getAccessToken());
+                httpResponse = retryHandler.getWithHeaders(uri, store.getAccessToken());
             } catch (HttpClientErrorException e) {
-                // 404 con "Last page is 0" significa que no hay órdenes
                 if (e.getStatusCode().value() == 404 && e.getResponseBodyAsString().contains("Last page is 0")) {
                     break;
                 }
-                log.warn("NUBE ({}) - Error al obtener órdenes (página {}): {}", label, page, e.getMessage());
+                log.warn("NUBE ({}) - Error al obtener órdenes: {}", label, e.getMessage());
                 break;
             }
 
-            if (response == null) {
-                log.warn("NUBE ({}) - Respuesta nula al obtener órdenes (página {})", label, page);
+            if (httpResponse.body() == null) {
+                log.warn("NUBE ({}) - Respuesta nula al obtener órdenes", label);
                 break;
             }
 
-            JsonNode ordersArray = objectMapper.readTree(response);
+            JsonNode ordersArray = objectMapper.readTree(httpResponse.body());
             if (!ordersArray.isArray() || ordersArray.isEmpty()) {
-                hasMore = false;
                 break;
             }
 
             for (JsonNode order : ordersArray) {
                 long orderId = order.path("id").asLong(0);
 
-                // Filtrar por fulfillment_orders con status UNPACKED
                 if (!tieneFulfillmentUnpacked(order)) continue;
 
-                // Omitir órdenes de retiro en local que tengan alguna nota
                 if (esPickup(order) && tieneNota(order)) {
                     log.info("NUBE ({}) - Omitida orden pickup con nota: {}", label, orderId);
                     continue;
@@ -161,11 +154,8 @@ public class TiendaNubeService {
                 }
             }
 
-            if (ordersArray.size() < perPage) {
-                hasMore = false;
-            } else {
-                page++;
-            }
+            // Siguiente página usando el header Link (recomendado por Tiendanube)
+            uri = parseLinkNext(httpResponse.headers());
         }
 
         log.info("NUBE ({}) - Ventas obtenidas: {}", label, ventas.size());
@@ -295,6 +285,36 @@ public class TiendaNubeService {
     private boolean tieneNota(JsonNode order) {
         String nota = order.path("owner_note").asString("").trim();
         return !nota.isEmpty();
+    }
+
+    /**
+     * Parsea el header Link y extrae la URL con rel="next".
+     * Convierte URLs absolutas a relativas (sin el baseUrl) para el RestClient.
+     * Formato: {@code <url>; rel="next", <url>; rel="last"}
+     */
+    private String parseLinkNext(org.springframework.http.HttpHeaders headers) {
+        if (headers == null) return null;
+        java.util.List<String> linkHeaders = headers.get("Link");
+        if (linkHeaders == null) return null;
+
+        for (String link : linkHeaders) {
+            for (String part : link.split(",")) {
+                if (part.contains("rel=\"next\"")) {
+                    int start = part.indexOf('<') + 1;
+                    int end = part.indexOf('>');
+                    if (start > 0 && end > start) {
+                        String url = part.substring(start, end).trim();
+                        // Convertir URL absoluta a relativa para el RestClient
+                        String baseUrl = properties.baseUrl();
+                        if (url.startsWith(baseUrl)) {
+                            return url.substring(baseUrl.length());
+                        }
+                        return url;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     // =====================================================

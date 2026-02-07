@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.dominio.nube;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -33,13 +34,12 @@ public class NubeRetryHandler {
         this.rateLimiter = RateLimiter.create(permitsPerSecond);
     }
 
+    public record HttpResponse(String body, HttpHeaders headers) {}
+
     /**
-     * Ejecuta una petición GET con reintentos.
-     *
-     * @param uri         URI relativa (ej: /{store_id}/orders?...)
-     * @param accessToken Token de acceso de la store
+     * Ejecuta una petición GET con reintentos, devolviendo body y headers.
      */
-    public String get(String uri, String accessToken) {
+    public HttpResponse getWithHeaders(String uri, String accessToken) {
         int normalRetries = 0;
         int rateLimitRetries = 0;
 
@@ -47,11 +47,12 @@ public class NubeRetryHandler {
             try {
                 rateLimiter.acquire();
 
-                return restClient.get()
+                ResponseEntity<String> entity = restClient.get()
                         .uri(uri)
                         .header("Authentication", "bearer " + accessToken)
                         .retrieve()
-                        .body(String.class);
+                        .toEntity(String.class);
+                return new HttpResponse(entity.getBody(), entity.getHeaders());
 
             } catch (HttpClientErrorException e) {
                 int status = e.getStatusCode().value();
@@ -97,6 +98,13 @@ public class NubeRetryHandler {
                 sleep(waitMs);
             }
         }
+    }
+
+    /**
+     * Ejecuta una petición GET con reintentos, devolviendo solo el body.
+     */
+    public String get(String uri, String accessToken) {
+        return getWithHeaders(uri, accessToken).body();
     }
 
     private long parseRetryAfter(HttpHeaders headers, long defaultMs) {
