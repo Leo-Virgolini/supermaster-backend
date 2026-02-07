@@ -1,6 +1,5 @@
 package ar.com.leo.super_master_backend.dominio.producto.mla.service;
 
-import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoResumenDTO;
@@ -53,11 +52,6 @@ public class MlaServiceImpl implements MlaService {
     @Override
     @Transactional
     public MlaDTO crear(MlaCreateDTO dto) {
-        // Validar que no exista otro MLA con el mismo código
-        if (repo.findByMla(dto.mla()).isPresent()) {
-            throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
-        }
-
         Mla entity = mapper.toEntity(dto);
         repo.save(entity);
         return mapper.toDTO(entity);
@@ -68,11 +62,6 @@ public class MlaServiceImpl implements MlaService {
     public MlaDTO actualizar(Integer id, MlaUpdateDTO dto) {
         Mla entity = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("MLA no encontrado"));
-
-        // Validar unicidad si cambió el código
-        if (dto.mla() != null && !entity.getMla().equals(dto.mla()) && repo.findByMla(dto.mla()).isPresent()) {
-            throw new ConflictException("Ya existe un MLA con el código: " + dto.mla());
-        }
 
         // Guardar valores anteriores para detectar cambios
         BigDecimal precioEnvioAnterior = entity.getPrecioEnvio();

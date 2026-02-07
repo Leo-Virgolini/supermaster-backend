@@ -27,7 +27,7 @@ public class Mla {
 
     @Size(max = 20)
     @NotNull
-    @Column(name = "mla", nullable = false, length = 20, unique = true)
+    @Column(name = "mla", nullable = false, length = 20)
     private String mla;
 
     @Size(max = 20)

@@ -1616,12 +1616,11 @@ public class ExcelServiceImpl implements ExcelService {
                 try {
                     String mlaStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "MLA"));
                     if (mlaStr != null && !mlaStr.isBlank()) {
-                        // Buscar si ya existe un MLA con este código
-                        Optional<Mla> mlaExistente = mlaRepository.findByMla(mlaStr.trim());
-
+                        // Usar el MLA existente del producto o crear uno nuevo
                         Mla mla;
-                        if (mlaExistente.isPresent()) {
-                            mla = mlaExistente.get();
+                        if (productoFinal.getMla() != null) {
+                            mla = productoFinal.getMla();
+                            mla.setMla(mlaStr.trim());
                         } else {
                             mla = new Mla();
                             mla.setMla(mlaStr.trim());
@@ -2081,13 +2080,15 @@ public class ExcelServiceImpl implements ExcelService {
                     return productoRepository.save(nuevo);
                 });
 
-        // Buscar si ya existe el MLA por código, o crear uno nuevo
-        Mla mlaEntity = mlaRepository.findByMla(mla)
-                .orElseGet(() -> {
-                    Mla nuevo = new Mla();
-                    nuevo.setMla(mla);
-                    return nuevo;
-                });
+        // Usar el MLA existente del producto o crear uno nuevo
+        Mla mlaEntity;
+        if (producto.getMla() != null) {
+            mlaEntity = producto.getMla();
+            mlaEntity.setMla(mla);
+        } else {
+            mlaEntity = new Mla();
+            mlaEntity.setMla(mla);
+        }
 
         // Actualizar precio de envío si existe la columna
         if (columnasMap.containsKey("PRECIO FINAL")) {

@@ -1,17 +1,15 @@
 package ar.com.leo.super_master_backend.apis.ml.service;
 
-import ar.com.leo.super_master_backend.apis.dux.ml.dto.*;
-import ar.com.leo.super_master_backend.apis.ml.dto.*;
-import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
-import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
-import ar.com.leo.super_master_backend.dominio.common.exception.ServiceNotConfiguredException;
 import ar.com.leo.super_master_backend.apis.ml.MlRetryHandler;
 import ar.com.leo.super_master_backend.apis.ml.config.MercadoLibreProperties;
-import ar.com.leo.super_master_backend.dominio.ml.dto.*;
+import ar.com.leo.super_master_backend.apis.ml.dto.*;
 import ar.com.leo.super_master_backend.apis.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.apis.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.apis.ml.model.Producto;
 import ar.com.leo.super_master_backend.apis.ml.model.TokensML;
+import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
+import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.ServiceNotConfiguredException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.dto.PrecioCalculadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.CalculoPrecioService;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
@@ -141,7 +139,7 @@ public class MercadoLibreService {
         BigDecimal umbralEnvioGratis = config.getUmbralEnvioGratis();
 
         // Buscar el MLA y su producto asociado
-        Optional<Mla> mlaOpt = mlaRepository.findByMla(mlaCode);
+        Optional<Mla> mlaOpt = mlaRepository.findFirstByMla(mlaCode);
         if (mlaOpt.isEmpty()) {
             log.warn("ML - MLA {} no encontrado en la base de datos", mlaCode);
             return new CostoEnvioResponseDTO(mlaCode, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -165,7 +163,7 @@ public class MercadoLibreService {
             if (costoVentaResult.porcentajeTotal() != null && costoVentaResult.porcentajeTotal().compareTo(BigDecimal.ZERO) > 0) {
                 log.info("ML - Comisión obtenida para MLA {}: {}%", mlaCode, costoVentaResult.porcentajeTotal());
                 // Recargar el MLA para tener la comisión actualizada
-                mla = mlaRepository.findByMla(mlaCode).orElse(mla);
+                mla = mlaRepository.findFirstByMla(mlaCode).orElse(mla);
             } else {
                 log.warn("ML - No se pudo obtener la comisión para MLA {}: {}", mlaCode, costoVentaResult.mensaje());
             }
@@ -793,48 +791,50 @@ public class MercadoLibreService {
      * Guarda el porcentaje de comisión en la entidad Mla.
      */
     private void guardarComisionPorcentaje(String mlaCode, BigDecimal porcentaje) {
-        Optional<Mla> mlaOpt = mlaRepository.findByMla(mlaCode);
-        if (mlaOpt.isPresent()) {
-            Mla mla = mlaOpt.get();
+        List<Mla> mlas = mlaRepository.findByMla(mlaCode);
+        if (mlas.isEmpty()) {
+            log.warn("ML - No se encontró el MLA {} en la base de datos para guardar la comisión", mlaCode);
+            return;
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (Mla mla : mlas) {
             BigDecimal comisionAnterior = mla.getComisionPorcentaje();
 
             mla.setComisionPorcentaje(porcentaje);
-            mla.setFechaCalculoComision(LocalDateTime.now());
+            mla.setFechaCalculoComision(ahora);
             mlaRepository.save(mla);
-            log.info("ML - Porcentaje de comisión guardado para MLA {}: {}%", mlaCode, porcentaje);
 
-            // Recalcular precios si cambió la comisión
             if (comisionAnterior == null || comisionAnterior.compareTo(porcentaje) != 0) {
                 recalculoPrecioFacade.recalcularPorCambioMla(mla.getId());
-                log.info("ML - Precios recalculados para MLA: {}", mlaCode);
             }
-        } else {
-            log.warn("ML - No se encontró el MLA {} en la base de datos para guardar la comisión", mlaCode);
         }
+        log.info("ML - Porcentaje de comisión guardado para MLA {} ({} registros): {}%", mlaCode, mlas.size(), porcentaje);
     }
 
     /**
      * Guarda el costo de envío en la entidad Mla.
      */
     private void guardarCostoEnvio(String mlaCode, BigDecimal costoEnvio) {
-        Optional<Mla> mlaOpt = mlaRepository.findByMla(mlaCode);
-        if (mlaOpt.isPresent()) {
-            Mla mla = mlaOpt.get();
+        List<Mla> mlas = mlaRepository.findByMla(mlaCode);
+        if (mlas.isEmpty()) {
+            log.warn("ML - No se encontró el MLA {} en la base de datos para guardar el costo", mlaCode);
+            return;
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (Mla mla : mlas) {
             BigDecimal precioAnterior = mla.getPrecioEnvio();
 
             mla.setPrecioEnvio(costoEnvio);
-            mla.setFechaCalculoEnvio(LocalDateTime.now());
+            mla.setFechaCalculoEnvio(ahora);
             mlaRepository.save(mla);
-            log.info("ML - Costo de envío (sin IVA) guardado para MLA {}: ${}", mlaCode, costoEnvio);
 
-            // Recalcular precios si cambió el costo de envío
             if (precioAnterior == null || precioAnterior.compareTo(costoEnvio) != 0) {
                 recalculoPrecioFacade.recalcularPorCambioMla(mla.getId());
-                log.info("ML - Precios recalculados para MLA: {}", mlaCode);
             }
-        } else {
-            log.warn("ML - No se encontró el MLA {} en la base de datos para guardar el costo", mlaCode);
         }
+        log.info("ML - Costo de envío (sin IVA) guardado para MLA {} ({} registros): ${}", mlaCode, mlas.size(), costoEnvio);
     }
 
     /**
