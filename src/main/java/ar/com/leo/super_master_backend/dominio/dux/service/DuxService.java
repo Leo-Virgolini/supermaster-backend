@@ -8,6 +8,7 @@ import ar.com.leo.super_master_backend.dominio.dux.dto.ImportDuxResultDTO;
 import ar.com.leo.super_master_backend.dominio.dux.model.DuxResponse;
 import ar.com.leo.super_master_backend.dominio.dux.model.Item;
 import ar.com.leo.super_master_backend.dominio.dux.model.TokensDux;
+import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
@@ -15,8 +16,10 @@ import ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor;
 import ar.com.leo.super_master_backend.dominio.proveedor.repository.ProveedorRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -24,7 +27,9 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,6 +55,23 @@ public class DuxService {
     private TokensDux tokens;
 
     private final Map<String, Proveedor> cacheProveedores = new HashMap<>();
+
+    // Auto-inyección para proxy de Spring (@Async)
+    @Lazy
+    @Autowired
+    private DuxService self;
+
+    // Control de importación async
+    private final AtomicBoolean importacionEnEjecucion = new AtomicBoolean(false);
+    private final AtomicBoolean cancelarImportacion = new AtomicBoolean(false);
+    private volatile ProcesoMasivoEstadoDTO estadoImportacion = ProcesoMasivoEstadoDTO.idle();
+    private volatile ImportDuxResultDTO resultadoImportacion = null;
+
+    // Control de obtención de productos async
+    private final AtomicBoolean obtencionEnEjecucion = new AtomicBoolean(false);
+    private final AtomicBoolean cancelarObtencion = new AtomicBoolean(false);
+    private volatile ProcesoMasivoEstadoDTO estadoObtencion = ProcesoMasivoEstadoDTO.idle();
+    private volatile List<Item> resultadoObtencion = null;
 
     public DuxService(RestClient duxRestClient, DuxProperties properties, ObjectMapper objectMapper,
                       ProductoRepository productoRepository, ProveedorRepository proveedorRepository,
@@ -199,6 +221,10 @@ public class DuxService {
      * Solo permite obtener de maximo 50 productos por request cada 5 segundos.
      */
     public List<Item> obtenerProductos() {
+        return obtenerProductos(null);
+    }
+
+    private List<Item> obtenerProductos(AtomicBoolean cancelFlag) {
         verificarTokens();
 
         List<Item> allItems = new ArrayList<>();
@@ -208,6 +234,10 @@ public class DuxService {
         int intentosVacios = 0;
 
         while (offset < total) {
+            if (cancelFlag != null && cancelFlag.get()) {
+                log.info("DUX - Obtención de productos cancelada. Obtenidos: {}", allItems.size());
+                break;
+            }
             String response = retryHandler.get(
                     "/items?offset=" + offset + "&limit=" + limit,
                     tokens.token
@@ -298,160 +328,311 @@ public class DuxService {
     }
 
     // =====================================================
-    // IMPORT: DUX → Local
+    // OBTENER PRODUCTOS (async)
     // =====================================================
 
     /**
-     * Importa productos desde DUX y actualiza los productos locales existentes.
-     * Solo actualiza productos que ya existen en la base local (match por SKU).
-     * Dispara recálculo de precios para productos con cambios en costo/iva/proveedor.
+     * Inicia la obtención de todos los productos de DUX en background.
+     *
+     * @return true si se inició, false si ya hay una obtención en ejecución
      */
-    @Transactional
-    public ImportDuxResultDTO importarProductosDesdeDux() {
-        log.info("Iniciando importación de productos desde DUX...");
+    public boolean iniciarObtenerProductos() {
+        if (!obtencionEnEjecucion.compareAndSet(false, true)) {
+            log.warn("DUX - Ya hay una obtención de productos en ejecución");
+            return false;
+        }
+        cancelarObtencion.set(false);
+        resultadoObtencion = null;
+        estadoObtencion = ProcesoMasivoEstadoDTO.iniciado(0, LocalDateTime.now());
+        self.obtenerProductosAsync();
+        return true;
+    }
 
-        List<Item> itemsDux = obtenerProductos();
-        int totalDux = itemsDux.size();
-        log.info("DUX - {} productos obtenidos para importar", totalDux);
+    /**
+     * Obtiene todos los productos de DUX de forma asincrónica.
+     */
+    @Async
+    public void obtenerProductosAsync() {
+        LocalDateTime iniciadoEn = estadoObtencion.iniciadoEn();
+        try {
+            estadoObtencion = new ProcesoMasivoEstadoDTO(
+                    true, 0, 0, 0, 0, "ejecutando", iniciadoEn, null,
+                    "Obteniendo productos de DUX...");
 
-        List<String> skusNoEncontrados = new ArrayList<>();
-        List<String> errores = new ArrayList<>();
-        List<Integer> productosARecalcular = new ArrayList<>();
-        int productosActualizados = 0;
+            List<Item> items = obtenerProductos(cancelarObtencion);
 
-        // Cache de proveedores
-        cacheProveedores.clear();
-        int proveedoresAntes = (int) proveedorRepository.count();
+            String estado = cancelarObtencion.get() ? "cancelado" : "completado";
+            resultadoObtencion = items;
+            estadoObtencion = new ProcesoMasivoEstadoDTO(
+                    false, items.size(), items.size(), items.size(), 0,
+                    estado, iniciadoEn, LocalDateTime.now(),
+                    String.format("Proceso %s. %d productos obtenidos.", estado, items.size()));
 
-        for (Item item : itemsDux) {
-            try {
-                String sku = item.getCodItem();
-                if (sku == null || sku.isBlank()) {
-                    continue;
+        } catch (Exception e) {
+            log.error("DUX - Error obteniendo productos: {}", e.getMessage(), e);
+            resultadoObtencion = null;
+            estadoObtencion = new ProcesoMasivoEstadoDTO(
+                    false, 0, 0, 0, 0, "error", iniciadoEn, LocalDateTime.now(),
+                    "Error: " + e.getMessage());
+        } finally {
+            obtencionEnEjecucion.set(false);
+            cancelarObtencion.set(false);
+        }
+    }
+
+    public boolean cancelarObtencionProductos() {
+        if (obtencionEnEjecucion.get()) {
+            cancelarObtencion.set(true);
+            log.info("DUX - Solicitud de cancelación de obtención de productos recibida");
+            return true;
+        }
+        return false;
+    }
+
+    public ProcesoMasivoEstadoDTO obtenerEstadoObtencionProductos() {
+        return estadoObtencion;
+    }
+
+    public List<Item> obtenerResultadoObtencionProductos() {
+        return resultadoObtencion;
+    }
+
+    // =====================================================
+    // IMPORT: DUX → Local (async)
+    // =====================================================
+
+    /**
+     * Inicia la importación de productos desde DUX en background.
+     *
+     * @return true si se inició, false si ya hay una importación en ejecución
+     */
+    public boolean iniciarImportacion() {
+        if (!importacionEnEjecucion.compareAndSet(false, true)) {
+            log.warn("DUX - Ya hay una importación en ejecución");
+            return false;
+        }
+        cancelarImportacion.set(false);
+        resultadoImportacion = null;
+        estadoImportacion = ProcesoMasivoEstadoDTO.iniciado(0, LocalDateTime.now());
+        self.importarProductosDesdeDuxAsync();
+        return true;
+    }
+
+    /**
+     * Importa productos desde DUX de forma asincrónica.
+     * Se ejecuta en un thread separado del pool async de Spring.
+     */
+    @Async
+    public void importarProductosDesdeDuxAsync() {
+        LocalDateTime iniciadoEn = estadoImportacion.iniciadoEn();
+
+        try {
+            log.info("DUX - Iniciando importación de productos...");
+
+            // Fase 1: Obtener productos de DUX API
+            estadoImportacion = new ProcesoMasivoEstadoDTO(
+                    true, 0, 0, 0, 0, "ejecutando", iniciadoEn, null,
+                    "Obteniendo productos de DUX...");
+
+            List<Item> itemsDux = obtenerProductos(cancelarImportacion);
+            int totalDux = itemsDux.size();
+            log.info("DUX - {} productos obtenidos para importar", totalDux);
+
+            // Fase 2: Procesar items
+            List<String> skusNoEncontrados = new ArrayList<>();
+            List<String> errores = new ArrayList<>();
+            List<Integer> productosARecalcular = new ArrayList<>();
+            int productosActualizados = 0;
+            int procesados = 0;
+
+            cacheProveedores.clear();
+            int proveedoresAntes = (int) proveedorRepository.count();
+
+            for (Item item : itemsDux) {
+                if (cancelarImportacion.get()) {
+                    log.info("DUX - Importación cancelada. Procesados: {}/{}", procesados, totalDux);
+                    break;
                 }
 
-                Optional<Producto> productoOpt = productoRepository.findBySku(sku.trim());
-                if (productoOpt.isEmpty()) {
-                    skusNoEncontrados.add(sku);
-                    continue;
-                }
-
-                Producto producto = productoOpt.get();
-                boolean actualizado = false;
-
-                // Guardar valores anteriores para detectar cambios que afectan precio
-                BigDecimal costoAnterior = producto.getCosto();
-                BigDecimal ivaAnterior = producto.getIva();
-                Integer proveedorIdAnterior = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
-
-                // descripcion ← item.item
-                if (item.getItem() != null && !item.getItem().isBlank()) {
-                    String desc = item.getItem().trim();
-                    producto.setDescripcion(desc.length() > 100 ? desc.substring(0, 100) : desc);
-                    actualizado = true;
-                }
-
-                // costo ← item.costo
-                if (item.getCosto() != null && !item.getCosto().isBlank()) {
-                    try {
-                        BigDecimal costo = new BigDecimal(item.getCosto().replace(",", "."))
-                                .setScale(2, RoundingMode.HALF_UP);
-                        if (costo.compareTo(COSTO_MAXIMO) > 0) {
-                            errores.add("SKU " + sku + ": COSTO excede límite (" + item.getCosto() + " > 99,999,999.99)");
-                        } else if (costo.compareTo(BigDecimal.ZERO) >= 0) {
-                            producto.setCosto(costo);
-                            actualizado = true;
-                        }
-                    } catch (NumberFormatException e) {
-                        errores.add("SKU " + sku + ": COSTO inválido '" + item.getCosto() + "'");
+                try {
+                    String sku = item.getCodItem();
+                    if (sku == null || sku.isBlank()) {
+                        procesados++;
+                        continue;
                     }
-                }
 
-                // codExt ← item.codigoExterno
-                if (item.getCodigoExterno() != null && !item.getCodigoExterno().isBlank()) {
-                    String codExt = item.getCodigoExterno().trim();
-                    producto.setCodExt(codExt.length() > 45 ? codExt.substring(0, 45) : codExt);
-                    actualizado = true;
-                }
+                    Optional<Producto> productoOpt = productoRepository.findBySku(sku.trim());
+                    if (productoOpt.isEmpty()) {
+                        skusNoEncontrados.add(sku);
+                        procesados++;
+                        continue;
+                    }
 
-                // proveedor ← item.proveedor.proveedor
-                if (item.getProveedor() != null && item.getProveedor().getProveedor() != null
-                        && !item.getProveedor().getProveedor().isBlank()) {
-                    Proveedor proveedor = buscarOCrearProveedor(item.getProveedor().getProveedor().trim());
-                    if (proveedor != null) {
-                        producto.setProveedor(proveedor);
+                    Producto producto = productoOpt.get();
+                    boolean actualizado = false;
+
+                    BigDecimal costoAnterior = producto.getCosto();
+                    BigDecimal ivaAnterior = producto.getIva();
+                    Integer proveedorIdAnterior = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
+
+                    // descripcion ← item.item
+                    if (item.getItem() != null && !item.getItem().isBlank()) {
+                        String desc = item.getItem().trim();
+                        producto.setDescripcion(desc.length() > 100 ? desc.substring(0, 100) : desc);
                         actualizado = true;
                     }
-                }
 
-                // iva ← item.porcIva
-                if (item.getPorcIva() != null && !item.getPorcIva().isBlank()) {
-                    try {
-                        BigDecimal iva = new BigDecimal(item.getPorcIva().replace(",", "."));
-                        if (iva.compareTo(BigDecimal.ZERO) >= 0 && iva.compareTo(new BigDecimal("100")) <= 0) {
-                            producto.setIva(iva);
+                    // costo ← item.costo
+                    if (item.getCosto() != null && !item.getCosto().isBlank()) {
+                        try {
+                            BigDecimal costo = new BigDecimal(item.getCosto().replace(",", "."))
+                                    .setScale(2, RoundingMode.HALF_UP);
+                            if (costo.compareTo(COSTO_MAXIMO) > 0) {
+                                errores.add("SKU " + sku + ": COSTO excede límite (" + item.getCosto() + " > 99,999,999.99)");
+                            } else if (costo.compareTo(BigDecimal.ZERO) >= 0) {
+                                producto.setCosto(costo);
+                                actualizado = true;
+                            }
+                        } catch (NumberFormatException e) {
+                            errores.add("SKU " + sku + ": COSTO inválido '" + item.getCosto() + "'");
+                        }
+                    }
+
+                    // codExt ← item.codigoExterno
+                    if (item.getCodigoExterno() != null && !item.getCodigoExterno().isBlank()) {
+                        String codExt = item.getCodigoExterno().trim();
+                        producto.setCodExt(codExt.length() > 45 ? codExt.substring(0, 45) : codExt);
+                        actualizado = true;
+                    }
+
+                    // proveedor ← item.proveedor.proveedor
+                    if (item.getProveedor() != null && item.getProveedor().getProveedor() != null
+                            && !item.getProveedor().getProveedor().isBlank()) {
+                        Proveedor proveedor = buscarOCrearProveedor(item.getProveedor().getProveedor().trim());
+                        if (proveedor != null) {
+                            producto.setProveedor(proveedor);
                             actualizado = true;
                         }
-                    } catch (NumberFormatException e) {
-                        errores.add("SKU " + sku + ": IVA inválido '" + item.getPorcIva() + "'");
                     }
-                }
 
-                // activo ← item.habilitado ("S" → true, otro → false)
-                if (item.getHabilitado() != null) {
-                    producto.setActivo("S".equalsIgnoreCase(item.getHabilitado().trim()));
-                    actualizado = true;
-                }
-
-                if (actualizado) {
-                    productoRepository.save(producto);
-                    productosActualizados++;
-
-                    // Detectar cambios que afectan precios
-                    boolean cambioCosto = !bigDecimalEquals(costoAnterior, producto.getCosto());
-                    boolean cambioIva = !bigDecimalEquals(ivaAnterior, producto.getIva());
-                    Integer proveedorIdNuevo = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
-                    boolean cambioProveedor = !Objects.equals(proveedorIdAnterior, proveedorIdNuevo);
-
-                    if (cambioCosto || cambioIva || cambioProveedor) {
-                        productosARecalcular.add(producto.getId());
+                    // iva ← item.porcIva
+                    if (item.getPorcIva() != null && !item.getPorcIva().isBlank()) {
+                        try {
+                            BigDecimal iva = new BigDecimal(item.getPorcIva().replace(",", "."));
+                            if (iva.compareTo(BigDecimal.ZERO) >= 0 && iva.compareTo(new BigDecimal("100")) <= 0) {
+                                producto.setIva(iva);
+                                actualizado = true;
+                            }
+                        } catch (NumberFormatException e) {
+                            errores.add("SKU " + sku + ": IVA inválido '" + item.getPorcIva() + "'");
+                        }
                     }
-                }
 
-            } catch (Exception e) {
-                String sku = item.getCodItem() != null ? item.getCodItem() : "desconocido";
-                errores.add("SKU " + sku + ": Error inesperado - " + e.getMessage());
-                log.warn("Error procesando item DUX {}: {}", sku, e.getMessage());
-            }
-        }
+                    // activo ← item.habilitado ("S" → true, otro → false)
+                    if (item.getHabilitado() != null) {
+                        producto.setActivo("S".equalsIgnoreCase(item.getHabilitado().trim()));
+                        actualizado = true;
+                    }
 
-        // Contar proveedores creados
-        int proveedoresDespues = (int) proveedorRepository.count();
-        int proveedoresCreados = proveedoresDespues - proveedoresAntes;
+                    if (actualizado) {
+                        productoRepository.save(producto);
+                        productosActualizados++;
 
-        // Recalcular precios para productos con cambios relevantes
-        if (!productosARecalcular.isEmpty()) {
-            log.info("Recalculando precios para {} productos con cambios relevantes...", productosARecalcular.size());
-            for (Integer idProducto : productosARecalcular) {
-                try {
-                    recalculoPrecioFacade.recalcularPorCambioProducto(idProducto);
+                        boolean cambioCosto = !bigDecimalEquals(costoAnterior, producto.getCosto());
+                        boolean cambioIva = !bigDecimalEquals(ivaAnterior, producto.getIva());
+                        Integer proveedorIdNuevo = producto.getProveedor() != null ? producto.getProveedor().getId() : null;
+                        boolean cambioProveedor = !Objects.equals(proveedorIdAnterior, proveedorIdNuevo);
+
+                        if (cambioCosto || cambioIva || cambioProveedor) {
+                            productosARecalcular.add(producto.getId());
+                        }
+                    }
+
                 } catch (Exception e) {
-                    log.warn("Error recalculando precios para producto {}: {}", idProducto, e.getMessage());
+                    String sku = item.getCodItem() != null ? item.getCodItem() : "desconocido";
+                    errores.add("SKU " + sku + ": Error inesperado - " + e.getMessage());
+                    log.warn("Error procesando item DUX {}: {}", sku, e.getMessage());
+                }
+
+                procesados++;
+                estadoImportacion = new ProcesoMasivoEstadoDTO(
+                        true, totalDux, procesados, productosActualizados, errores.size(),
+                        "ejecutando", iniciadoEn, null,
+                        String.format("Procesando %d/%d", procesados, totalDux));
+            }
+
+            // Fase 3: Recalcular precios
+            int proveedoresDespues = (int) proveedorRepository.count();
+            int proveedoresCreados = proveedoresDespues - proveedoresAntes;
+
+            if (!productosARecalcular.isEmpty()) {
+                estadoImportacion = new ProcesoMasivoEstadoDTO(
+                        true, totalDux, procesados, productosActualizados, errores.size(),
+                        "ejecutando", iniciadoEn, null,
+                        String.format("Recalculando precios (%d productos)...", productosARecalcular.size()));
+
+                log.info("DUX - Recalculando precios para {} productos...", productosARecalcular.size());
+                for (Integer idProducto : productosARecalcular) {
+                    try {
+                        recalculoPrecioFacade.recalcularPorCambioProducto(idProducto);
+                    } catch (Exception e) {
+                        log.warn("Error recalculando precios para producto {}: {}", idProducto, e.getMessage());
+                    }
                 }
             }
+
+            // Resultado final
+            LocalDateTime finalizadoEn = LocalDateTime.now();
+            String estado = cancelarImportacion.get() ? "cancelado" : "completado";
+
+            log.info("DUX - Importación {}. Actualizados: {}, No encontrados: {}, Proveedores creados: {}, Recalculados: {}, Errores: {}",
+                    estado, productosActualizados, skusNoEncontrados.size(), proveedoresCreados,
+                    productosARecalcular.size(), errores.size());
+
+            resultadoImportacion = new ImportDuxResultDTO(
+                    productosActualizados,
+                    skusNoEncontrados.size(),
+                    proveedoresCreados,
+                    totalDux,
+                    skusNoEncontrados,
+                    errores);
+
+            estadoImportacion = new ProcesoMasivoEstadoDTO(
+                    false, totalDux, procesados, productosActualizados, errores.size(),
+                    estado, iniciadoEn, finalizadoEn,
+                    String.format("Proceso %s. Actualizados: %d, No encontrados: %d, Errores: %d",
+                            estado, productosActualizados, skusNoEncontrados.size(), errores.size()));
+
+        } catch (Exception e) {
+            log.error("DUX - Error fatal en importación: {}", e.getMessage(), e);
+            resultadoImportacion = null;
+            estadoImportacion = new ProcesoMasivoEstadoDTO(
+                    false, 0, 0, 0, 0, "error", iniciadoEn, LocalDateTime.now(),
+                    "Error fatal: " + e.getMessage());
+        } finally {
+            importacionEnEjecucion.set(false);
+            cancelarImportacion.set(false);
         }
+    }
 
-        log.info("Importación DUX completada: {} actualizados, {} no encontrados, {} proveedores creados, {} recalculados, {} errores",
-                productosActualizados, skusNoEncontrados.size(), proveedoresCreados, productosARecalcular.size(), errores.size());
+    /**
+     * Cancela la importación en ejecución.
+     */
+    public boolean cancelarImportacion() {
+        if (importacionEnEjecucion.get()) {
+            cancelarImportacion.set(true);
+            log.info("DUX - Solicitud de cancelación de importación recibida");
+            return true;
+        }
+        return false;
+    }
 
-        return new ImportDuxResultDTO(
-                productosActualizados,
-                skusNoEncontrados.size(),
-                proveedoresCreados,
-                totalDux,
-                skusNoEncontrados,
-                errores
-        );
+    public ProcesoMasivoEstadoDTO obtenerEstadoImportacion() {
+        return estadoImportacion;
+    }
+
+    public ImportDuxResultDTO obtenerResultadoImportacion() {
+        return resultadoImportacion;
     }
 
     // =====================================================

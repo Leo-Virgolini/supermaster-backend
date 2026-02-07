@@ -1136,11 +1136,11 @@ interface CostoVentaMasivoResponse {
   resultados: CostoVentaResponse[];
 }
 
-// Estado del proceso masivo (costo de envío y costo de venta)
+// Estado del proceso masivo (usado por ML costo-envío, ML costo-venta, DUX importar, DUX obtener-productos)
 interface ProcesoMasivoEstado {
   enEjecucion: boolean;
-  total: number;                   // Total de MLAs a procesar
-  procesados: number;              // MLAs procesados hasta ahora
+  total: number;                   // Total de items a procesar
+  procesados: number;              // Items procesados hasta ahora
   exitosos: number;                // Procesados exitosamente
   errores: number;                 // Procesados con error
   estado: 'idle' | 'ejecutando' | 'completado' | 'cancelado';
@@ -2600,10 +2600,13 @@ Módulo para integración con **DUX Software ERP** (sistema de gestión empresar
 
 **Flujos típicos:**
 1. **Actualizar precios:** Calcular PVP → `POST /listas-precios/{id}/precios` → monitorear con `GET /procesos/{id}/estado`
-2. **Importar datos de DUX:** `POST /importar-productos` → actualiza productos locales y recalcula precios si cambiaron costo/iva/proveedor
-3. **Exportar a DUX:** `POST /exportar-productos` → monitorear con `GET /procesos/{id}/estado`
+2. **Obtener productos DUX:** `POST /obtener-productos` → `GET /obtener-productos/estado` → `GET /obtener-productos/resultado`
+3. **Importar datos de DUX:** `POST /importar-productos` → `GET /importar-productos/estado` → `GET /importar-productos/resultado`
+4. **Exportar a DUX:** `POST /exportar-productos` → monitorear con `GET /procesos/{id}/estado`
 
-**Límite de rate:** 1 request cada 5 segundos (0.2 req/seg) - impuesto por DUX
+**Límite de rate:** 1 request cada 7 segundos (~0.14 req/seg) - impuesto por DUX
+
+**Nota:** Las operaciones de obtener productos e importar son **asincrónicas** (pueden tardar varios minutos). Se inician con POST, se monitorean con GET /estado, y los resultados se obtienen con GET /resultado. Usan el mismo tipo `ProcesoMasivoEstado` que MercadoLibre.
 
 #### Status
 
@@ -2621,11 +2624,38 @@ GET /api/dux/status
 #### Productos
 
 ```http
-GET /api/dux/productos
+POST /api/dux/obtener-productos
 ```
-**Response:** `DuxItem[]`
+Inicia la obtención de todos los productos de DUX en background (puede tardar varios minutos debido al rate limit).
 
-Obtiene todos los productos de DUX con paginación automática. Puede tardar varios minutos debido al límite de rate.
+**Response (202):**
+```json
+{
+  "mensaje": "Obtención de productos DUX iniciada en background",
+  "iniciado": true,
+  "endpoints": {
+    "estado": "GET /api/dux/obtener-productos/estado",
+    "cancelar": "POST /api/dux/obtener-productos/cancelar",
+    "resultado": "GET /api/dux/obtener-productos/resultado"
+  }
+}
+```
+**Response (400):** Ya hay una obtención en ejecución.
+
+```http
+GET /api/dux/obtener-productos/estado
+```
+**Response:** `ProcesoMasivoEstado`
+
+```http
+POST /api/dux/obtener-productos/cancelar
+```
+**Response:** `{ "mensaje": "...", "cancelado": true|false }`
+
+```http
+GET /api/dux/obtener-productos/resultado
+```
+**Response:** `DuxItem[]` si el proceso completó, o `{ "mensaje": "...", "disponible": false }` si no hay resultados.
 
 ```http
 GET /api/dux/productos/{codItem}
@@ -2687,17 +2717,44 @@ GET /api/dux/procesos/{idProceso}/estado
 }
 ```
 
-#### Importar Productos (DUX → Local)
+#### Importar Productos (DUX → Local) — Async
 
 ```http
 POST /api/dux/importar-productos
 ```
 
-Obtiene todos los productos de DUX y actualiza los productos locales existentes (match por SKU).
+Inicia la importación en background. Obtiene todos los productos de DUX y actualiza los productos locales existentes (match por SKU).
 Campos actualizados: `descripcion`, `costo`, `codExt`, `proveedor` (auto-crea si no existe), `iva`, `activo`.
 Si cambian `costo`, `iva` o `proveedor`, se recalculan precios automáticamente.
 
-**Response (200):** `ImportDuxResult`
+**Response (202):**
+```json
+{
+  "mensaje": "Importación DUX iniciada en background",
+  "iniciado": true,
+  "endpoints": {
+    "estado": "GET /api/dux/importar-productos/estado",
+    "cancelar": "POST /api/dux/importar-productos/cancelar",
+    "resultado": "GET /api/dux/importar-productos/resultado"
+  }
+}
+```
+**Response (400):** Ya hay una importación en ejecución.
+
+```http
+GET /api/dux/importar-productos/estado
+```
+**Response:** `ProcesoMasivoEstado`
+
+```http
+POST /api/dux/importar-productos/cancelar
+```
+**Response:** `{ "mensaje": "...", "cancelado": true|false }`
+
+```http
+GET /api/dux/importar-productos/resultado
+```
+**Response:** `ImportDuxResult` si el proceso completó, o `{ "mensaje": "...", "disponible": false }` si no hay resultados.
 
 ```json
 {

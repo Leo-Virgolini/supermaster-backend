@@ -7,6 +7,7 @@ import ar.com.leo.super_master_backend.dominio.dux.dto.ImportDuxResultDTO;
 import ar.com.leo.super_master_backend.dominio.dux.model.Item;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService;
 import ar.com.leo.super_master_backend.dominio.dux.service.DuxService.ProductoPrecioData;
+import ar.com.leo.super_master_backend.dominio.ml.dto.ProcesoMasivoEstadoDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,9 +39,51 @@ public class DuxController {
     // PRODUCTOS
     // =====================================================
 
-    @GetMapping("/productos")
-    public ResponseEntity<List<Item>> obtenerProductos() {
-        return ResponseEntity.ok(duxService.obtenerProductos());
+    @PostMapping("/obtener-productos")
+    public ResponseEntity<?> iniciarObtenerProductos() {
+        boolean iniciado = duxService.iniciarObtenerProductos();
+        if (iniciado) {
+            return ResponseEntity.accepted().body(Map.of(
+                    "mensaje", "Obtención de productos DUX iniciada en background",
+                    "iniciado", true,
+                    "endpoints", Map.of(
+                            "estado", "GET /api/dux/obtener-productos/estado",
+                            "cancelar", "POST /api/dux/obtener-productos/cancelar",
+                            "resultado", "GET /api/dux/obtener-productos/resultado"
+                    )));
+        }
+        return ResponseEntity.badRequest().body(Map.of(
+                "mensaje", "Ya hay una obtención de productos en ejecución. Use GET /api/dux/obtener-productos/estado para ver el progreso.",
+                "iniciado", false));
+    }
+
+    @GetMapping("/obtener-productos/estado")
+    public ResponseEntity<ProcesoMasivoEstadoDTO> estadoObtenerProductos() {
+        return ResponseEntity.ok(duxService.obtenerEstadoObtencionProductos());
+    }
+
+    @PostMapping("/obtener-productos/cancelar")
+    public ResponseEntity<?> cancelarObtenerProductos() {
+        boolean cancelado = duxService.cancelarObtencionProductos();
+        if (cancelado) {
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Solicitud de cancelación enviada. El proceso se detendrá después de la página actual.",
+                    "cancelado", true));
+        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "No hay obtención de productos en ejecución",
+                "cancelado", false));
+    }
+
+    @GetMapping("/obtener-productos/resultado")
+    public ResponseEntity<?> resultadoObtenerProductos() {
+        List<Item> resultado = duxService.obtenerResultadoObtencionProductos();
+        if (resultado != null) {
+            return ResponseEntity.ok(resultado);
+        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "No hay resultados disponibles. El proceso aún no ha finalizado o no se ha ejecutado.",
+                "disponible", false));
     }
 
     @GetMapping("/productos/{codItem}")
@@ -117,14 +160,59 @@ public class DuxController {
     }
 
     // =====================================================
-    // SINCRONIZACIÓN
+    // IMPORTACIÓN (async)
     // =====================================================
 
     @PostMapping("/importar-productos")
-    public ResponseEntity<ImportDuxResultDTO> importarProductos() {
-        ImportDuxResultDTO resultado = duxService.importarProductosDesdeDux();
-        return ResponseEntity.ok(resultado);
+    public ResponseEntity<?> importarProductos() {
+        boolean iniciado = duxService.iniciarImportacion();
+        if (iniciado) {
+            return ResponseEntity.accepted().body(Map.of(
+                    "mensaje", "Importación DUX iniciada en background",
+                    "iniciado", true,
+                    "endpoints", Map.of(
+                            "estado", "GET /api/dux/importar-productos/estado",
+                            "cancelar", "POST /api/dux/importar-productos/cancelar",
+                            "resultado", "GET /api/dux/importar-productos/resultado"
+                    )));
+        }
+        return ResponseEntity.badRequest().body(Map.of(
+                "mensaje", "Ya hay una importación en ejecución. Use GET /api/dux/importar-productos/estado para ver el progreso.",
+                "iniciado", false));
     }
+
+    @GetMapping("/importar-productos/estado")
+    public ResponseEntity<ProcesoMasivoEstadoDTO> estadoImportacion() {
+        return ResponseEntity.ok(duxService.obtenerEstadoImportacion());
+    }
+
+    @PostMapping("/importar-productos/cancelar")
+    public ResponseEntity<?> cancelarImportacion() {
+        boolean cancelado = duxService.cancelarImportacion();
+        if (cancelado) {
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Solicitud de cancelación enviada. El proceso se detendrá después del item actual.",
+                    "cancelado", true));
+        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "No hay importación en ejecución",
+                "cancelado", false));
+    }
+
+    @GetMapping("/importar-productos/resultado")
+    public ResponseEntity<?> resultadoImportacion() {
+        ImportDuxResultDTO resultado = duxService.obtenerResultadoImportacion();
+        if (resultado != null) {
+            return ResponseEntity.ok(resultado);
+        }
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "No hay resultados disponibles. El proceso aún no ha finalizado o no se ha ejecutado.",
+                "disponible", false));
+    }
+
+    // =====================================================
+    // EXPORTACIÓN
+    // =====================================================
 
     @PostMapping("/exportar-productos")
     public ResponseEntity<ExportDuxResultDTO> exportarProductos(
