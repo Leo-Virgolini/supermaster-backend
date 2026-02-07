@@ -66,7 +66,7 @@ public class ConceptoCalculoServiceImpl implements ConceptoCalculoService {
         conceptoRepository.save(entity);
 
         // Si cambió el porcentaje o aplicaSobre, recalcular todos los productos afectados
-        boolean cambioPorcentaje = dto.porcentaje() != null && dto.porcentaje().compareTo(porcentajeAnterior) != 0;
+        boolean cambioPorcentaje = dto.porcentaje() != null && (porcentajeAnterior == null || dto.porcentaje().compareTo(porcentajeAnterior) != 0);
         boolean cambioAplicaSobre = dto.aplicaSobre() != null && !dto.aplicaSobre().equals(aplicaSobreAnterior);
 
         if (cambioPorcentaje || cambioAplicaSobre) {

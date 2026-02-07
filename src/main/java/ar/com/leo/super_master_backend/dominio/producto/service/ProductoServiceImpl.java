@@ -97,16 +97,18 @@ public class ProductoServiceImpl implements ProductoService {
         BigDecimal costoAnterior = entity.getCosto();
         BigDecimal ivaAnterior = entity.getIva();
         Integer clasifGastroIdAnterior = entity.getClasifGastro() != null ? entity.getClasifGastro().getId() : null;
+        Integer proveedorIdAnterior = entity.getProveedor() != null ? entity.getProveedor().getId() : null;
 
         productoMapper.updateEntityFromDTO(dto, entity);
         productoRepository.save(entity);
 
-        // Recalcular precios si cambió costo o IVA
+        // Recalcular precios si cambió costo, IVA, clasifGastro o proveedor
         boolean cambioCosto = dto.costo() != null && !Objects.equals(costoAnterior, dto.costo());
         boolean cambioIva = dto.iva() != null && !Objects.equals(ivaAnterior, dto.iva());
         boolean cambioClasifGastro = dto.clasifGastroId() != null && !Objects.equals(clasifGastroIdAnterior, dto.clasifGastroId());
+        boolean cambioProveedor = dto.proveedorId() != null && !Objects.equals(proveedorIdAnterior, dto.proveedorId());
 
-        if (cambioCosto || cambioIva || cambioClasifGastro) {
+        if (cambioCosto || cambioIva || cambioClasifGastro || cambioProveedor) {
             recalculoFacade.recalcularPorCambioProducto(id);
         }
 

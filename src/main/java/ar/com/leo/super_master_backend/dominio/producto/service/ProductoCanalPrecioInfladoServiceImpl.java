@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.service;
 
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
+import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoCanalPrecioInfladoCreateDTO;
@@ -10,6 +11,7 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrec
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoCanalPrecioInfladoMapper;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioInfladoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
+import ar.com.leo.super_master_backend.dominio.precio_inflado.entity.PrecioInflado;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.repository.PrecioInfladoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -79,16 +81,20 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + dto.productoId()));
         canalRepository.findById(dto.canalId())
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + dto.canalId()));
-        precioInfladoRepository.findById(dto.precioInfladoId())
-                .orElseThrow(() -> new NotFoundException("Precio inflado no encontrado con ID: " + dto.precioInfladoId()));
+        PrecioInflado precioInfladoMaestro =
+                precioInfladoRepository.findById(dto.precioInfladoId())
+                        .orElseThrow(() -> new NotFoundException("Precio inflado no encontrado con ID: " + dto.precioInfladoId()));
 
         if (repository.findByProductoIdAndCanalId(dto.productoId(), dto.canalId()).isPresent()) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Ya existe un precio inflado para el producto ID: " + dto.productoId() + " y canal ID: "
                             + dto.canalId());
         }
 
         ProductoCanalPrecioInflado precioInflado = mapper.toEntity(dto);
+        // Reemplazar la referencia del mapper (solo tiene ID) con la entidad completa
+        // para evitar NPE cuando el recálculo accede a tipo/valor en la misma transacción
+        precioInflado.setPrecioInflado(precioInfladoMaestro);
 
         if (precioInflado.getActiva() == null) {
             precioInflado.setActiva(true);
@@ -110,11 +116,16 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
                         "Precio inflado no encontrado para producto ID: " + productoId + " y canal ID: " + canalId));
 
         if (dto.precioInfladoId() != null) {
-            precioInfladoRepository.findById(dto.precioInfladoId())
-                    .orElseThrow(() -> new NotFoundException("Precio inflado no encontrado con ID: " + dto.precioInfladoId()));
+            PrecioInflado precioInfladoMaestro =
+                    precioInfladoRepository.findById(dto.precioInfladoId())
+                            .orElseThrow(() -> new NotFoundException("Precio inflado no encontrado con ID: " + dto.precioInfladoId()));
+            mapper.updateEntityFromDTO(dto, precioInflado);
+            // Reemplazar la referencia del mapper (solo tiene ID) con la entidad completa
+            precioInflado.setPrecioInflado(precioInfladoMaestro);
+        } else {
+            mapper.updateEntityFromDTO(dto, precioInflado);
         }
 
-        mapper.updateEntityFromDTO(dto, precioInflado);
         precioInflado = repository.save(precioInflado);
 
         recalculoFacade.recalcularPorCambioPrecioInflado(productoId, canalId);

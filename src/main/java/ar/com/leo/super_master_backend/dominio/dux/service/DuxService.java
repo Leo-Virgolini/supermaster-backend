@@ -39,6 +39,9 @@ public class DuxService {
     private final RestClient restClient;
     private final DuxProperties properties;
     private final ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Value("${app.secrets-dir}")
+    private String secretsDir;
     private final ProductoRepository productoRepository;
     private final ProveedorRepository proveedorRepository;
     private final RecalculoPrecioFacade recalculoPrecioFacade;
@@ -602,7 +605,7 @@ public class DuxService {
 
     private void cargarTokens() {
         try {
-            File file = properties.getTokenFile().toFile();
+            File file = java.nio.file.Paths.get(secretsDir).resolve("dux_tokens.json").toFile();
             if (file.exists()) {
                 tokens = objectMapper.readValue(file, TokensDux.class);
                 log.info("DUX - Tokens cargados desde {}", file.getAbsolutePath());

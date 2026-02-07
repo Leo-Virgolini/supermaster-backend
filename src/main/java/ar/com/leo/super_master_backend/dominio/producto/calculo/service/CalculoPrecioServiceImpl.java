@@ -414,11 +414,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 BigDecimal porcentajeCuotasTotal = porcentajeConceptosCanal.add(porcentajeCuota);
 
                 if (porcentajeCuotasTotal.compareTo(BigDecimal.ZERO) > 0) {
+                    if (porcentajeCuotasTotal.compareTo(CIEN) >= 0) {
+                        log.warn("Gastos PVP + cuotas {}% >= 100% para canal {}. Se limita a 99%.", porcentajeCuotasTotal, idCanal);
+                        porcentajeCuotasTotal = new BigDecimal("99");
+                    }
                     BigDecimal cuotasFrac = porcentajeCuotasTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
                     BigDecimal divisorCuotas = BigDecimal.ONE.subtract(cuotasFrac);
-                    if (divisorCuotas.compareTo(BigDecimal.ZERO) > 0) {
-                        costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
-                    }
+                    costoConImpuestos = costoConImpuestos.divide(divisorCuotas, PRECISION_CALCULO, RoundingMode.HALF_UP);
                 }
             } else {
                 // CUOTA < 0 (descuento): aplicar gastos PVP primero, luego descuento como multiplicador
@@ -434,7 +436,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 }
 
                 // Luego descuento como multiplicador
-                BigDecimal descuentoFrac = porcentajeCuota.abs().divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                BigDecimal descuentoAbs = porcentajeCuota.abs();
+                if (descuentoAbs.compareTo(CIEN) >= 0) {
+                    log.warn("Descuento de cuota {}% >= 100% para canal {}. Se limita a 99%.", descuentoAbs, idCanal);
+                    descuentoAbs = new BigDecimal("99");
+                }
+                BigDecimal descuentoFrac = descuentoAbs.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
                 BigDecimal factorDescuento = BigDecimal.ONE.subtract(descuentoFrac);
                 costoConImpuestos = costoConImpuestos.multiply(factorDescuento);
             }
@@ -499,10 +506,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (!conceptosInflacion.isEmpty()) {
             BigDecimal porcentajeInflacion = calcularGastosPorcentaje(conceptosInflacion);
             if (porcentajeInflacion.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal divisor = BigDecimal.ONE.subtract(porcentajeInflacion.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP));
-                if (divisor.compareTo(BigDecimal.ZERO) > 0) {
-                    pvp = pvp.divide(divisor, PRECISION_CALCULO, RoundingMode.HALF_UP);
+                if (porcentajeInflacion.compareTo(CIEN) >= 0) {
+                    log.warn("Inflación {}% >= 100% para canal {}. Se limita a 99%.", porcentajeInflacion, idCanal);
+                    porcentajeInflacion = new BigDecimal("99");
                 }
+                BigDecimal divisor = BigDecimal.ONE.subtract(porcentajeInflacion.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP));
+                pvp = pvp.divide(divisor, PRECISION_CALCULO, RoundingMode.HALF_UP);
             }
         }
 
@@ -1998,6 +2007,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                         c -> c.getDescripcion() != null ? c.getDescripcion() : "",
                         (a, b) -> a
                 ));
+
+        // Eliminar precios de cuotas que ya no existen en el canal
+        if (!cuotasCanal.isEmpty()) {
+            productoCanalPrecioRepository.deleteByProductoIdAndCanalIdAndCuotasNotIn(idProducto, idCanal, cuotasCanal);
+        }
 
         // Solo calcular las cuotas configuradas en canal_concepto_cuota
         List<PrecioCalculadoDTO> preciosCalculados = new ArrayList<>();

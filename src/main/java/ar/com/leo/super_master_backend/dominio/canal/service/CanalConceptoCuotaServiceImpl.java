@@ -92,7 +92,7 @@ public class CanalConceptoCuotaServiceImpl implements CanalConceptoCuotaService 
         repository.save(entity);
 
         // Recalcular si cambió el porcentaje
-        if (dto.porcentaje() != null && porcentajeAnterior.compareTo(dto.porcentaje()) != 0) {
+        if (dto.porcentaje() != null && (porcentajeAnterior == null || porcentajeAnterior.compareTo(dto.porcentaje()) != 0)) {
             recalculoFacade.recalcularPorCambioCuotaCanal(canalId);
         }
 

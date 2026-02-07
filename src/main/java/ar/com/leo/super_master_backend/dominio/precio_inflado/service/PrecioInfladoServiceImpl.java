@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.precio_inflado.service;
 
+import ar.com.leo.super_master_backend.dominio.common.exception.ConflictException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.dto.PrecioInfladoCreateDTO;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.dto.PrecioInfladoDTO;
@@ -51,7 +52,7 @@ public class PrecioInfladoServiceImpl implements PrecioInfladoService {
     @Transactional
     public PrecioInfladoDTO crear(PrecioInfladoCreateDTO dto) {
         if (repository.existsByCodigo(dto.codigo())) {
-            throw new IllegalArgumentException("Ya existe un precio inflado con el código: " + dto.codigo());
+            throw new ConflictException("Ya existe un precio inflado con el código: " + dto.codigo());
         }
 
         PrecioInflado precioInflado = mapper.toEntity(dto);
@@ -67,7 +68,7 @@ public class PrecioInfladoServiceImpl implements PrecioInfladoService {
 
         if (dto.codigo() != null && !dto.codigo().equals(precioInflado.getCodigo())) {
             if (repository.existsByCodigo(dto.codigo())) {
-                throw new IllegalArgumentException("Ya existe un precio inflado con el código: " + dto.codigo());
+                throw new ConflictException("Ya existe un precio inflado con el código: " + dto.codigo());
             }
         }
 

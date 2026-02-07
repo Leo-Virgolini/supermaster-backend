@@ -3,7 +3,7 @@ package ar.com.leo.super_master_backend.dominio.ml.service;
 import ar.com.leo.super_master_backend.dominio.canal.entity.Canal;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalRepository;
 import ar.com.leo.super_master_backend.dominio.common.exception.ServiceNotConfiguredException;
-import ar.com.leo.super_master_backend.dominio.ml.RestClientRetryHandler;
+import ar.com.leo.super_master_backend.dominio.ml.MlRetryHandler;
 import ar.com.leo.super_master_backend.dominio.ml.config.MercadoLibreProperties;
 import ar.com.leo.super_master_backend.dominio.ml.dto.*;
 import ar.com.leo.super_master_backend.dominio.ml.entity.ConfiguracionMl;
@@ -78,7 +78,10 @@ public class MercadoLibreService {
     @Autowired
     private MercadoLibreService self;
 
-    private RestClientRetryHandler retryHandler;
+    @org.springframework.beans.factory.annotation.Value("${app.secrets-dir}")
+    private String secretsDir;
+
+    private MlRetryHandler retryHandler;
     private MLCredentials credentials;
     private TokensML tokens;
     private String cachedUserId;
@@ -105,7 +108,7 @@ public class MercadoLibreService {
 
     @PostConstruct
     public void init() {
-        this.retryHandler = new RestClientRetryHandler(
+        this.retryHandler = new MlRetryHandler(
                 restClient,
                 properties.retryBaseWaitMs(),
                 properties.rateLimitPerSecond(),
@@ -260,6 +263,11 @@ public class MercadoLibreService {
                     : BigDecimal.ZERO;
         }
 
+        if (iteracion >= MAX_ITERACIONES) {
+            log.warn("ML - MLA {} - No convergió después de {} iteraciones. Último PVP=${}, costoEnvioConIva=${}",
+                    mlaCode, MAX_ITERACIONES, pvpActual, costoEnvioConIvaActual);
+        }
+
         // Los valores finales
         BigDecimal costoEnvioConIva = costoEnvioConIvaActual;
         BigDecimal costoEnvioSinIva = costoEnvioActual;
@@ -314,7 +322,7 @@ public class MercadoLibreService {
 
     /**
      * Obtiene los costos de venta (comisiones) de un producto en MercadoLibre
-     * y guarda el porcentaje de comisión en la base de datos.
+     * y guarda el porcentaje de comisión (meli_percentage_fee) en la base de datos.
      *
      * @param mlaCode Código MLA del producto
      * @return DTO con los costos de venta
@@ -343,7 +351,7 @@ public class MercadoLibreService {
                 "ARS",
                 productoMl.shipping.logisticType);
 
-        String responseBody = retryHandler.get(uri, tokens.accessToken);
+        String responseBody = retryHandler.get(uri, () -> tokens.accessToken);
 
         if (responseBody == null) {
             log.warn("ML - Error al obtener costos de venta para MLA {}", mlaCode);
@@ -353,7 +361,7 @@ public class MercadoLibreService {
 
         try {
             JsonNode json = objectMapper.readTree(responseBody);
-            log.info("ML - Costos de venta para MLA {}: {}", mlaCode, responseBody);
+            log.debug("ML - Costos de venta para MLA {}: {}", mlaCode, responseBody);
 
             // Buscar el listing_type correspondiente
             BigDecimal comisionVentaTotal = BigDecimal.ZERO;
@@ -364,10 +372,10 @@ public class MercadoLibreService {
             String listingTypeName = null;
 
             for (JsonNode listing : json) {
-                if (productoMl.listingTypeId.equals(listing.path("listing_type_id").asText())) {
+                if (productoMl.listingTypeId.equals(listing.path("listing_type_id").asString())) {
                     // Total de comisión de venta
                     comisionVentaTotal = BigDecimal.valueOf(listing.path("sale_fee_amount").asDouble(0));
-                    listingTypeName = listing.path("listing_type_name").asText(null);
+                    listingTypeName = listing.path("listing_type_name").asString(null);
 
                     // Detalles desglosados de sale_fee_details
                     JsonNode details = listing.path("sale_fee_details");
@@ -381,9 +389,9 @@ public class MercadoLibreService {
                 }
             }
 
-            // Guardar el porcentaje de comisión si se obtuvo correctamente
-            if (porcentajeTotal != null && porcentajeTotal.compareTo(BigDecimal.ZERO) > 0) {
-                guardarComisionPorcentaje(mlaCode, porcentajeTotal);
+            // Guardar meli_percentage_fee como comisionPorcentaje
+            if (porcentajeMeli.compareTo(BigDecimal.ZERO) > 0) {
+                guardarComisionPorcentaje(mlaCode, porcentajeMeli);
             }
 
             return new CostoVentaResponseDTO(
@@ -397,8 +405,8 @@ public class MercadoLibreService {
                     porcentajeTotal,
                     productoMl.listingTypeId,
                     listingTypeName,
-                    String.format("Comisión total: $%.2f (Fijo: $%.2f + Financiación: $%.2f), Porcentaje: %.2f%%",
-                            comisionVentaTotal, costoFijo, cargoFinanciacion, porcentajeTotal)
+                    String.format("Comisión total: $%.2f (Fijo: $%.2f + Financiación: $%.2f), Porcentaje ML: %.2f%%",
+                            comisionVentaTotal, costoFijo, cargoFinanciacion, porcentajeMeli)
             );
 
         } catch (Exception e) {
@@ -557,6 +565,7 @@ public class MercadoLibreService {
 
         } catch (Exception e) {
             log.error("ML - Error fatal en proceso masivo de costo de venta: {}", e.getMessage(), e);
+            resultadoProcesoMasivoCostoVenta = null;
             estadoProcesoMasivoCostoVenta = new ProcesoMasivoEstadoDTO(
                     false, 0, 0, 0, 0, "error", null, LocalDateTime.now(),
                     "Error fatal: " + e.getMessage()
@@ -722,6 +731,13 @@ public class MercadoLibreService {
                             estado, exitosos, errores, omitidos)
             );
 
+        } catch (Exception e) {
+            log.error("ML - Error fatal en proceso masivo de costo de envío: {}", e.getMessage(), e);
+            resultadoProcesoMasivo = null;
+            estadoProcesoMasivo = new ProcesoMasivoEstadoDTO(
+                    false, 0, 0, 0, 0, "error", null, LocalDateTime.now(),
+                    "Error fatal: " + e.getMessage()
+            );
         } finally {
             // Siempre liberar el flag de ejecución
             procesoMasivoEnEjecucion.set(false);
@@ -837,7 +853,7 @@ public class MercadoLibreService {
                 "/users/%s/shipping_options/free?item_id=%s&item_price=%s&listing_type_id=%s&mode=%s&condition=%s&logistic_type=%s&zip_code=%s&verbose=true",
                 userId, itemId, itemPrice, listingType, mode, condition, logisticType, zipCode);
 
-        String responseBody = retryHandler.get(uri, tokens.accessToken);
+        String responseBody = retryHandler.get(uri, () -> tokens.accessToken);
 
         if (responseBody == null) {
             log.warn("ML - Error al obtener el costo de envío del producto {}", itemId);
@@ -862,7 +878,7 @@ public class MercadoLibreService {
         verificarTokens();
 
         try {
-            return retryHandler.get("/items/" + itemId, tokens.accessToken, Producto.class);
+            return retryHandler.get("/items/" + itemId, () -> tokens.accessToken, Producto.class);
         } catch (Exception e) {
             log.warn("ML - No se pudo obtener item {}: {}", itemId, e.getMessage());
             return null;
@@ -880,7 +896,7 @@ public class MercadoLibreService {
 
         verificarTokens();
 
-        String responseBody = retryHandler.get("/users/me", tokens.accessToken);
+        String responseBody = retryHandler.get("/users/me", () -> tokens.accessToken);
 
         if (responseBody == null) {
             throw new IOException("Error al obtener el user ID de ML");
@@ -898,7 +914,7 @@ public class MercadoLibreService {
 
     private void cargarCredentials() {
         try {
-            File credFile = properties.getCredentialsFile().toFile();
+            File credFile = java.nio.file.Paths.get(secretsDir).resolve("ml_credentials.json").toFile();
             if (credFile.exists()) {
                 credentials = objectMapper.readValue(credFile, MLCredentials.class);
                 log.info("ML - Credenciales cargadas desde {}", credFile.getAbsolutePath());
@@ -957,7 +973,7 @@ public class MercadoLibreService {
 
     private void cargarTokens() {
         try {
-            File file = properties.getTokenFile().toFile();
+            File file = java.nio.file.Paths.get(secretsDir).resolve("ml_tokens.json").toFile();
             if (file.exists()) {
                 tokens = objectMapper.readValue(file, TokensML.class);
                 log.info("ML - Tokens cargados desde {}", file.getAbsolutePath());
@@ -971,7 +987,7 @@ public class MercadoLibreService {
 
     private void guardarTokens(TokensML tokens) {
         try {
-            File file = properties.getTokenFile().toFile();
+            File file = java.nio.file.Paths.get(secretsDir).resolve("ml_tokens.json").toFile();
             file.getParentFile().mkdirs();
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, tokens);
             log.info("ML - Tokens guardados en {}", file.getAbsolutePath());

@@ -1,21 +1,20 @@
-package ar.com.leo.super_master_backend.dominio.ml.config;
+package ar.com.leo.super_master_backend.dominio.nube.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 
-@ConfigurationProperties(prefix = "mercadolibre")
-public record MercadoLibreProperties(
+@ConfigurationProperties(prefix = "nube")
+public record NubeProperties(
         String baseUrl,
         Duration connectTimeout,
         Duration readTimeout,
         double rateLimitPerSecond,
-        long retryBaseWaitMs
+        String userAgent
 ) {
-    public MercadoLibreProperties {
-        // Valores por defecto
+    public NubeProperties {
         if (baseUrl == null) {
-            baseUrl = "https://api.mercadolibre.com";
+            baseUrl = "https://api.tiendanube.com/v1";
         }
         if (connectTimeout == null) {
             connectTimeout = Duration.ofSeconds(10);
@@ -24,10 +23,10 @@ public record MercadoLibreProperties(
             readTimeout = Duration.ofSeconds(30);
         }
         if (rateLimitPerSecond <= 0) {
-            rateLimitPerSecond = 5.0; // Límite de ML API
+            rateLimitPerSecond = 2.0; // Tiendanube permite más que DUX
         }
-        if (retryBaseWaitMs <= 0) {
-            retryBaseWaitMs = 2000L;
+        if (userAgent == null) {
+            userAgent = "SuperMaster";
         }
     }
 }

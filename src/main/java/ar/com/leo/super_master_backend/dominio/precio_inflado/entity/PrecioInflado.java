@@ -24,7 +24,7 @@ public class PrecioInflado {
 
         @Size(max = 20)
         @NotNull
-        @Column(name = "codigo", nullable = false, length = 20, unique = true)
+        @Column(name = "codigo", nullable = false, length = 20)
         private String codigo;
 
         @NotNull
