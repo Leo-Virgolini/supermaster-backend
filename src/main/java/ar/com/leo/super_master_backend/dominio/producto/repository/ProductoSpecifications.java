@@ -178,19 +178,19 @@ public class ProductoSpecifications {
     }
 
     /* ============================================
-       5) RANGO DE FECHAS (fechaUltCosto)
+       5) RANGO DE FECHAS (fechaUltimoCosto)
        ============================================ */
-    public static Specification<Producto> desdeFechaUltCosto(LocalDate fecha) {
+    public static Specification<Producto> desdeFechaUltimoCosto(LocalDate fecha) {
         return (root, query, cb) -> {
             if (fecha == null) return null;
-            return cb.greaterThanOrEqualTo(root.get("fechaUltCosto"), fecha.atStartOfDay());
+            return cb.greaterThanOrEqualTo(root.get("fechaUltimoCosto"), fecha.atStartOfDay());
         };
     }
 
-    public static Specification<Producto> hastaFechaUltCosto(LocalDate fecha) {
+    public static Specification<Producto> hastaFechaUltimoCosto(LocalDate fecha) {
         return (root, query, cb) -> {
             if (fecha == null) return null;
-            return cb.lessThanOrEqualTo(root.get("fechaUltCosto"), fecha.plusDays(1).atStartOfDay());
+            return cb.lessThanOrEqualTo(root.get("fechaUltimoCosto"), fecha.plusDays(1).atStartOfDay());
         };
     }
 

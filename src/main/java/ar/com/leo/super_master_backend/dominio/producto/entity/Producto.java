@@ -135,7 +135,7 @@ public class Producto {
     private BigDecimal costo;
 
     @Column(name = "fecha_ult_costo", columnDefinition = "datetime DEFAULT CURRENT_TIMESTAMP")
-    private LocalDateTime fechaUltCosto;
+    private LocalDateTime fechaUltimoCosto;
 
     @NotNull
     @Column(name = "iva", nullable = false, precision = 6, scale = 3)

@@ -213,7 +213,7 @@ public interface ProductoMapper {
 
                 // Precios y costos
                 producto.getCosto(),
-                producto.getFechaUltCosto(),
+                producto.getFechaUltimoCosto(),
                 producto.getIva(),
 
                 // Márgenes

@@ -57,9 +57,9 @@ public record ProductoFilter(
         BigDecimal pvpMax,
         Integer pvpCanalId,
 
-        // 6) FECHAS EXISTENTES (fechaUltCosto)
-        LocalDate desdeFechaUltCosto,
-        LocalDate hastaFechaUltCosto,
+        // 6) FECHAS EXISTENTES (fechaUltimoCosto)
+        LocalDate desdeFechaUltimoCosto,
+        LocalDate hastaFechaUltimoCosto,
 
         // 7) FECHAS DE CREACIÓN
         LocalDate desdeFechaCreacion,

@@ -210,8 +210,8 @@ public class ProductoServiceImpl implements ProductoService {
                 // =======================
                 // 6) FECHAS
                 // =======================
-                ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
-                ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
+                ProductoSpecifications.desdeFechaUltimoCosto(filter.desdeFechaUltimoCosto()),
+                ProductoSpecifications.hastaFechaUltimoCosto(filter.hastaFechaUltimoCosto()),
                 ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
                 ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
                 ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
@@ -284,8 +284,8 @@ public class ProductoServiceImpl implements ProductoService {
                 // Rango PVP
                 ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
                 // Fechas
-                ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
-                ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
+                ProductoSpecifications.desdeFechaUltimoCosto(filter.desdeFechaUltimoCosto()),
+                ProductoSpecifications.hastaFechaUltimoCosto(filter.hastaFechaUltimoCosto()),
                 ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
                 ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
                 ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
@@ -578,8 +578,8 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.stockMin(filter.stockMin()),
                 ProductoSpecifications.stockMax(filter.stockMax()),
                 ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
-                ProductoSpecifications.desdeFechaUltCosto(filter.desdeFechaUltCosto()),
-                ProductoSpecifications.hastaFechaUltCosto(filter.hastaFechaUltCosto()),
+                ProductoSpecifications.desdeFechaUltimoCosto(filter.desdeFechaUltimoCosto()),
+                ProductoSpecifications.hastaFechaUltimoCosto(filter.hastaFechaUltimoCosto()),
                 ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
                 ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
                 ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),

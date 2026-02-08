@@ -64,13 +64,13 @@ public class ProveedorServiceImpl implements ProveedorService {
         Proveedor entity = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Proveedor no encontrado"));
 
-        BigDecimal porcentajeAnterior = entity.getPorcentaje();
+        BigDecimal porcentajeAnterior = entity.getFinanciacionPorcentaje();
 
         mapper.updateEntityFromDTO(dto, entity);
         repo.save(entity);
 
         // Recalcular precios si cambió el porcentaje de financiación
-        if (cambioPorcentaje(porcentajeAnterior, entity.getPorcentaje())) {
+        if (cambioPorcentaje(porcentajeAnterior, entity.getFinanciacionPorcentaje())) {
             recalculoFacade.recalcularPorCambioProveedor(id);
         }
 

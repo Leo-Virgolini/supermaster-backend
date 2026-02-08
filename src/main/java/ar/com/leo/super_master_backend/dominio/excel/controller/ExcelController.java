@@ -177,8 +177,8 @@ public class ExcelController {
             @RequestParam(required = false) Integer pvpCanalId,
 
             // 6) FECHAS
-            @RequestParam(required = false) LocalDate desdeFechaUltCosto,
-            @RequestParam(required = false) LocalDate hastaFechaUltCosto,
+            @RequestParam(required = false) LocalDate desdeFechaUltimoCosto,
+            @RequestParam(required = false) LocalDate hastaFechaUltimoCosto,
             @RequestParam(required = false) LocalDate desdeFechaCreacion,
             @RequestParam(required = false) LocalDate hastaFechaCreacion,
             @RequestParam(required = false) LocalDate desdeFechaModificacion,
@@ -265,8 +265,8 @@ public class ExcelController {
                     pvpMin,
                     pvpMax,
                     pvpCanalId,
-                    desdeFechaUltCosto,
-                    hastaFechaUltCosto,
+                    desdeFechaUltimoCosto,
+                    hastaFechaUltimoCosto,
                     desdeFechaCreacion,
                     hastaFechaCreacion,
                     desdeFechaModificacion,

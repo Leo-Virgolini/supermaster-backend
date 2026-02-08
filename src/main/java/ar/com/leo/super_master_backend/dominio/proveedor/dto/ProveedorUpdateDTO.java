@@ -14,8 +14,8 @@ public record ProveedorUpdateDTO(
         @Size(max = 45, message = "El plazo de pago no puede exceder 45 caracteres")
         String plazoPago,
         Boolean entrega,
-        @DecimalMin(value = "0.0", inclusive = true, message = "El porcentaje debe ser mayor o igual a 0")
-        @DecimalMax(value = "100.0", inclusive = true, message = "El porcentaje debe ser menor o igual a 100")
-        BigDecimal porcentaje
+        @DecimalMin(value = "0.0", inclusive = true, message = "El porcentaje de financiación debe ser mayor o igual a 0")
+        @DecimalMax(value = "100.0", inclusive = true, message = "El porcentaje de financiación debe ser menor o igual a 100")
+        BigDecimal financiacionPorcentaje
 ) {
 }

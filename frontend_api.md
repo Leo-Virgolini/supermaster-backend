@@ -24,6 +24,7 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [Excel](#excel-importexport)
    - [MercadoLibre (ML)](#mercadolibre-ml)
    - [DUX ERP](#dux-erp)
+   - [Tienda Nube](#tienda-nube)
    - [Configuración Automatización](#configuración-automatización)
 
 ---
@@ -362,7 +363,7 @@ Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `
 #### 10. `mlas` - Datos de Mercado Libre
 | Campo | Descripción |
 |-------|-------------|
-| `mla` | Código MLA (ej: "MLA123456") |
+| `mla` | Código MLA (ej: "MLA123456") - NO es único, puede repetirse (un listing tiene múltiples SKUs) |
 | `mlau` | Código MLAU (variante) |
 | `precio_envio` | Costo de envío sin IVA para concepto ENVIO |
 | `fecha_calculo_envio` | Fecha del último cálculo de envío |
@@ -530,7 +531,7 @@ interface Producto {
 
   // Precios
   costo: number;          // BigDecimal
-  fechaUltCosto: string | null;  // ISO DateTime
+  fechaUltimoCosto: string | null;  // ISO DateTime
   iva: number;            // BigDecimal (0-100)
 
   // Fechas
@@ -618,7 +619,7 @@ interface ProductoConPrecios {
 
   // Precios y costos
   costo: number | null;
-  fechaUltCosto: string | null;
+  fechaUltimoCosto: string | null;
   iva: number | null;
 
   // Márgenes
@@ -721,8 +722,8 @@ interface ProductoFilter {
   pvpCanalId?: number;
 
   // Rangos de fechas (ISO date: YYYY-MM-DD)
-  desdeFechaUltCosto?: string;
-  hastaFechaUltCosto?: string;
+  desdeFechaUltimoCosto?: string;
+  hastaFechaUltimoCosto?: string;
   desdeFechaCreacion?: string;
   hastaFechaCreacion?: string;
   desdeFechaModificacion?: string;
@@ -794,7 +795,7 @@ interface ConceptoCalculoUpdate {
 type AplicaSobre =
   // ===== ETAPA: COSTO =====
   | 'GASTO_SOBRE_COSTO'           // Gasto que multiplica el costo base
-  | 'FLAG_FINANCIACION_PROVEEDOR' // Flag: usa proveedor.porcentaje
+  | 'FLAG_FINANCIACION_PROVEEDOR' // Flag: usa proveedor.financiacionPorcentaje
 
   // ===== ETAPA: MARGEN =====
   | 'AJUSTE_MARGEN_PUNTOS'        // Suma puntos al margen (+ aumenta, - reduce)
@@ -1051,7 +1052,7 @@ interface Mla {
 }
 
 interface MlaCreate {
-  mla: string;                    // @NotBlank, max 20
+  mla: string;                    // @NotBlank, max 20 (no es único, puede repetirse)
   mlau?: string;                  // max 20
   precioEnvio?: number;           // >= 0
   topePromocion?: number;         // >= 0, default 0
@@ -1285,7 +1286,7 @@ interface Proveedor {
   apodo: string | null;
   plazoPago: string | null;
   entrega: boolean | null;
-  porcentaje: number | null;  // % financiación
+  financiacionPorcentaje: number | null;  // % financiación
 }
 
 interface ProveedorCreate {
@@ -1293,7 +1294,7 @@ interface ProveedorCreate {
   apodo: string;                  // @NotBlank, max 50
   plazoPago?: string;             // max 45
   entrega?: boolean;
-  porcentaje?: number;            // 0-100
+  financiacionPorcentaje?: number;  // 0-100
 }
 
 interface ProveedorUpdate {
@@ -1301,7 +1302,7 @@ interface ProveedorUpdate {
   apodo?: string;                 // max 50
   plazoPago?: string;             // max 45
   entrega?: boolean;
-  porcentaje?: number;            // 0-100
+  financiacionPorcentaje?: number;  // 0-100
 }
 ```
 
@@ -1511,7 +1512,7 @@ GET /api/productos?tieneMla=true&comisionPorcentajeMin=5
 **Query params:** Todos los de `ProductoFilter` + `page`, `size`, `sort`
 **Response:** `PageResponse<Producto>`
 
-**Ordenamiento:** Solo campos JPA de la entidad Producto (`id`, `sku`, `codExt`, `descripcion`, `tituloWeb`, `costo`, `iva`, `stock`, `uxb`, `activo`, `esCombo`, `fechaCreacion`, `fechaModificacion`, `fechaUltCosto`).
+**Ordenamiento:** Solo campos JPA de la entidad Producto (`id`, `sku`, `codExt`, `descripcion`, `tituloWeb`, `costo`, `iva`, `stock`, `uxb`, `activo`, `esCombo`, `fechaCreacion`, `fechaModificacion`, `fechaUltimoCosto`).
 
 **Nota:** Para ordenamiento especial (campos MLA, precios calculados, esMaquina), usar `/api/precios`.
 
@@ -2792,6 +2793,75 @@ DUX procesa en segundo plano; usar `GET /procesos/{id}/estado` para monitorear.
 
 ---
 
+### Tienda Nube
+
+Integración con la API de Tienda Nube para consultar ventas, stock y órdenes.
+
+**Base:** `/api/nube`
+
+#### Tipos
+
+```typescript
+interface StockNubeDTO {
+  sku: string;
+  stock: number | null;
+  store: string;
+}
+
+interface VentaNubeDTO {
+  sku: string;
+  cantidad: number | null;
+  store: string;
+}
+```
+
+#### Status
+
+```http
+GET /api/nube/status
+```
+
+**Response:** `200 OK`
+```json
+{
+  "configurado": true,
+  "servicio": "Tienda Nube",
+  "stores": ["hogar", "gastro"]
+}
+```
+
+#### Ventas
+
+```http
+GET /api/nube/ventas          # Todas las tiendas
+GET /api/nube/ventas/hogar    # Solo KT HOGAR
+GET /api/nube/ventas/gastro   # Solo KT GASTRO
+```
+
+**Response:** `200 OK` + `List<VentaNubeDTO>`
+
+#### Stock
+
+```http
+GET /api/nube/stock/{sku}
+```
+
+**Response:**
+- `200 OK` + `StockNubeDTO`
+- `404 Not Found` si no se encuentra el SKU
+
+#### Órdenes
+
+```http
+GET /api/nube/ordenes/{numero}
+```
+
+**Response:**
+- `200 OK` + JSON de la orden (estructura de Tienda Nube)
+- `404 Not Found` si no se encuentra la orden
+
+---
+
 ### Configuración Automatización
 
 Módulo para gestionar **configuraciones clave-valor** usadas por procesos externos de automatización.
@@ -3076,7 +3146,7 @@ interface ProductoResumenDTO {
    | CanalConcepto (asignar/quitar concepto) | Todos los productos del canal |
    | CanalConceptoCuota (porcentaje cuotas) | Todos los productos del canal |
    | Canal (canalBase) | Todos los productos del canal cuyo canalBase cambió |
-   | Proveedor (porcentaje financiación) | Todos los productos de ese proveedor |
+   | Proveedor (financiacionPorcentaje) | Todos los productos de ese proveedor |
    | Precio inflado (asignar/desasignar) | Ese producto en ese canal |
    | MLA (precioEnvio) | Todos los productos con ese MLA |
    | ClasifGastro (esMaquina) | Todos los productos de esa clasificación en todos sus canales |

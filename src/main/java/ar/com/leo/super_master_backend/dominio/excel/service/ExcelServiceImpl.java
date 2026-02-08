@@ -1484,10 +1484,10 @@ public class ExcelServiceImpl implements ExcelService {
             // ULTIMA ACT. COSTO - fecha_ult_costo
             if (columnasMap.containsKey("ULTIMA ACT. COSTO")) {
                 try {
-                    LocalDateTime fechaUltCosto = obtenerFechaDeCelda(row,
+                    LocalDateTime fechaUltimoCosto = obtenerFechaDeCelda(row,
                             obtenerIndiceColumna(columnasMap, "ULTIMA ACT. COSTO"));
-                    if (fechaUltCosto != null) {
-                        producto.setFechaUltCosto(fechaUltCosto);
+                    if (fechaUltimoCosto != null) {
+                        producto.setFechaUltimoCosto(fechaUltimoCosto);
                     }
                 } catch (Exception e) {
                     log.warn("Fecha de última actualización de costo inválida para producto SKU {}: {}",
@@ -2494,7 +2494,7 @@ public class ExcelServiceImpl implements ExcelService {
                             try {
                                 LocalDateTime fecha = parsearFecha(fechaStr.trim());
                                 if (fecha != null) {
-                                    producto.setFechaUltCosto(fecha);
+                                    producto.setFechaUltimoCosto(fecha);
                                     actualizado = true;
                                 }
                             } catch (Exception e) {
@@ -3118,7 +3118,7 @@ public class ExcelServiceImpl implements ExcelService {
                 setCellValue(row.createCell(cellIndex++), producto.diambase(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.espesor(), currentDataStyle);
                 setCellValue(row.createCell(cellIndex++), producto.costo(), currentPrecioStyle);
-                setCellValueDate(row.createCell(cellIndex++), producto.fechaUltCosto(), currentDataStyle, dtf);
+                setCellValueDate(row.createCell(cellIndex++), producto.fechaUltimoCosto(), currentDataStyle, dtf);
                 setCellValue(row.createCell(cellIndex++), producto.iva(), currentPorcentajeStyleFijo);
                 setCellValue(row.createCell(cellIndex++), producto.margenMinorista(), currentPorcentajeStyleFijo);
                 setCellValue(row.createCell(cellIndex++), producto.margenMayorista(), currentPorcentajeStyleFijo);

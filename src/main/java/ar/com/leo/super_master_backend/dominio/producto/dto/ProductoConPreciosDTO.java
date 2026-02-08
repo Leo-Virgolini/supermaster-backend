@@ -46,7 +46,7 @@ public record ProductoConPreciosDTO(
 
         // Precios y costos
         BigDecimal costo,
-        LocalDateTime fechaUltCosto,
+        LocalDateTime fechaUltimoCosto,
         BigDecimal iva,
 
         // Márgenes (de producto_margen)

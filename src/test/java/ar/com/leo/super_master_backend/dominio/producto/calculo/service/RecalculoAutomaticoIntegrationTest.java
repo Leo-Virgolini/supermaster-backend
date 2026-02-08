@@ -681,7 +681,7 @@ class RecalculoAutomaticoIntegrationTest {
         Proveedor proveedor = new Proveedor();
         proveedor.setProveedor(TEST_PREFIX + "Proveedor");
         proveedor.setApodo(TEST_PREFIX + "Prov");
-        proveedor.setPorcentaje(new BigDecimal("5"));
+        proveedor.setFinanciacionPorcentaje(new BigDecimal("5"));
         proveedor = proveedorRepository.save(proveedor);
 
         // Asignar proveedor al producto
@@ -1134,14 +1134,14 @@ class RecalculoAutomaticoIntegrationTest {
         Proveedor proveedor1 = new Proveedor();
         proveedor1.setProveedor(TEST_PREFIX + "Proveedor1");
         proveedor1.setApodo(TEST_PREFIX + "P1");
-        proveedor1.setPorcentaje(new BigDecimal("5"));
+        proveedor1.setFinanciacionPorcentaje(new BigDecimal("5"));
         proveedor1 = proveedorRepository.save(proveedor1);
 
         // Crear proveedor 2 con diferente porcentaje
         Proveedor proveedor2 = new Proveedor();
         proveedor2.setProveedor(TEST_PREFIX + "Proveedor2");
         proveedor2.setApodo(TEST_PREFIX + "P2");
-        proveedor2.setPorcentaje(new BigDecimal("15"));
+        proveedor2.setFinanciacionPorcentaje(new BigDecimal("15"));
         proveedor2 = proveedorRepository.save(proveedor2);
 
         // Crear concepto FLAG_FINANCIACION_PROVEEDOR

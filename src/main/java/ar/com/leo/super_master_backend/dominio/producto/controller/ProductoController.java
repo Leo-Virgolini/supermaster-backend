@@ -97,8 +97,8 @@ public class ProductoController {
             // =======================
             // 6) FECHAS
             // =======================
-            @RequestParam(required = false) LocalDate desdeFechaUltCosto,
-            @RequestParam(required = false) LocalDate hastaFechaUltCosto,
+            @RequestParam(required = false) LocalDate desdeFechaUltimoCosto,
+            @RequestParam(required = false) LocalDate hastaFechaUltimoCosto,
 
             @RequestParam(required = false) LocalDate desdeFechaCreacion,
             @RequestParam(required = false) LocalDate hastaFechaCreacion,
@@ -158,8 +158,8 @@ public class ProductoController {
                 pvpMin,
                 pvpMax,
                 pvpCanalId,
-                desdeFechaUltCosto,
-                hastaFechaUltCosto,
+                desdeFechaUltimoCosto,
+                hastaFechaUltimoCosto,
                 desdeFechaCreacion,
                 hastaFechaCreacion,
                 desdeFechaModificacion,

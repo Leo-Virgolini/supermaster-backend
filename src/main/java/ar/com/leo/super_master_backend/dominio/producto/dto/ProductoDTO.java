@@ -33,7 +33,7 @@ public record ProductoDTO(
         String diambase,
         String espesor,
         BigDecimal costo,
-        LocalDateTime fechaUltCosto,
+        LocalDateTime fechaUltimoCosto,
         BigDecimal iva,
 
         // NUEVAS FECHAS

@@ -87,7 +87,7 @@ public class RecalculoPrecioFacade {
     }
 
     /**
-     * Recalcula cuando cambia Proveedor.porcentaje (financiación).
+     * Recalcula cuando cambia Proveedor.financiacionPorcentaje.
      * Alcance: Todos los productos de ese proveedor, en todos sus canales.
      */
     @Transactional

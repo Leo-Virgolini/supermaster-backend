@@ -260,8 +260,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (!conceptosProveedorFin.isEmpty()) {
             // Obtener porcentaje de financiación del proveedor
             porcentajeFin = producto.getProveedor() != null
-                    && producto.getProveedor().getPorcentaje() != null
-                    ? producto.getProveedor().getPorcentaje()
+                    && producto.getProveedor().getFinanciacionPorcentaje() != null
+                    ? producto.getProveedor().getFinanciacionPorcentaje()
                     : BigDecimal.ZERO;
 
             if (porcentajeFin.compareTo(BigDecimal.ZERO) > 0) {
@@ -669,8 +669,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         if (!conceptosProveedorFin.isEmpty()) {
             BigDecimal porcentajeFin = producto.getProveedor() != null
-                    && producto.getProveedor().getPorcentaje() != null
-                    ? producto.getProveedor().getPorcentaje()
+                    && producto.getProveedor().getFinanciacionPorcentaje() != null
+                    ? producto.getProveedor().getFinanciacionPorcentaje()
                     : BigDecimal.ZERO;
 
             if (porcentajeFin.compareTo(BigDecimal.ZERO) > 0) {
