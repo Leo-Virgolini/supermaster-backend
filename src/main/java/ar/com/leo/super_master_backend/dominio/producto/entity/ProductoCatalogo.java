@@ -21,7 +21,7 @@ public class ProductoCatalogo {
     // ---------------------------
     // RELACIÓN PRODUCTO
     // ---------------------------
-    @MapsId("idProducto")
+    @MapsId("productoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_producto", nullable = false)
@@ -30,7 +30,7 @@ public class ProductoCatalogo {
     // ---------------------------
     // RELACIÓN CATALOGO
     // ---------------------------
-    @MapsId("idCatalogo")
+    @MapsId("catalogoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_catalogo", nullable = false)

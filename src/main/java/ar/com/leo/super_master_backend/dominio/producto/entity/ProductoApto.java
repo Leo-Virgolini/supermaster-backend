@@ -18,12 +18,12 @@ public class ProductoApto {
     @EmbeddedId
     private ProductoAptoId id;
 
-    @MapsId("idApto")
+    @MapsId("aptoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_apto", nullable = false)
     private Apto apto;
 
-    @MapsId("idProducto")
+    @MapsId("productoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_producto", nullable = false)

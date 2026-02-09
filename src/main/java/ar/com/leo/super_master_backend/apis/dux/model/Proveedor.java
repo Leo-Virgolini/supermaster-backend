@@ -13,7 +13,7 @@ import lombok.Setter;
 public class Proveedor {
 
     @JsonProperty("id_proveedor")
-    private Integer idProveedor;
+    private Integer proveedorId;
 
     @JsonProperty("proveedor")
     private String proveedor;

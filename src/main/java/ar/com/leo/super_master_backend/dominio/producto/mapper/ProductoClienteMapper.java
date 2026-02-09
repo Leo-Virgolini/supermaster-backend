@@ -15,8 +15,8 @@ public interface ProductoClienteMapper {
     @Mapping(source = "cliente.id", target = "clienteId")
     ProductoClienteDTO toDTO(ProductoCliente entity);
 
-    @Mapping(target = "id.idProducto", source = "productoId")
-    @Mapping(target = "id.idCliente", source = "clienteId")
+    @Mapping(target = "id.productoId", source = "productoId")
+    @Mapping(target = "id.clienteId", source = "clienteId")
     @Mapping(target = "producto", expression = "java(new Producto(dto.productoId()))")
     @Mapping(target = "cliente", expression = "java(new Cliente(dto.clienteId()))")
     ProductoCliente toEntity(ProductoClienteDTO dto);

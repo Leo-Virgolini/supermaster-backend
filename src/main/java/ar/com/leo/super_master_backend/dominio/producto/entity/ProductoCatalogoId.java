@@ -20,15 +20,15 @@ public class ProductoCatalogoId implements Serializable {
 
     @NotNull
     @Column(name = "id_producto", nullable = false)
-    private Integer idProducto;
+    private Integer productoId;
 
     @NotNull
     @Column(name = "id_catalogo", nullable = false)
-    private Integer idCatalogo;
+    private Integer catalogoId;
 
-    public ProductoCatalogoId(Integer idProducto, Integer idCatalogo) {
-        this.idProducto = idProducto;
-        this.idCatalogo = idCatalogo;
+    public ProductoCatalogoId(Integer productoId, Integer catalogoId) {
+        this.productoId = productoId;
+        this.catalogoId = catalogoId;
     }
 
     @Override
@@ -36,13 +36,13 @@ public class ProductoCatalogoId implements Serializable {
         if (this == o) return true;
         if (!(o instanceof ProductoCatalogoId)) return false;
         ProductoCatalogoId that = (ProductoCatalogoId) o;
-        return Objects.equals(idProducto, that.idProducto) &&
-                Objects.equals(idCatalogo, that.idCatalogo);
+        return Objects.equals(productoId, that.productoId) &&
+                Objects.equals(catalogoId, that.catalogoId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(idProducto, idCatalogo);
+        return Objects.hash(productoId, catalogoId);
     }
 
 }

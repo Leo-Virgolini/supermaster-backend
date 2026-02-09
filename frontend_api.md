@@ -473,10 +473,14 @@ GET /api/marcas?search=oster
 
 ### Formato de Errores
 
+Todos los errores (400, 404, 409, 500) devuelven el mismo formato:
+
 ```typescript
 interface ApiError {
-  message: string;
-  path: string;
+  success: false;
+  message: string;     // Descripción del error. En 500 incluye el mensaje de la excepción
+  path: string;        // Ruta del endpoint que falló
+  timestamp: string;   // ISO datetime del error
 }
 ```
 
@@ -490,7 +494,7 @@ interface ApiError {
 | 400    | Validación fallida / Bad Request   |
 | 404    | Recurso no encontrado              |
 | 409    | Conflicto (duplicado / integridad) |
-| 500    | Error interno del servidor         |
+| 500    | Error interno del servidor (incluye mensaje de la excepción) |
 
 ---
 

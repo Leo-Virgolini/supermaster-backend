@@ -38,5 +38,5 @@ public interface ProductoService {
      */
     List<ProductoConPreciosDTO> listarConPreciosSinPaginar(ProductoFilter filter, Sort sort);
 
-    void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto);
+    void actualizarCosto(Integer productoId, BigDecimal nuevoCosto);
 }

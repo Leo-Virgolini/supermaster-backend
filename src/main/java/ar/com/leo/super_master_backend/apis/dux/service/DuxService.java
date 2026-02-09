@@ -572,11 +572,11 @@ public class DuxService {
                         String.format("Recalculando precios (%d productos)...", productosARecalcular.size()));
 
                 log.info("DUX - Recalculando precios para {} productos...", productosARecalcular.size());
-                for (Integer idProducto : productosARecalcular) {
+                for (Integer productoId : productosARecalcular) {
                     try {
-                        recalculoPrecioFacade.recalcularPorCambioProducto(idProducto);
+                        recalculoPrecioFacade.recalcularPorCambioProducto(productoId);
                     } catch (Exception e) {
-                        log.warn("Error recalculando precios para producto {}: {}", idProducto, e.getMessage());
+                        log.warn("Error recalculando precios para producto {}: {}", productoId, e.getMessage());
                     }
                 }
             }

@@ -20,15 +20,15 @@ public class CanalConceptoId implements Serializable {
 
     @NotNull
     @Column(name = "id_canal", nullable = false)
-    private Integer idCanal;
+    private Integer canalId;
 
     @NotNull
     @Column(name = "id_concepto", nullable = false)
-    private Integer idConcepto;
+    private Integer conceptoId;
 
-    public CanalConceptoId(Integer idCanal, Integer idConcepto) {
-        this.idCanal = idCanal;
-        this.idConcepto = idConcepto;
+    public CanalConceptoId(Integer canalId, Integer conceptoId) {
+        this.canalId = canalId;
+        this.conceptoId = conceptoId;
     }
 
     @Override
@@ -36,13 +36,13 @@ public class CanalConceptoId implements Serializable {
         if (this == o) return true;
         if (!(o instanceof CanalConceptoId)) return false;
         CanalConceptoId that = (CanalConceptoId) o;
-        return Objects.equals(idCanal, that.idCanal) &&
-                Objects.equals(idConcepto, that.idConcepto);
+        return Objects.equals(canalId, that.canalId) &&
+                Objects.equals(conceptoId, that.conceptoId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(idCanal, idConcepto);
+        return Objects.hash(canalId, conceptoId);
     }
 
 }

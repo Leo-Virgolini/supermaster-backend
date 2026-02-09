@@ -16,12 +16,12 @@ public class CanalConcepto {
     @EmbeddedId
     private CanalConceptoId id;
 
-    @MapsId("idCanal")
+    @MapsId("canalId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_canal", nullable = false)
     private Canal canal;
 
-    @MapsId("idConcepto")
+    @MapsId("conceptoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_concepto", nullable = false)
     private ConceptoCalculo concepto;

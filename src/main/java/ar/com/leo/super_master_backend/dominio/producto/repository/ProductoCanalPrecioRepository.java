@@ -12,11 +12,11 @@ import java.util.Optional;
 @Repository
 public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCanalPrecio, Integer> {
 
-    List<ProductoCanalPrecio> findByProductoId(Integer idProducto);
+    List<ProductoCanalPrecio> findByProductoId(Integer productoId);
 
-    List<ProductoCanalPrecio> findByProductoIdOrderByCanalIdAscCuotasAsc(Integer idProducto);
+    List<ProductoCanalPrecio> findByProductoIdOrderByCanalIdAscCuotasAsc(Integer productoId);
 
-    List<ProductoCanalPrecio> findByCanalId(Integer idCanal);
+    List<ProductoCanalPrecio> findByCanalId(Integer canalId);
 
     @Query("SELECT p FROM ProductoCanalPrecio p WHERE p.canal.id = :canalId AND ((:cuotas IS NULL AND p.cuotas IS NULL) OR p.cuotas = :cuotas)")
     List<ProductoCanalPrecio> findByCanalIdAndCuotas(@Param("canalId") Integer canalId, @Param("cuotas") Integer cuotas);

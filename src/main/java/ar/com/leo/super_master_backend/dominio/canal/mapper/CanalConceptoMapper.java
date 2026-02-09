@@ -25,8 +25,8 @@ public interface CanalConceptoMapper {
     // =============================
     // DTO → ENTITY
     // =============================
-    @Mapping(target = "id.idCanal", source = "canalId")
-    @Mapping(target = "id.idConcepto", source = "conceptoId")
+    @Mapping(target = "id.canalId", source = "canalId")
+    @Mapping(target = "id.conceptoId", source = "conceptoId")
     @Mapping(target = "canal", expression = "java(new Canal(dto.canalId()))")
     @Mapping(target = "concepto", expression = "java(new ConceptoCalculo(dto.conceptoId()))")
     CanalConcepto toEntity(CanalConceptoDTO dto);

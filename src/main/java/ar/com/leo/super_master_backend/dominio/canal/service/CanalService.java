@@ -20,5 +20,5 @@ public interface CanalService {
     void eliminar(Integer id);
 
     // 🔥 nueva regla de negocio
-    void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen);
+    void actualizarMargen(Integer canalId, BigDecimal nuevoMargen);
 }

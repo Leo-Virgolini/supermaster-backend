@@ -10,7 +10,7 @@ import java.util.List;
 @Repository
 public interface ProductoCatalogoRepository extends JpaRepository<ProductoCatalogo, ProductoCatalogoId> {
 
-    List<ProductoCatalogo> findByCatalogoId(Integer idCatalogo);
+    List<ProductoCatalogo> findByCatalogoId(Integer catalogoId);
 
     List<ProductoCatalogo> findByProductoId(Integer productoId);
 

@@ -10,9 +10,9 @@ import java.util.List;
 @Repository
 public interface ProductoClienteRepository extends JpaRepository<ProductoCliente, ProductoClienteId> {
 
-    List<ProductoCliente> findByClienteId(Integer idCliente);
+    List<ProductoCliente> findByClienteId(Integer clienteId);
 
-    List<ProductoCliente> findByProductoId(Integer idProducto);
+    List<ProductoCliente> findByProductoId(Integer productoId);
 
     void deleteByProductoIdAndClienteId(Integer productoId, Integer clienteId);
 

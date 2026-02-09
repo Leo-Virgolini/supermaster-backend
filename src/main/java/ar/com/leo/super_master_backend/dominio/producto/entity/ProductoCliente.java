@@ -21,7 +21,7 @@ public class ProductoCliente {
     // ---------------------------
     // RELACIÓN CON PRODUCTO
     // ---------------------------
-    @MapsId("idProducto")
+    @MapsId("productoId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "id_producto", nullable = false)
@@ -30,7 +30,7 @@ public class ProductoCliente {
     // ---------------------------
     // RELACIÓN CON CLIENTE
     // ---------------------------
-    @MapsId("idCliente")
+    @MapsId("clienteId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;

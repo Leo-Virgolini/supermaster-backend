@@ -26,20 +26,20 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer>, Jp
            "WHERE p.id = :id")
     Optional<Producto> findByIdConRelacionesParaReglas(Integer id);
 
-    List<Producto> findByMarcaId(Integer idMarca);
+    List<Producto> findByMarcaId(Integer marcaId);
 
-    List<Producto> findByOrigenId(Integer idOrigen);
+    List<Producto> findByOrigenId(Integer origenId);
 
-    List<Producto> findByClasifGralId(Integer idClasifGral);
+    List<Producto> findByClasifGralId(Integer clasifGralId);
 
-    List<Producto> findByClasifGastroId(Integer idClasifGastro);
+    List<Producto> findByClasifGastroId(Integer clasifGastroId);
 
-    List<Producto> findByTipoId(Integer idTipo);
+    List<Producto> findByTipoId(Integer tipoId);
 
-    List<Producto> findByProveedorId(Integer idProveedor);
+    List<Producto> findByProveedorId(Integer proveedorId);
 
-    List<Producto> findByMlaId(Integer idMla);
+    List<Producto> findByMlaId(Integer mlaId);
 
-    List<Producto> findByMaterialId(Integer idMaterial);
+    List<Producto> findByMaterialId(Integer materialId);
 
 }

@@ -226,9 +226,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex, WebRequest request) {
         ex.printStackTrace();
+        String mensaje = "Error interno del servidor: " + ex.getMessage();
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of("Error interno del servidor", request.getDescription(false)));
+                .body(ErrorResponse.of(mensaje, request.getDescription(false)));
     }
 
 }

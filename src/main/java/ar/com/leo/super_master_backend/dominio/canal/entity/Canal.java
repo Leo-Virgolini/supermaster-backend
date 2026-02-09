@@ -69,8 +69,8 @@ public class Canal {
     @OneToMany(mappedBy = "canal")
     private Set<ProductoCanalPrecioInflado> productoCanalPreciosInflados = new LinkedHashSet<>();
 
-    public Canal(Integer idCanal) {
-        this.id = idCanal;
+    public Canal(Integer canalId) {
+        this.id = canalId;
     }
 
 }

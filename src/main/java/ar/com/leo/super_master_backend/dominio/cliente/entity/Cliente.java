@@ -31,8 +31,8 @@ public class Cliente {
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ProductoCliente> productoClientes = new LinkedHashSet<>();
 
-    public Cliente(Integer idCliente) {
-        this.id = idCliente;
+    public Cliente(Integer clienteId) {
+        this.id = clienteId;
     }
 
 }

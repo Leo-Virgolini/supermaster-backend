@@ -48,8 +48,8 @@ public class Catalogo {
     @OneToMany(mappedBy = "catalogo", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReglaDescuento> reglasDescuentos = new LinkedHashSet<>();
 
-    public Catalogo(Integer idCatalogo) {
-        this.id = idCatalogo;
+    public Catalogo(Integer catalogoId) {
+        this.id = catalogoId;
     }
 
 }

@@ -106,15 +106,15 @@ public class CanalServiceImpl implements CanalService {
     // ===================================================
     @Override
     @Transactional
-    public void actualizarMargen(Integer idCanal, BigDecimal nuevoMargen) {
+    public void actualizarMargen(Integer canalId, BigDecimal nuevoMargen) {
 
         // 0) Validar canal
-        if (!canalRepository.existsById(idCanal)) {
+        if (!canalRepository.existsById(canalId)) {
             throw new NotFoundException("Canal no encontrado");
         }
 
         // Determinar qué tipo de margen usar según el concepto del canal
-        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(idCanal);
+        List<CanalConcepto> conceptosCanal = canalConceptoRepository.findByCanalId(canalId);
         boolean esMayorista = conceptosCanal.stream()
                 .anyMatch(cc -> cc.getConcepto() != null
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_USAR_MARGEN_MAYORISTA);
@@ -127,7 +127,7 @@ public class CanalServiceImpl implements CanalService {
         }
 
         // 1) Obtener todos los productos que tienen precios calculados para este canal
-        List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(idCanal);
+        List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(canalId);
 
         // 2) Actualizar margen de cada producto según el concepto del canal
         preciosCanal.stream()
@@ -146,7 +146,7 @@ public class CanalServiceImpl implements CanalService {
                 });
 
         // 3) Recalcular precios de todos los productos del canal
-        recalculoFacade.recalcularTodosProductosDelCanal(idCanal);
+        recalculoFacade.recalcularTodosProductosDelCanal(canalId);
     }
 
 }

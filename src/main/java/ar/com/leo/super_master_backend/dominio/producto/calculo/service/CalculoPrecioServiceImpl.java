@@ -71,78 +71,78 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // ====================================================
     @Override
     @Transactional(readOnly = true)
-    public PrecioCalculadoDTO calcularPrecioCanal(Integer idProducto, Integer idCanal, Integer numeroCuotas) {
-        Producto producto = obtenerProducto(idProducto);
+    public PrecioCalculadoDTO calcularPrecioCanal(Integer productoId, Integer canalId, Integer numeroCuotas) {
+        Producto producto = obtenerProducto(productoId);
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
-        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(canalId, numeroCuotas, producto);
+        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, canalId);
 
         // Si el canal tiene canalBase o usa SOBRE_PVP_BASE, no requiere ProductoCanal
-        Canal canal = canalRepository.findById(idCanal).orElse(null);
+        Canal canal = canalRepository.findById(canalId).orElse(null);
         boolean tieneCanalBase = canal != null && canal.getCanalBase() != null;
         boolean usaSobrePvpBase = tieneCanalBase || conceptos.stream()
                 .anyMatch(c -> c.getAplicaSobre() == AplicaSobre.CALCULO_SOBRE_CANAL_BASE);
 
         ProductoMargen productoMargen = usaSobrePvpBase
                 ? null
-                : obtenerProductoMargen(idProducto);
+                : obtenerProductoMargen(productoId);
 
-        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, canal, null);
+        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, canalId, canal, null);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PrecioCalculadoDTO calcularPrecioCanalConEnvio(Integer idProducto, Integer idCanal, Integer numeroCuotas, BigDecimal precioEnvioOverride) {
-        Producto producto = obtenerProducto(idProducto);
+    public PrecioCalculadoDTO calcularPrecioCanalConEnvio(Integer productoId, Integer canalId, Integer numeroCuotas, BigDecimal precioEnvioOverride) {
+        Producto producto = obtenerProducto(productoId);
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
-        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(canalId, numeroCuotas, producto);
+        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, canalId);
 
         // Si el canal tiene canalBase o usa SOBRE_PVP_BASE, no requiere ProductoCanal
-        Canal canal = canalRepository.findById(idCanal).orElse(null);
+        Canal canal = canalRepository.findById(canalId).orElse(null);
         boolean tieneCanalBase = canal != null && canal.getCanalBase() != null;
         boolean usaSobrePvpBase = tieneCanalBase || conceptos.stream()
                 .anyMatch(c -> c.getAplicaSobre() == AplicaSobre.CALCULO_SOBRE_CANAL_BASE);
 
         ProductoMargen productoMargen = usaSobrePvpBase
                 ? null
-                : obtenerProductoMargen(idProducto);
+                : obtenerProductoMargen(productoId);
 
-        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal, canal, precioEnvioOverride);
+        return calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, canalId, canal, precioEnvioOverride);
     }
 
     @Override
     @Transactional
-    public PrecioCalculadoDTO recalcularYGuardarPrecioCanal(Integer idProducto, Integer idCanal, Integer numeroCuotas) {
-        Producto producto = obtenerProducto(idProducto);
+    public PrecioCalculadoDTO recalcularYGuardarPrecioCanal(Integer productoId, Integer canalId, Integer numeroCuotas) {
+        Producto producto = obtenerProducto(productoId);
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
-        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(canalId, numeroCuotas, producto);
+        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, canalId);
 
         // Si el canal tiene canalBase o usa SOBRE_PVP_BASE, no requiere ProductoCanal
-        Canal canal = canalRepository.findById(idCanal).orElse(null);
+        Canal canal = canalRepository.findById(canalId).orElse(null);
         boolean tieneCanalBase = canal != null && canal.getCanalBase() != null;
         boolean usaSobrePvpBase = tieneCanalBase || conceptos.stream()
                 .anyMatch(c -> c.getAplicaSobre() == AplicaSobre.CALCULO_SOBRE_CANAL_BASE);
 
         ProductoMargen productoMargen = usaSobrePvpBase
                 ? null
-                : obtenerProductoMargen(idProducto);
+                : obtenerProductoMargen(productoId);
 
         PrecioCalculadoDTO dto = calcularPrecioUnificado(producto, productoMargen, conceptosCanal, numeroCuotas,
-                idCanal, canal, null);
+                canalId, canal, null);
 
         // Persistimos/actualizamos en producto_canal_precios (por producto, canal y cuotas)
         ProductoCanalPrecio pcp = productoCanalPrecioRepository
-                .findByProductoIdAndCanalIdAndCuotas(idProducto, idCanal, numeroCuotas)
+                .findByProductoIdAndCanalIdAndCuotas(productoId, canalId, numeroCuotas)
                 .orElseGet(ProductoCanalPrecio::new);
 
         if (pcp.getId() == null) {
             pcp.setProducto(producto);
-            Canal canalEntity = canal != null ? canal : canalRepository.findById(idCanal)
+            Canal canalEntity = canal != null ? canal : canalRepository.findById(canalId)
                     .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
             pcp.setCanal(canalEntity);
             pcp.setCuotas(numeroCuotas);
@@ -193,7 +193,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * @param productoMargen La relación producto-canal con configuración específica
      * @param conceptos      Lista de conceptos ya filtrados por reglas según el producto y canal
      * @param numeroCuotas   Número de cuotas (null si pago contado)
-     * @param idCanal        ID del canal para obtener información específica del canal
+     * @param canalId        ID del canal para obtener información específica del canal
      * @return DTO con el precio calculado y métricas relacionadas
      */
     private PrecioCalculadoDTO calcularPrecioUnificado(
@@ -201,7 +201,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             ProductoMargen productoMargen,
             List<CanalConcepto> conceptos,
             Integer numeroCuotas,
-            Integer idCanal,
+            Integer canalId,
             Canal canalActual,
             BigDecimal precioEnvioOverride) {
         if (producto.getCosto() == null || producto.getCosto().compareTo(BigDecimal.ZERO) == 0) {
@@ -223,7 +223,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         if (tieneCanalBase) {
             // Pasar todos los conceptos para verificar PROVEEDOR_FIN y ENVIO
-            return calcularPrecioSobrePvpBase(producto, productoMargen, conceptos, idCanal, numeroCuotas);
+            return calcularPrecioSobrePvpBase(producto, productoMargen, conceptos, canalId, numeroCuotas);
         }
 
         BigDecimal costo = producto.getCosto();
@@ -403,7 +403,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         boolean aplicarCuotas = numeroCuotas != null;
 
         if (aplicarCuotas) {
-            porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
+            porcentajeCuota = obtenerPorcentajeCuota(canalId, numeroCuotas);
 
             // Usar gastos PVP de los conceptos ya filtrados (con reglas aplicadas)
             BigDecimal porcentajeConceptosCanal = gastosSobrePVPTotal;
@@ -415,7 +415,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
                 if (porcentajeCuotasTotal.compareTo(BigDecimal.ZERO) > 0) {
                     if (porcentajeCuotasTotal.compareTo(CIEN) >= 0) {
-                        log.warn("Gastos PVP + cuotas {}% >= 100% para canal {}. Se limita a 99%.", porcentajeCuotasTotal, idCanal);
+                        log.warn("Gastos PVP + cuotas {}% >= 100% para canal {}. Se limita a 99%.", porcentajeCuotasTotal, canalId);
                         porcentajeCuotasTotal = new BigDecimal("99");
                     }
                     BigDecimal cuotasFrac = porcentajeCuotasTotal.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
@@ -438,7 +438,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 // Luego descuento como multiplicador
                 BigDecimal descuentoAbs = porcentajeCuota.abs();
                 if (descuentoAbs.compareTo(CIEN) >= 0) {
-                    log.warn("Descuento de cuota {}% >= 100% para canal {}. Se limita a 99%.", descuentoAbs, idCanal);
+                    log.warn("Descuento de cuota {}% >= 100% para canal {}. Se limita a 99%.", descuentoAbs, canalId);
                     descuentoAbs = new BigDecimal("99");
                 }
                 BigDecimal descuentoFrac = descuentoAbs.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP);
@@ -507,7 +507,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             BigDecimal porcentajeInflacion = calcularGastosPorcentaje(conceptosInflacion);
             if (porcentajeInflacion.compareTo(BigDecimal.ZERO) > 0) {
                 if (porcentajeInflacion.compareTo(CIEN) >= 0) {
-                    log.warn("Inflación {}% >= 100% para canal {}. Se limita a 99%.", porcentajeInflacion, idCanal);
+                    log.warn("Inflación {}% >= 100% para canal {}. Se limita a 99%.", porcentajeInflacion, canalId);
                     porcentajeInflacion = new BigDecimal("99");
                 }
                 BigDecimal divisor = BigDecimal.ONE.subtract(porcentajeInflacion.divide(CIEN, PRECISION_CALCULO, RoundingMode.HALF_UP));
@@ -520,7 +520,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // ============================================
         // PASO 15: Precio inflado (solo si el canal tiene concepto FLAG_APLICAR_PRECIO_INFLADO habilitado)
         // ============================================
-        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), idCanal,
+        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), canalId,
                 pvpSinInflar, usaPrecioInflado);
         pvpInfladoCalc = pvpInfladoCalc.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
         // Si no hubo precio inflado, pvpInflado queda null (no tiene sentido mostrar el mismo valor que pvp)
@@ -539,7 +539,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Incluye EMBALAJE ya que tiene AplicaSobre=PVP
         BigDecimal comisionMlParaMetricas = (producto.getMla() != null && producto.getMla().getComisionPorcentaje() != null)
                 ? producto.getMla().getComisionPorcentaje() : BigDecimal.ZERO;
-        BigDecimal costosVenta = calcularCostosVenta(pvpSinInflar, conceptos, numeroCuotas, idCanal, comisionMlParaMetricas);
+        BigDecimal costosVenta = calcularCostosVenta(pvpSinInflar, conceptos, numeroCuotas, canalId, comisionMlParaMetricas);
 
         // montoIva = PVP × (IVA / (100 + IVA)) -- extrae IVA incluido en PVP
         // ivaAplicar ya está definida arriba
@@ -585,7 +585,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         return new PrecioCalculadoDTO(
-                idCanal,
+                canalId,
                 canalActual != null ? canalActual.getCanal() : null,
                 numeroCuotas,
                 pvpSinInflar,
@@ -608,7 +608,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * @param productoMargen La relación producto-canal con configuración específica
      * @param conceptos      Lista de conceptos ya filtrados por reglas según el producto y canal
      * @param numeroCuotas   Número de cuotas (null si pago contado)
-     * @param idCanal        ID del canal para obtener información específica del canal
+     * @param canalId        ID del canal para obtener información específica del canal
      * @return DTO con los pasos de la fórmula y el resultado final
      */
     private FormulaCalculoDTO generarFormulaUnificado(
@@ -616,7 +616,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             ProductoMargen productoMargen,
             List<CanalConcepto> conceptos,
             Integer numeroCuotas,
-            Integer idCanal) {
+            Integer canalId) {
         List<FormulaCalculoDTO.PasoCalculo> pasos = new ArrayList<>();
         int pasoNumero = 1;
 
@@ -624,7 +624,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // CASO ESPECIAL: CANAL CON CANAL_BASE
         // Si el canal tiene canalBase configurado, la fórmula se basa en el PVP del canal padre
         // ============================================
-        Canal canalActual = canalRepository.findById(idCanal).orElse(null);
+        Canal canalActual = canalRepository.findById(canalId).orElse(null);
         boolean tieneCanalBase = canalActual != null && canalActual.getCanalBase() != null;
 
         if (tieneCanalBase) {
@@ -632,7 +632,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     .filter(cc -> cc.getConcepto() != null
                             && cc.getConcepto().getAplicaSobre() == AplicaSobre.CALCULO_SOBRE_CANAL_BASE)
                     .collect(Collectors.toList());
-            return generarFormulaSobrePvpBase(producto, conceptosSobrePvpBase, idCanal, numeroCuotas);
+            return generarFormulaSobrePvpBase(producto, conceptosSobrePvpBase, canalId, numeroCuotas);
         }
 
         // Paso 1: COSTO BASE
@@ -923,7 +923,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         if (aplicarCuotas) {
-            porcentajeCuota = obtenerPorcentajeCuota(idCanal, numeroCuotas);
+            porcentajeCuota = obtenerPorcentajeCuota(canalId, numeroCuotas);
 
             // Usar los conceptos ya filtrados (con reglas aplicadas) en lugar de buscar todos
             BigDecimal porcentajeConceptosCanal = gastosSobrePVPTotal;
@@ -1101,13 +1101,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // Paso 14: Precio inflado (solo si el canal tiene concepto FLAG_APLICAR_PRECIO_INFLADO habilitado)
-        BigDecimal pvpInflado = aplicarPrecioInflado(producto.getId(), idCanal,
+        BigDecimal pvpInflado = aplicarPrecioInflado(producto.getId(), canalId,
                 pvpSinInflar, usaPrecioInflado);
         pvpInflado = pvpInflado.setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
         if (pvpInflado.compareTo(pvpSinInflar) != 0) {
             Optional<ProductoCanalPrecioInflado> precioInfladoOpt = productoCanalPrecioInfladoRepository
-                    .findByProductoIdAndCanalId(producto.getId(), idCanal);
+                    .findByProductoIdAndCanalId(producto.getId(), canalId);
 
             if (precioInfladoOpt.isPresent() && precioInfladoOpt.get().getActiva() != null && precioInfladoOpt.get().getActiva()) {
                 PrecioInflado precioInfladoMaestro = precioInfladoOpt.get().getPrecioInflado();
@@ -1164,10 +1164,10 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
         formulaGeneral.append(" + PRECIO_INFLADO");
 
-        Canal canal = canalRepository.findById(idCanal)
+        Canal canal = canalRepository.findById(canalId)
                 .orElseThrow(() -> new NotFoundException("Canal no encontrado"));
 
-        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas).stream()
+        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canalId, numeroCuotas).stream()
                 .map(CanalConceptoCuota::getDescripcion)
                 .findFirst()
                 .orElse(null);
@@ -1195,7 +1195,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * @param producto       El producto
      * @param productoMargen La relación producto-canal (no usado, pero mantenido por consistencia)
      * @param conceptos      Lista de conceptos del canal (se filtran SOBRE_PVP_BASE)
-     * @param idCanal        ID del canal actual
+     * @param canalId        ID del canal actual
      * @param numeroCuotas   Número de cuotas (null si contado)
      * @return DTO con el precio calculado
      */
@@ -1203,11 +1203,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             Producto producto,
             ProductoMargen productoMargen,
             List<CanalConcepto> conceptos,
-            Integer idCanal,
+            Integer canalId,
             Integer numeroCuotas) {
-        Canal canalActual = canalRepository.findById(idCanal)
-                .orElseThrow(() -> new NotFoundException("Canal no encontrado: " + idCanal));
-        return calcularPrecioSobrePvpBase(producto, productoMargen, conceptos, idCanal, numeroCuotas, canalActual);
+        Canal canalActual = canalRepository.findById(canalId)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado: " + canalId));
+        return calcularPrecioSobrePvpBase(producto, productoMargen, conceptos, canalId, numeroCuotas, canalActual);
     }
 
     /**
@@ -1217,7 +1217,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             Producto producto,
             ProductoMargen productoMargen,
             List<CanalConcepto> conceptos,
-            Integer idCanal,
+            Integer canalId,
             Integer numeroCuotas,
             Canal canalActual) {
 
@@ -1226,15 +1226,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     "El canal '" + canalActual.getCanal() + "' no tiene canal base configurado");
         }
 
-        Integer idCanalBase = canalActual.getCanalBase().getId();
+        Integer canalBaseId = canalActual.getCanalBase().getId();
 
         // Intentar obtener del cache primero (optimización para recálculo masivo)
         PrecioCalculadoDTO precioBase = null;
         Map<String, PrecioCalculadoDTO> cachePrecios = CACHE_PRECIOS_BASE.get();
         if (cachePrecios != null) {
             // Buscar en cache: primero contado (null o 0), luego transferencia (-1)
-            String claveContado = producto.getId() + "-" + idCanalBase + "-0";
-            String claveNull = producto.getId() + "-" + idCanalBase + "-null";
+            String claveContado = producto.getId() + "-" + canalBaseId + "-0";
+            String claveNull = producto.getId() + "-" + canalBaseId + "-null";
             precioBase = cachePrecios.get(claveContado);
             if (precioBase == null) {
                 precioBase = cachePrecios.get(claveNull);
@@ -1243,7 +1243,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Si no está en cache, calcular (fallback para llamadas individuales)
         if (precioBase == null) {
-            precioBase = calcularPrecioCanal(producto.getId(), idCanalBase, null);
+            precioBase = calcularPrecioCanal(producto.getId(), canalBaseId, null);
         }
 
         BigDecimal pvpCanalBase = precioBase.pvp();
@@ -1315,12 +1315,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         boolean usaPrecioInflado = conceptos.stream()
                 .anyMatch(cc -> cc.getConcepto() != null
                         && cc.getConcepto().getAplicaSobre() == AplicaSobre.FLAG_APLICAR_PRECIO_INFLADO);
-        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), idCanal, pvp, usaPrecioInflado)
+        BigDecimal pvpInfladoCalc = aplicarPrecioInflado(producto.getId(), canalId, pvp, usaPrecioInflado)
                 .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
         BigDecimal pvpInflado = pvpInfladoCalc.compareTo(pvp) != 0 ? pvpInfladoCalc : null;
 
         return new PrecioCalculadoDTO(
-                idCanal,
+                canalId,
                 canalActual.getCanal(),
                 numeroCuotas,
                 pvp,
@@ -1342,33 +1342,33 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      *
      * @param producto              El producto
      * @param conceptosSobrePvpBase Conceptos con SOBRE_PVP_BASE (puede ser vacío)
-     * @param idCanal               ID del canal actual
+     * @param canalId               ID del canal actual
      * @param numeroCuotas          Número de cuotas (-1=transferencia, 0=contado, >0=cuotas)
      * @return DTO con los pasos de la fórmula
      */
     private FormulaCalculoDTO generarFormulaSobrePvpBase(
             Producto producto,
             List<CanalConcepto> conceptosSobrePvpBase,
-            Integer idCanal,
+            Integer canalId,
             Integer numeroCuotas) {
 
         List<FormulaCalculoDTO.PasoCalculo> pasos = new ArrayList<>();
         int pasoNumero = 1;
 
         // Obtener el canal actual y su canal base
-        Canal canalActual = canalRepository.findById(idCanal).orElse(null);
+        Canal canalActual = canalRepository.findById(canalId).orElse(null);
         String nombreCanalBase = "CANAL_BASE";
-        Integer idCanalBase = null;
+        Integer canalBaseId = null;
 
         if (canalActual != null && canalActual.getCanalBase() != null) {
             nombreCanalBase = canalActual.getCanalBase().getCanal();
-            idCanalBase = canalActual.getCanalBase().getId();
+            canalBaseId = canalActual.getCanalBase().getId();
         }
 
         // Paso 1: Calcular PVP del canal base en tiempo real
         BigDecimal pvpCanalBase = BigDecimal.ZERO;
-        if (idCanalBase != null) {
-            PrecioCalculadoDTO precioBase = calcularPrecioCanal(producto.getId(), idCanalBase, null);
+        if (canalBaseId != null) {
+            PrecioCalculadoDTO precioBase = calcularPrecioCanal(producto.getId(), canalBaseId, null);
             pvpCanalBase = precioBase.pvp();
         }
 
@@ -1411,7 +1411,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ? String.format("PVP = PVP_%s", nombreCanalBase)
                 : String.format("PVP = PVP_%s * factores", nombreCanalBase);
 
-        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas).stream()
+        String descripcionCuotas = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canalId, numeroCuotas).stream()
                 .map(CanalConceptoCuota::getDescripcion)
                 .findFirst()
                 .orElse(null);
@@ -1435,20 +1435,20 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     /**
      * Obtiene el porcentaje de cuota aplicable.
      *
-     * @param idCanal      ID del canal
+     * @param canalId      ID del canal
      * @param numeroCuotas Número de cuotas
      * @return Porcentaje de cuota o ZERO si no se encuentra
      */
-    private BigDecimal obtenerPorcentajeCuota(Integer idCanal, Integer numeroCuotas) {
+    private BigDecimal obtenerPorcentajeCuota(Integer canalId, Integer numeroCuotas) {
         // Usar cache si está disponible (recálculo masivo)
         Map<String, BigDecimal> cache = CACHE_PORCENTAJE_CUOTAS.get();
         if (cache != null) {
-            String clave = idCanal + "-" + numeroCuotas;
+            String clave = canalId + "-" + numeroCuotas;
             return cache.getOrDefault(clave, BigDecimal.ZERO);
         }
 
         // Sin cache: consulta normal a BD
-        List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(idCanal, numeroCuotas);
+        List<CanalConceptoCuota> cuotasCanal = canalConceptoCuotaRepository.findByCanalIdAndCuotas(canalId, numeroCuotas);
 
         return cuotasCanal.stream()
                 .findFirst()
@@ -1485,15 +1485,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     // ====================================================
     // HELPERS
     // ====================================================
-    private Producto obtenerProducto(Integer idProducto) {
+    private Producto obtenerProducto(Integer productoId) {
         // Usa JOIN FETCH para cargar relaciones necesarias para evaluar reglas de canal_concepto_regla
-        return productoRepository.findByIdConRelacionesParaReglas(idProducto)
+        return productoRepository.findByIdConRelacionesParaReglas(productoId)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 
-    private ProductoMargen obtenerProductoMargen(Integer idProducto) {
+    private ProductoMargen obtenerProductoMargen(Integer productoId) {
         return productoMargenRepository
-                .findByProductoId(idProducto)
+                .findByProductoId(productoId)
                 .orElseThrow(() -> new NotFoundException("No existe configuración de márgenes para este producto"));
     }
 
@@ -1636,27 +1636,27 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * según las condiciones del producto. Los métodos de cálculo buscan
      * dinámicamente conceptos por aplica_sobre sin hardcodear qué buscar.
      *
-     * @param idCanal      ID del canal para filtrar conceptos
+     * @param canalId      ID del canal para filtrar conceptos
      * @param numeroCuotas Número de cuotas (parámetro mantenido por
      *                     compatibilidad, pero ya no se usa para filtrar conceptos)
      * @param producto     El producto para aplicar las reglas de
      *                     canal_concepto_regla
      * @return Lista de conceptos de gasto que aplican según los filtros
      */
-    private List<ConceptoCalculo> obtenerConceptosAplicables(Integer idCanal, Integer numeroCuotas,
+    private List<ConceptoCalculo> obtenerConceptosAplicables(Integer canalId, Integer numeroCuotas,
                                                            Producto producto) {
         // Obtener el canal actual para acceder a su canal padre (canalBase)
-        Canal canalActual = canalRepository.findById(idCanal).orElse(null);
-        final Integer idCanalPadre = (canalActual != null && canalActual.getCanalBase() != null)
+        Canal canalActual = canalRepository.findById(canalId).orElse(null);
+        final Integer canalPadreId = (canalActual != null && canalActual.getCanalBase() != null)
                 ? canalActual.getCanalBase().getId()
                 : null;
 
         // Obtener conceptos asociados al canal a través de canal_concepto
         // Nota: NO se heredan conceptos del canal padre, cada canal tiene sus propios conceptos
-        List<CanalConcepto> conceptosPorCanal = canalConceptoRepository.findByCanalId(idCanal);
+        List<CanalConcepto> conceptosPorCanal = canalConceptoRepository.findByCanalId(canalId);
 
         // Obtener las reglas del canal
-        List<CanalConceptoRegla> reglasCanal = canalConceptoReglaRepository.findByCanalId(idCanal);
+        List<CanalConceptoRegla> reglasCanal = canalConceptoReglaRepository.findByCanalId(canalId);
 
         // Extraer los conceptos únicos que aplican al canal
         return conceptosPorCanal.stream()
@@ -1760,13 +1760,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
      * List<CanalConcepto>.
      *
      * @param conceptos Lista de ConceptoCalculo
-     * @param idCanal   ID del canal para establecer en los objetos CanalConcepto
+     * @param canalId   ID del canal para establecer en los objetos CanalConcepto
      *                  temporales
      * @return Lista de CanalConcepto (objetos temporales para compatibilidad)
      */
-    private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoCalculo> conceptos, Integer idCanal) {
+    private List<CanalConcepto> convertirConceptosACanalConcepto(List<ConceptoCalculo> conceptos, Integer canalId) {
         // Obtener las relaciones canal_concepto para estos conceptos y el canal
-        List<CanalConcepto> relacionesExistentes = canalConceptoRepository.findByCanalId(idCanal);
+        List<CanalConcepto> relacionesExistentes = canalConceptoRepository.findByCanalId(canalId);
         Map<Integer, CanalConcepto> mapaPorConceptoId = relacionesExistentes.stream()
                 .collect(Collectors.toMap(
                         cc -> cc.getConcepto().getId(),
@@ -1785,7 +1785,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     CanalConcepto ccTemp = new CanalConcepto();
                     ccTemp.setConcepto(concepto);
                     ar.com.leo.super_master_backend.dominio.canal.entity.Canal canal = new ar.com.leo.super_master_backend.dominio.canal.entity.Canal();
-                    canal.setId(idCanal);
+                    canal.setId(canalId);
                     ccTemp.setCanal(canal);
                     return ccTemp;
                 })
@@ -1957,16 +1957,16 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     @Transactional(readOnly = true)
-    public FormulaCalculoDTO obtenerFormulaCalculo(Integer idProducto, Integer idCanal, Integer numeroCuotas) {
-        Producto producto = obtenerProducto(idProducto);
-        ProductoMargen productoMargen = obtenerProductoMargen(idProducto);
+    public FormulaCalculoDTO obtenerFormulaCalculo(Integer productoId, Integer canalId, Integer numeroCuotas) {
+        Producto producto = obtenerProducto(productoId);
+        ProductoMargen productoMargen = obtenerProductoMargen(productoId);
 
-        Canal canal = canalRepository.findById(idCanal)
-                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + idCanal));
+        Canal canal = canalRepository.findById(canalId)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + canalId));
 
         // Validar que las cuotas existen para este canal (si se especificaron)
         if (numeroCuotas != null) {
-            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(canalId);
             if (!cuotasDisponibles.contains(numeroCuotas)) {
                 throw new NotFoundException(
                         "Cuotas " + numeroCuotas + " no configuradas para el canal '" + canal.getCanal() + "'. " +
@@ -1976,11 +1976,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         // Obtener todos los conceptos que aplican al canal según los filtros
-        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(idCanal, numeroCuotas, producto);
+        List<ConceptoCalculo> conceptos = obtenerConceptosAplicables(canalId, numeroCuotas, producto);
 
-        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, idCanal);
+        List<CanalConcepto> conceptosCanal = convertirConceptosACanalConcepto(conceptos, canalId);
 
-        return generarFormulaUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, idCanal);
+        return generarFormulaUnificado(producto, productoMargen, conceptosCanal, numeroCuotas, canalId);
     }
 
     // ====================================================
@@ -1989,11 +1989,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
     @Override
     @Transactional
-    public CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer idProducto, Integer idCanal) {
+    public CanalPreciosDTO recalcularYGuardarPrecioCanalTodasCuotas(Integer productoId, Integer canalId) {
         // OPTIMIZACIÓN: Una sola query en lugar de dos
         // Antes: findDistinctCuotasByCanalId + findByCanalId (2 queries)
         // Después: findByCanalId (1 query) y procesar en memoria
-        List<CanalConceptoCuota> todasLasCuotas = canalConceptoCuotaRepository.findByCanalId(idCanal);
+        List<CanalConceptoCuota> todasLasCuotas = canalConceptoCuotaRepository.findByCanalId(canalId);
 
         // Extraer cuotas únicas y descripciones en un solo pase
         List<Integer> cuotasCanal = todasLasCuotas.stream()
@@ -2010,14 +2010,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Eliminar precios de cuotas que ya no existen en el canal
         if (!cuotasCanal.isEmpty()) {
-            productoCanalPrecioRepository.deleteByProductoIdAndCanalIdAndCuotasNotIn(idProducto, idCanal, cuotasCanal);
+            productoCanalPrecioRepository.deleteByProductoIdAndCanalIdAndCuotasNotIn(productoId, canalId, cuotasCanal);
         }
 
         // Solo calcular las cuotas configuradas en canal_concepto_cuota
         List<PrecioCalculadoDTO> preciosCalculados = new ArrayList<>();
 
         for (Integer cuotas : cuotasCanal) {
-            preciosCalculados.add(recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas));
+            preciosCalculados.add(recalcularYGuardarPrecioCanal(productoId, canalId, cuotas));
         }
 
         // Obtener info del canal del primer precio
@@ -2028,7 +2028,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         if (!preciosCalculados.isEmpty()) {
             PrecioCalculadoDTO primerPrecio = preciosCalculados.get(0);
             descuentosCanal = calcularDescuentosAplicables(
-                    idCanal,
+                    canalId,
                     primerPrecio.pvp(),
                     primerPrecio.costoProducto(),
                     primerPrecio.ganancia(),
@@ -2056,18 +2056,18 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 ))
                 .toList();
 
-        return new CanalPreciosDTO(idCanal, canalNombre, precios);
+        return new CanalPreciosDTO(canalId, canalNombre, precios);
     }
 
     @Override
-    public CanalPreciosDTO recalcularYGuardar(Integer idProducto, Integer idCanal, Integer cuotas) {
+    public CanalPreciosDTO recalcularYGuardar(Integer productoId, Integer canalId, Integer cuotas) {
         // Validar que el canal existe
-        Canal canal = canalRepository.findById(idCanal)
-                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + idCanal));
+        Canal canal = canalRepository.findById(canalId)
+                .orElseThrow(() -> new NotFoundException("Canal no encontrado con ID: " + canalId));
 
         // Validar que las cuotas existen para este canal (si se especificaron)
         if (cuotas != null) {
-            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(canalId);
             if (!cuotasDisponibles.contains(cuotas)) {
                 throw new NotFoundException(
                         "Cuotas " + cuotas + " no configuradas para el canal '" + canal.getCanal() + "'. " +
@@ -2077,14 +2077,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         }
 
         if (cuotas == null) {
-            return recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal);
+            return recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId);
         }
 
         // Calcular solo para las cuotas especificadas
-        PrecioCalculadoDTO precioCalculado = recalcularYGuardarPrecioCanal(idProducto, idCanal, cuotas);
+        PrecioCalculadoDTO precioCalculado = recalcularYGuardarPrecioCanal(productoId, canalId, cuotas);
 
         // Obtener descripción de la cuota
-        String descripcion = canalConceptoCuotaRepository.findByCanalId(idCanal).stream()
+        String descripcion = canalConceptoCuotaRepository.findByCanalId(canalId).stream()
                 .filter(c -> c.getCuotas().equals(cuotas))
                 .map(c -> c.getDescripcion() != null ? c.getDescripcion() : "")
                 .findFirst()
@@ -2092,7 +2092,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Calcular descuentos aplicables
         List<DescuentoAplicableDTO> descuentos = calcularDescuentosAplicables(
-                idCanal,
+                canalId,
                 precioCalculado.pvp(),
                 precioCalculado.costoProducto(),
                 precioCalculado.ganancia(),
@@ -2115,15 +2115,15 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 descuentos
         );
 
-        return new CanalPreciosDTO(idCanal, precioCalculado.canalNombre(), List.of(precioDTO));
+        return new CanalPreciosDTO(canalId, precioCalculado.canalNombre(), List.of(precioDTO));
     }
 
     @Override
     @Transactional
-    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto) {
+    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer productoId) {
         // Validar que el producto existe
-        productoRepository.findById(idProducto)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + idProducto));
+        productoRepository.findById(productoId)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + productoId));
 
         // Obtener todos los canales con cuotas configuradas
         List<Integer> canalIds = canalConceptoCuotaRepository.findDistinctCanalIds();
@@ -2134,16 +2134,16 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Recalcular para cada canal (todas las cuotas)
         return canalIds.stream()
-                .map(idCanal -> recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal))
+                .map(canalId -> recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId))
                 .toList();
     }
 
     @Override
     @Transactional
-    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer idProducto, Integer cuotas) {
+    public List<CanalPreciosDTO> recalcularProductoTodosCanales(Integer productoId, Integer cuotas) {
         // Validar que el producto existe
-        productoRepository.findById(idProducto)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + idProducto));
+        productoRepository.findById(productoId)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + productoId));
 
         // Obtener todos los canales con cuotas configuradas
         List<Integer> canalIds = canalConceptoCuotaRepository.findDistinctCanalIds();
@@ -2154,11 +2154,11 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Recalcular para cada canal solo las cuotas indicadas
         List<CanalPreciosDTO> resultados = new ArrayList<>();
-        for (Integer idCanal : canalIds) {
+        for (Integer canalId : canalIds) {
             // Verificar si este canal tiene configuradas esas cuotas
-            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(idCanal);
+            List<Integer> cuotasDisponibles = canalConceptoCuotaRepository.findDistinctCuotasByCanalId(canalId);
             if (cuotasDisponibles.contains(cuotas)) {
-                resultados.add(recalcularYGuardar(idProducto, idCanal, cuotas));
+                resultados.add(recalcularYGuardar(productoId, canalId, cuotas));
             }
         }
 
@@ -2305,13 +2305,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 continue;
             }
 
-            Integer idProducto = producto.getId();
+            Integer productoId = producto.getId();
 
             for (Canal canal : canalesBase) {
-                Integer idCanal = canal.getId();
+                Integer canalId = canal.getId();
 
                 // Verificar si el canal tiene margen válido para este producto
-                AplicaSobre tipoMargen = tipoMargenPorCanal.get(idCanal);
+                AplicaSobre tipoMargen = tipoMargenPorCanal.get(canalId);
                 if (tipoMargen == null) {
                     continue;
                 }
@@ -2322,35 +2322,35 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
                 if (margen == null || margen.compareTo(BigDecimal.ZERO) <= 0) {
                     // Contar solo una vez por producto
-                    if (!productosYaContadosSinMargen.contains(idProducto)) {
-                        productosYaContadosSinMargen.add(idProducto);
+                    if (!productosYaContadosSinMargen.contains(productoId)) {
+                        productosYaContadosSinMargen.add(productoId);
                         productosSinMargen++;
                         skusSinMargen.add(producto.getSku());
                     }
                     continue;
                 }
 
-                List<Integer> cuotasDelCanal = cuotasPorCanal.get(idCanal);
+                List<Integer> cuotasDelCanal = cuotasPorCanal.get(canalId);
                 if (cuotasDelCanal == null || cuotasDelCanal.isEmpty()) {
                     continue;
                 }
 
-                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
-                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
+                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(canalId);
+                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(canalId);
                 List<ConceptoCalculo> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
                 List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
 
                 for (Integer cuotas : cuotasDelCanal) {
                     try {
                         PrecioCalculadoDTO precioCalculado = calcularPrecioUnificado(
-                                producto, productoMargen, conceptosParaCalculo, cuotas, idCanal, canal, null);
+                                producto, productoMargen, conceptosParaCalculo, cuotas, canalId, canal, null);
 
                         // Guardar en cache para uso por canales dependientes
-                        String claveCache = idProducto + "-" + idCanal + "-" + cuotas;
+                        String claveCache = productoId + "-" + canalId + "-" + cuotas;
                         cachePrecios.put(claveCache, precioCalculado);
 
                         // Buscar precio existente y actualizar
-                        String clavePrecio = idProducto + "-" + idCanal + "-" + cuotas;
+                        String clavePrecio = productoId + "-" + canalId + "-" + cuotas;
                         ProductoCanalPrecio pcp = preciosExistentes.get(clavePrecio);
                         if (pcp == null) {
                             pcp = new ProductoCanalPrecio();
@@ -2381,13 +2381,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     } catch (Exception e) {
                         errores++;
                         // Registrar SKU con error solo una vez por producto
-                        if (!productosYaContadosConError.contains(idProducto)) {
-                            productosYaContadosConError.add(idProducto);
+                        if (!productosYaContadosConError.contains(productoId)) {
+                            productosYaContadosConError.add(productoId);
                             skusConErrores.add(producto.getSku());
                         }
                         if (errores <= 10) {
                             log.warn("Error calculando producto {} en canal base {} cuotas {}: {}",
-                                    idProducto, idCanal, cuotas, e.getMessage());
+                                    productoId, canalId, cuotas, e.getMessage());
                         }
                     }
                 }
@@ -2426,28 +2426,28 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 continue;
             }
 
-            Integer idProducto = producto.getId();
+            Integer productoId = producto.getId();
 
             for (Canal canal : canalesDependientes) {
-                Integer idCanal = canal.getId();
+                Integer canalId = canal.getId();
 
                 // Los canales dependientes no usan tipoMargen directamente, heredan del base
-                List<Integer> cuotasDelCanal = cuotasPorCanal.get(idCanal);
+                List<Integer> cuotasDelCanal = cuotasPorCanal.get(canalId);
                 if (cuotasDelCanal == null || cuotasDelCanal.isEmpty()) {
                     continue;
                 }
 
-                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(idCanal);
-                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(idCanal);
+                List<CanalConcepto> conceptosCanal = conceptosPorCanal.get(canalId);
+                List<CanalConceptoRegla> reglasCanal = reglasPorCanal.get(canalId);
                 List<ConceptoCalculo> conceptosFiltrados = filtrarConceptosPorReglas(conceptosCanal, reglasCanal, producto);
                 List<CanalConcepto> conceptosParaCalculo = convertirConceptosACanalConceptoOptimizado(conceptosFiltrados, conceptosCanal);
 
                 for (Integer cuotas : cuotasDelCanal) {
                     try {
                         PrecioCalculadoDTO precioCalculado = calcularPrecioUnificado(
-                                producto, productoMargen, conceptosParaCalculo, cuotas, idCanal, canal, null);
+                                producto, productoMargen, conceptosParaCalculo, cuotas, canalId, canal, null);
 
-                        String clavePrecio = idProducto + "-" + idCanal + "-" + cuotas;
+                        String clavePrecio = productoId + "-" + canalId + "-" + cuotas;
                         ProductoCanalPrecio pcp = preciosExistentes.get(clavePrecio);
                         if (pcp == null) {
                             pcp = new ProductoCanalPrecio();
@@ -2478,13 +2478,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     } catch (Exception e) {
                         errores++;
                         // Registrar SKU con error solo una vez por producto
-                        if (!productosYaContadosConError.contains(idProducto)) {
-                            productosYaContadosConError.add(idProducto);
+                        if (!productosYaContadosConError.contains(productoId)) {
+                            productosYaContadosConError.add(productoId);
                             skusConErrores.add(producto.getSku());
                         }
                         if (errores <= 10) {
                             log.warn("Error calculando producto {} en canal dependiente {} cuotas {}: {}",
-                                    idProducto, idCanal, cuotas, e.getMessage());
+                                    productoId, canalId, cuotas, e.getMessage());
                         }
                     }
                 }

@@ -30,15 +30,15 @@ public class RecalculoPrecioFacade {
      * Alcance: Ese producto en todos sus canales y cuotas.
      */
     @Transactional
-    public void recalcularPorCambioProducto(Integer idProducto) {
-        log.info("Recalculando precios por cambio en producto: {}", idProducto);
+    public void recalcularPorCambioProducto(Integer productoId) {
+        log.info("Recalculando precios por cambio en producto: {}", productoId);
 
-        productoCanalPrecioRepository.findByProductoId(idProducto)
+        productoCanalPrecioRepository.findByProductoId(productoId)
                 .stream()
                 .map(p -> p.getCanal().getId())
                 .distinct()
-                .forEach(idCanal ->
-                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal)
+                .forEach(canalId ->
+                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
                 );
     }
 
@@ -47,16 +47,16 @@ public class RecalculoPrecioFacade {
      * Alcance: Ese producto en TODOS sus canales, todas las cuotas.
      */
     @Transactional
-    public void recalcularPorCambioProductoMargen(Integer idProducto) {
-        log.info("Recalculando precios por cambio en producto-margen: producto={}", idProducto);
+    public void recalcularPorCambioProductoMargen(Integer productoId) {
+        log.info("Recalculando precios por cambio en producto-margen: producto={}", productoId);
 
         // Recalcular en todos los canales donde el producto tiene precios
-        productoCanalPrecioRepository.findByProductoId(idProducto)
+        productoCanalPrecioRepository.findByProductoId(productoId)
                 .stream()
                 .map(p -> p.getCanal().getId())
                 .distinct()
-                .forEach(idCanal ->
-                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal)
+                .forEach(canalId ->
+                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
                 );
     }
 
@@ -65,10 +65,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos de todos los canales que usan ese concepto.
      */
     @Transactional
-    public void recalcularPorCambioConceptoCalculo(Integer idConcepto) {
-        log.info("Recalculando precios por cambio en concepto de cálculo: {}", idConcepto);
+    public void recalcularPorCambioConceptoCalculo(Integer conceptoId) {
+        log.info("Recalculando precios por cambio en concepto de cálculo: {}", conceptoId);
 
-        canalConceptoRepository.findByConceptoId(idConcepto)
+        canalConceptoRepository.findByConceptoId(conceptoId)
                 .stream()
                 .map(cc -> cc.getCanal().getId())
                 .distinct()
@@ -80,10 +80,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos del canal, todas las cuotas.
      */
     @Transactional
-    public void recalcularPorCambioCuotaCanal(Integer idCanal) {
-        log.info("Recalculando precios por cambio en cuotas del canal: {}", idCanal);
+    public void recalcularPorCambioCuotaCanal(Integer canalId) {
+        log.info("Recalculando precios por cambio en cuotas del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(idCanal);
+        recalcularTodosProductosDelCanal(canalId);
     }
 
     /**
@@ -91,10 +91,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos de ese proveedor, en todos sus canales.
      */
     @Transactional
-    public void recalcularPorCambioProveedor(Integer idProveedor) {
-        log.info("Recalculando precios por cambio en proveedor: {}", idProveedor);
+    public void recalcularPorCambioProveedor(Integer proveedorId) {
+        log.info("Recalculando precios por cambio en proveedor: {}", proveedorId);
 
-        productoRepository.findByProveedorId(idProveedor)
+        productoRepository.findByProveedorId(proveedorId)
                 .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
     }
 
@@ -103,10 +103,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Ese producto en ese canal.
      */
     @Transactional
-    public void recalcularPorCambioPrecioInflado(Integer idProducto, Integer idCanal) {
-        log.info("Recalculando precios por cambio en precio inflado: producto={}, canal={}", idProducto, idCanal);
+    public void recalcularPorCambioPrecioInflado(Integer productoId, Integer canalId) {
+        log.info("Recalculando precios por cambio en precio inflado: producto={}, canal={}", productoId, canalId);
 
-        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal);
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId);
     }
 
     /**
@@ -114,10 +114,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos que tienen ese MLA, en todos sus canales.
      */
     @Transactional
-    public void recalcularPorCambioMla(Integer idMla) {
-        log.info("Recalculando precios por cambio en MLA: {}", idMla);
+    public void recalcularPorCambioMla(Integer mlaId) {
+        log.info("Recalculando precios por cambio en MLA: {}", mlaId);
 
-        productoRepository.findByMlaId(idMla)
+        productoRepository.findByMlaId(mlaId)
                 .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
     }
 
@@ -126,10 +126,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos del canal de esa regla.
      */
     @Transactional
-    public void recalcularPorCambioReglaDescuentoEnCanal(Integer idCanal) {
-        log.info("Recalculando precios por cambio en regla de descuento del canal: {}", idCanal);
+    public void recalcularPorCambioReglaDescuentoEnCanal(Integer canalId) {
+        log.info("Recalculando precios por cambio en regla de descuento del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(idCanal);
+        recalcularTodosProductosDelCanal(canalId);
     }
 
     /**
@@ -137,10 +137,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos de esa clasificación en todos sus canales.
      */
     @Transactional
-    public void recalcularPorCambioClasifGastro(Integer idClasifGastro) {
-        log.info("Recalculando precios por cambio en clasificación gastronómica: clasifGastro={}", idClasifGastro);
+    public void recalcularPorCambioClasifGastro(Integer clasifGastroId) {
+        log.info("Recalculando precios por cambio en clasificación gastronómica: clasifGastro={}", clasifGastroId);
 
-        productoRepository.findByClasifGastroId(idClasifGastro)
+        productoRepository.findByClasifGastroId(clasifGastroId)
                 .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
     }
 
@@ -149,10 +149,10 @@ public class RecalculoPrecioFacade {
      * Alcance: Todos los productos del canal cuyo canalBase cambió.
      */
     @Transactional
-    public void recalcularPorCambioCanalBase(Integer idCanal) {
-        log.info("Recalculando precios por cambio en canalBase del canal: {}", idCanal);
+    public void recalcularPorCambioCanalBase(Integer canalId) {
+        log.info("Recalculando precios por cambio en canalBase del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(idCanal);
+        recalcularTodosProductosDelCanal(canalId);
     }
 
     /**
@@ -160,11 +160,11 @@ public class RecalculoPrecioFacade {
      * Usado internamente y cuando cambian configuraciones del canal.
      */
     @Transactional
-    public void recalcularTodosProductosDelCanal(Integer idCanal) {
-        log.info("Recalculando todos los precios del canal: {}", idCanal);
+    public void recalcularTodosProductosDelCanal(Integer canalId) {
+        log.info("Recalculando todos los precios del canal: {}", canalId);
 
         // OPTIMIZACIÓN: Usar FETCH JOIN para evitar N+1 al acceder al Producto
-        productoCanalPrecioRepository.findByCanalIdWithProductoFetch(idCanal)
+        productoCanalPrecioRepository.findByCanalIdWithProductoFetch(canalId)
                 .stream()
                 .map(ProductoCanalPrecio::getProducto)
                 .collect(Collectors.toMap(
@@ -173,8 +173,8 @@ public class RecalculoPrecioFacade {
                         (p1, p2) -> p1  // En caso de duplicados, quedarse con el primero
                 ))
                 .keySet()
-                .forEach(idProducto ->
-                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(idProducto, idCanal)
+                .forEach(productoId ->
+                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
                 );
     }
 }

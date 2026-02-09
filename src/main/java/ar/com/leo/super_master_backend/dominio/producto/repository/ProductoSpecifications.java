@@ -100,49 +100,49 @@ public class ProductoSpecifications {
     public static Specification<Producto> marcaId(Integer marcaId) {
         return (root, query, cb) -> {
             if (marcaId == null) return null;
-            return cb.equal(root.get("idMarca").get("id"), marcaId);
+            return cb.equal(root.get("marca").get("id"), marcaId);
         };
     }
 
     public static Specification<Producto> origenId(Integer origenId) {
         return (root, query, cb) -> {
             if (origenId == null) return null;
-            return cb.equal(root.get("idOrigen").get("id"), origenId);
+            return cb.equal(root.get("origen").get("id"), origenId);
         };
     }
 
     public static Specification<Producto> tipoId(Integer tipoId) {
         return (root, query, cb) -> {
             if (tipoId == null) return null;
-            return cb.equal(root.get("idTipo").get("id"), tipoId);
+            return cb.equal(root.get("tipo").get("id"), tipoId);
         };
     }
 
     public static Specification<Producto> clasifGralId(Integer clasifGralId) {
         return (root, query, cb) -> {
             if (clasifGralId == null) return null;
-            return cb.equal(root.get("idClasifGral").get("id"), clasifGralId);
+            return cb.equal(root.get("clasifGral").get("id"), clasifGralId);
         };
     }
 
     public static Specification<Producto> clasifGastroId(Integer clasifGastroId) {
         return (root, query, cb) -> {
             if (clasifGastroId == null) return null;
-            return cb.equal(root.get("idClasifGastro").get("id"), clasifGastroId);
+            return cb.equal(root.get("clasifGastro").get("id"), clasifGastroId);
         };
     }
 
     public static Specification<Producto> proveedorId(Integer proveedorId) {
         return (root, query, cb) -> {
             if (proveedorId == null) return null;
-            return cb.equal(root.get("idProveedor").get("id"), proveedorId);
+            return cb.equal(root.get("proveedor").get("id"), proveedorId);
         };
     }
 
     public static Specification<Producto> materialId(Integer materialId) {
         return (root, query, cb) -> {
             if (materialId == null) return null;
-            return cb.equal(root.get("idMaterial").get("id"), materialId);
+            return cb.equal(root.get("material").get("id"), materialId);
         };
     }
 

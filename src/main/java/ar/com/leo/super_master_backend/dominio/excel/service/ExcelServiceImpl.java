@@ -647,7 +647,7 @@ public class ExcelServiceImpl implements ExcelService {
             // Estructura: TIPO2 (nombre), ID TIPO1 (padre), ID TIPO2 (ID del TIPO2)
             else if (nombreTablaUpper.equals("TIPO2")) {
                 String tipoNombre = null;
-                Integer idTipo1 = null;
+                Integer tipo1Id = null;
 
                 if (columnasTabla.containsKey("TIPO2")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("TIPO2"));
@@ -660,7 +660,7 @@ public class ExcelServiceImpl implements ExcelService {
                     String valor = obtenerValorCelda(row, columnasTabla.get("ID TIPO1"));
                     if (valor != null && !valor.isBlank()) {
                         try {
-                            idTipo1 = Integer.parseInt(valor.trim());
+                            tipo1Id = Integer.parseInt(valor.trim());
                         } catch (NumberFormatException e) {
                             log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1='{}' no es un número válido",
                                     filaIndex + 1, valor);
@@ -670,11 +670,11 @@ public class ExcelServiceImpl implements ExcelService {
 
                 if (tipoNombre != null && !tipoNombre.isBlank()) {
                     Tipo padre = null;
-                    if (idTipo1 != null) {
-                        padre = tipoRepository.findById(idTipo1).orElse(null);
+                    if (tipo1Id != null) {
+                        padre = tipoRepository.findById(tipo1Id).orElse(null);
                         if (padre == null) {
                             log.warn("⚠️  Fila {} tabla TIPO2 - ID TIPO1={} no encontrado para tipo='{}'",
-                                    filaIndex + 1, idTipo1, tipoNombre);
+                                    filaIndex + 1, tipo1Id, tipoNombre);
                         }
                     }
                     buscarOCrearTipo(tipoNombre, padre);
@@ -684,7 +684,7 @@ public class ExcelServiceImpl implements ExcelService {
             // Estructura: TIPO3 (nombre), ID TIPO2 (padre), ID TIPO3 (ID del TIPO3)
             else if (nombreTablaUpper.equals("TIPO3")) {
                 String tipoNombre = null;
-                Integer idTipo2 = null;
+                Integer tipo2Id = null;
 
                 if (columnasTabla.containsKey("TIPO3")) {
                     String valor = obtenerValorCelda(row, columnasTabla.get("TIPO3"));
@@ -697,7 +697,7 @@ public class ExcelServiceImpl implements ExcelService {
                     String valor = obtenerValorCelda(row, columnasTabla.get("ID TIPO2"));
                     if (valor != null && !valor.isBlank()) {
                         try {
-                            idTipo2 = Integer.parseInt(valor.trim());
+                            tipo2Id = Integer.parseInt(valor.trim());
                         } catch (NumberFormatException e) {
                             log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2='{}' no es un número válido",
                                     filaIndex + 1, valor);
@@ -707,11 +707,11 @@ public class ExcelServiceImpl implements ExcelService {
 
                 if (tipoNombre != null && !tipoNombre.isBlank()) {
                     Tipo padre = null;
-                    if (idTipo2 != null) {
-                        padre = tipoRepository.findById(idTipo2).orElse(null);
+                    if (tipo2Id != null) {
+                        padre = tipoRepository.findById(tipo2Id).orElse(null);
                         if (padre == null) {
                             log.warn("⚠️  Fila {} tabla TIPO3 - ID TIPO2={} no encontrado para tipo='{}'",
-                                    filaIndex + 1, idTipo2, tipoNombre);
+                                    filaIndex + 1, tipo2Id, tipoNombre);
                         }
                     }
                     buscarOCrearTipo(tipoNombre, padre);
@@ -1905,18 +1905,18 @@ public class ExcelServiceImpl implements ExcelService {
                     try {
                         Tipo padreTipo2 = null;
                         if (columnasMap.containsKey("ID TIPO1")) {
-                            String idTipo1Str = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "ID TIPO1"));
-                            if (idTipo1Str != null && !idTipo1Str.isBlank()) {
+                            String tipo1IdStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "ID TIPO1"));
+                            if (tipo1IdStr != null && !tipo1IdStr.isBlank()) {
                                 try {
-                                    Integer idTipo1 = Integer.parseInt(idTipo1Str.trim());
-                                    padreTipo2 = tipoRepository.findById(idTipo1).orElse(null);
+                                    Integer tipo1Id = Integer.parseInt(tipo1IdStr.trim());
+                                    padreTipo2 = tipoRepository.findById(tipo1Id).orElse(null);
                                     if (padreTipo2 == null) {
                                         log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1={} no encontrado para TIPO2='{}'",
-                                                rowIndex + 1, idTipo1, tipo2Nombre);
+                                                rowIndex + 1, tipo1Id, tipo2Nombre);
                                     }
                                 } catch (NumberFormatException e) {
                                     log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO1='{}' no es un número válido para TIPO2='{}'",
-                                            rowIndex + 1, idTipo1Str, tipo2Nombre);
+                                            rowIndex + 1, tipo1IdStr, tipo2Nombre);
                                 }
                             }
                         }
@@ -1936,18 +1936,18 @@ public class ExcelServiceImpl implements ExcelService {
                     try {
                         Tipo padreTipo3 = null;
                         if (columnasMap.containsKey("ID TIPO2")) {
-                            String idTipo2Str = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "ID TIPO2"));
-                            if (idTipo2Str != null && !idTipo2Str.isBlank()) {
+                            String tipo2IdStr = obtenerValorCelda(row, obtenerIndiceColumna(columnasMap, "ID TIPO2"));
+                            if (tipo2IdStr != null && !tipo2IdStr.isBlank()) {
                                 try {
-                                    Integer idTipo2 = Integer.parseInt(idTipo2Str.trim());
-                                    padreTipo3 = tipoRepository.findById(idTipo2).orElse(null);
+                                    Integer tipo2Id = Integer.parseInt(tipo2IdStr.trim());
+                                    padreTipo3 = tipoRepository.findById(tipo2Id).orElse(null);
                                     if (padreTipo3 == null) {
                                         log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2={} no encontrado para TIPO3='{}'",
-                                                rowIndex + 1, idTipo2, tipo3Nombre);
+                                                rowIndex + 1, tipo2Id, tipo3Nombre);
                                     }
                                 } catch (NumberFormatException e) {
                                     log.warn("⚠️  Fila {} VALIDACIONES - ID TIPO2='{}' no es un número válido para TIPO3='{}'",
-                                            rowIndex + 1, idTipo2Str, tipo3Nombre);
+                                            rowIndex + 1, tipo2IdStr, tipo3Nombre);
                                 }
                             }
                         }
@@ -2569,12 +2569,12 @@ public class ExcelServiceImpl implements ExcelService {
         int productosRecalculados = 0;
         if (!productosARecalcular.isEmpty()) {
             log.info("Recalculando precios para {} productos con cambios relevantes...", productosARecalcular.size());
-            for (Integer idProducto : productosARecalcular) {
+            for (Integer productoId : productosARecalcular) {
                 try {
-                    recalculoPrecioFacade.recalcularPorCambioProducto(idProducto);
+                    recalculoPrecioFacade.recalcularPorCambioProducto(productoId);
                     productosRecalculados++;
                 } catch (Exception e) {
-                    log.warn("Error recalculando precios para producto {}: {}", idProducto, e.getMessage());
+                    log.warn("Error recalculando precios para producto {}: {}", productoId, e.getMessage());
                 }
             }
             log.info("Recálculo completado: {} productos", productosRecalculados);

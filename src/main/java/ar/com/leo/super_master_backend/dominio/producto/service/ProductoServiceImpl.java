@@ -693,17 +693,17 @@ public class ProductoServiceImpl implements ProductoService {
     // ============================
     @Override
     @Transactional
-    public void actualizarCosto(Integer idProducto, BigDecimal nuevoCosto) {
+    public void actualizarCosto(Integer productoId, BigDecimal nuevoCosto) {
 
         // 1) Actualizar costo del producto
-        Producto producto = productoRepository.findById(idProducto)
+        Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
 
         producto.setCosto(nuevoCosto);
         productoRepository.save(producto);
 
         // 2) Recalcular precios en todos los canales
-        recalculoFacade.recalcularPorCambioProducto(idProducto);
+        recalculoFacade.recalcularPorCambioProducto(productoId);
     }
 
     // ============================

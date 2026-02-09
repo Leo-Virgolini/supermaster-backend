@@ -32,8 +32,8 @@ public class Apto {
     @OneToMany(mappedBy = "apto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ProductoApto> productosApto = new LinkedHashSet<>();
 
-    public Apto(Integer idApto) {
-        this.id = idApto;
+    public Apto(Integer aptoId) {
+        this.id = aptoId;
     }
 
 }
