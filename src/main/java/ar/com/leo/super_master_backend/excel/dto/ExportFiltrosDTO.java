@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.dominio.excel.dto;
+package ar.com.leo.super_master_backend.excel.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
