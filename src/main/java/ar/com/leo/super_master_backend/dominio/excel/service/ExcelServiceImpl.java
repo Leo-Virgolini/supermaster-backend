@@ -3623,12 +3623,14 @@ public class ExcelServiceImpl implements ExcelService {
             sb.append("_").append(textoCorto);
         }
 
-        if (filter.marcaId() != null) {
-            sb.append("_MARCA").append(filter.marcaId());
+        if (filter.marcaIds() != null && !filter.marcaIds().isEmpty()) {
+            sb.append("_MARCA").append(filter.marcaIds().getFirst());
+            if (filter.marcaIds().size() > 1) sb.append("+").append(filter.marcaIds().size() - 1);
         }
 
-        if (filter.proveedorId() != null) {
-            sb.append("_PROV").append(filter.proveedorId());
+        if (filter.proveedorIds() != null && !filter.proveedorIds().isEmpty()) {
+            sb.append("_PROV").append(filter.proveedorIds().getFirst());
+            if (filter.proveedorIds().size() > 1) sb.append("+").append(filter.proveedorIds().size() - 1);
         }
 
         if (filter.catalogoIds() != null && !filter.catalogoIds().isEmpty()) {

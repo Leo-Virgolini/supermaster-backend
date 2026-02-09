@@ -67,15 +67,15 @@ public class ProductoController {
             @RequestParam(required = false) Boolean tienePrecioEnvio,
 
             // =======================
-            // 3) MANY-TO-ONE
+            // 3) MANY-TO-ONE (multi-valor)
             // =======================
-            @RequestParam(required = false) Integer marcaId,
-            @RequestParam(required = false) Integer origenId,
-            @RequestParam(required = false) Integer tipoId,
-            @RequestParam(required = false) Integer clasifGralId,
-            @RequestParam(required = false) Integer clasifGastroId,
-            @RequestParam(required = false) Integer proveedorId,
-            @RequestParam(required = false) Integer materialId,
+            @RequestParam(required = false) List<Integer> marcaIds,
+            @RequestParam(required = false) List<Integer> origenIds,
+            @RequestParam(required = false) List<Integer> tipoIds,
+            @RequestParam(required = false) List<Integer> clasifGralIds,
+            @RequestParam(required = false) List<Integer> clasifGastroIds,
+            @RequestParam(required = false) List<Integer> proveedorIds,
+            @RequestParam(required = false) List<Integer> materialIds,
 
             // =======================
             // 4) RANGOS (costo / IVA / stock)
@@ -141,14 +141,14 @@ public class ProductoController {
                 comisionPorcentajeMax,
                 tieneComision,
                 tienePrecioEnvio,
-                // Many-to-One
-                marcaId,
-                origenId,
-                tipoId,
-                clasifGralId,
-                clasifGastroId,
-                proveedorId,
-                materialId,
+                // Many-to-One (multi-valor)
+                marcaIds,
+                origenIds,
+                tipoIds,
+                clasifGralIds,
+                clasifGastroIds,
+                proveedorIds,
+                materialIds,
                 costoMin,
                 costoMax,
                 ivaMin,

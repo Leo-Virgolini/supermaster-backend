@@ -95,54 +95,54 @@ public class ProductoSpecifications {
     }
 
     /* ===========================
-       3) FILTROS MANY-TO-ONE
+       3) FILTROS MANY-TO-ONE (multi-valor)
        =========================== */
-    public static Specification<Producto> marcaId(Integer marcaId) {
+    public static Specification<Producto> marcaIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (marcaId == null) return null;
-            return cb.equal(root.get("marca").get("id"), marcaId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("marca").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> origenId(Integer origenId) {
+    public static Specification<Producto> origenIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (origenId == null) return null;
-            return cb.equal(root.get("origen").get("id"), origenId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("origen").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> tipoId(Integer tipoId) {
+    public static Specification<Producto> tipoIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (tipoId == null) return null;
-            return cb.equal(root.get("tipo").get("id"), tipoId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("tipo").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> clasifGralId(Integer clasifGralId) {
+    public static Specification<Producto> clasifGralIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (clasifGralId == null) return null;
-            return cb.equal(root.get("clasifGral").get("id"), clasifGralId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("clasifGral").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> clasifGastroId(Integer clasifGastroId) {
+    public static Specification<Producto> clasifGastroIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (clasifGastroId == null) return null;
-            return cb.equal(root.get("clasifGastro").get("id"), clasifGastroId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("clasifGastro").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> proveedorId(Integer proveedorId) {
+    public static Specification<Producto> proveedorIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (proveedorId == null) return null;
-            return cb.equal(root.get("proveedor").get("id"), proveedorId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("proveedor").get("id").in(ids);
         };
     }
 
-    public static Specification<Producto> materialId(Integer materialId) {
+    public static Specification<Producto> materialIds(List<Integer> ids) {
         return (root, query, cb) -> {
-            if (materialId == null) return null;
-            return cb.equal(root.get("material").get("id"), materialId);
+            if (ids == null || ids.isEmpty()) return null;
+            return root.get("material").get("id").in(ids);
         };
     }
 

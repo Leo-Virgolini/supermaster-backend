@@ -35,14 +35,14 @@ public record ProductoFilter(
         Boolean tieneComision,          // tiene comisionPorcentaje != null
         Boolean tienePrecioEnvio,       // tiene precioEnvio != null
 
-        // 3) MANY-TO-ONE
-        Integer marcaId,
-        Integer origenId,
-        Integer tipoId,
-        Integer clasifGralId,
-        Integer clasifGastroId,
-        Integer proveedorId,
-        Integer materialId,
+        // 3) MANY-TO-ONE (multi-valor)
+        List<Integer> marcaIds,
+        List<Integer> origenIds,
+        List<Integer> tipoIds,
+        List<Integer> clasifGralIds,
+        List<Integer> clasifGastroIds,
+        List<Integer> proveedorIds,
+        List<Integer> materialIds,
 
         // 4) RANGOS (costo / IVA / stock)
         BigDecimal costoMin,

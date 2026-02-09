@@ -703,14 +703,14 @@ interface ProductoFilter {
   tieneComision?: boolean;          // true = tiene comisionPorcentaje != null
   tienePrecioEnvio?: boolean;       // true = tiene precioEnvio != null
 
-  // Many-to-One (IDs)
-  marcaId?: number;
-  origenId?: number;
-  tipoId?: number;
-  clasifGralId?: number;
-  clasifGastroId?: number;
-  proveedorId?: number;
-  materialId?: number;
+  // Many-to-One (multi-valor)
+  marcaIds?: number[];
+  origenIds?: number[];
+  tipoIds?: number[];
+  clasifGralIds?: number[];
+  clasifGastroIds?: number[];
+  proveedorIds?: number[];
+  materialIds?: number[];
 
   // Rangos
   costoMin?: number;
@@ -1509,7 +1509,7 @@ DELETE /api/productos/{id}
 
 #### Filtrar productos (con parámetros)
 ```http
-GET /api/productos?search=texto&marcaId=1&activo=true
+GET /api/productos?search=texto&marcaIds=1&activo=true
 GET /api/productos?sku=ABC123&sort=descripcion,asc
 GET /api/productos?tieneMla=true&comisionPorcentajeMin=5
 ```
@@ -1633,7 +1633,7 @@ GET /api/precios
 
 **Ejemplo con filtros:**
 ```
-GET /api/precios?search=bol&marcaId=5&costoMin=100&costoMax=500&canalIds=1,2&page=0&size=20
+GET /api/precios?search=bol&marcaIds=5&costoMin=100&costoMax=500&canalIds=1,2&page=0&size=20
 GET /api/precios?canalId=1&cuotas=0&sort=pvp,desc
 GET /api/precios?sku=ABC123&sort=ganancia,desc
 ```
@@ -2949,7 +2949,7 @@ DELETE /api/config-automatizacion/{id}
 ```typescript
 const params = new URLSearchParams({
   search: 'bolsa',
-  marcaId: '5',
+  marcaIds: '5',
   costoMin: '100',
   page: '0',
   size: '20',

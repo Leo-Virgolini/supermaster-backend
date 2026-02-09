@@ -182,15 +182,15 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
 
                 // =======================
-                // 3) MANY-TO-ONE
+                // 3) MANY-TO-ONE (multi-valor)
                 // =======================
-                ProductoSpecifications.marcaId(filter.marcaId()),
-                ProductoSpecifications.origenId(filter.origenId()),
-                ProductoSpecifications.tipoId(filter.tipoId()),
-                ProductoSpecifications.clasifGralId(filter.clasifGralId()),
-                ProductoSpecifications.clasifGastroId(filter.clasifGastroId()),
-                ProductoSpecifications.proveedorId(filter.proveedorId()),
-                ProductoSpecifications.materialId(filter.materialId()),
+                ProductoSpecifications.marcaIds(filter.marcaIds()),
+                ProductoSpecifications.origenIds(filter.origenIds()),
+                ProductoSpecifications.tipoIds(filter.tipoIds()),
+                ProductoSpecifications.clasifGralIds(filter.clasifGralIds()),
+                ProductoSpecifications.clasifGastroIds(filter.clasifGastroIds()),
+                ProductoSpecifications.proveedorIds(filter.proveedorIds()),
+                ProductoSpecifications.materialIds(filter.materialIds()),
 
                 // =======================
                 // 4) RANGOS (costo / iva / stock)
@@ -266,14 +266,14 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
                 ProductoSpecifications.tieneComision(filter.tieneComision()),
                 ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
-                // Many-to-One
-                ProductoSpecifications.marcaId(filter.marcaId()),
-                ProductoSpecifications.origenId(filter.origenId()),
-                ProductoSpecifications.tipoId(filter.tipoId()),
-                ProductoSpecifications.clasifGralId(filter.clasifGralId()),
-                ProductoSpecifications.clasifGastroId(filter.clasifGastroId()),
-                ProductoSpecifications.proveedorId(filter.proveedorId()),
-                ProductoSpecifications.materialId(filter.materialId()),
+                // Many-to-One (multi-valor)
+                ProductoSpecifications.marcaIds(filter.marcaIds()),
+                ProductoSpecifications.origenIds(filter.origenIds()),
+                ProductoSpecifications.tipoIds(filter.tipoIds()),
+                ProductoSpecifications.clasifGralIds(filter.clasifGralIds()),
+                ProductoSpecifications.clasifGastroIds(filter.clasifGastroIds()),
+                ProductoSpecifications.proveedorIds(filter.proveedorIds()),
+                ProductoSpecifications.materialIds(filter.materialIds()),
                 // Rangos
                 ProductoSpecifications.costoMin(filter.costoMin()),
                 ProductoSpecifications.costoMax(filter.costoMax()),
@@ -563,14 +563,14 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
                 ProductoSpecifications.tieneComision(filter.tieneComision()),
                 ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
-                // Many-to-One
-                ProductoSpecifications.marcaId(filter.marcaId()),
-                ProductoSpecifications.origenId(filter.origenId()),
-                ProductoSpecifications.tipoId(filter.tipoId()),
-                ProductoSpecifications.clasifGralId(filter.clasifGralId()),
-                ProductoSpecifications.clasifGastroId(filter.clasifGastroId()),
-                ProductoSpecifications.proveedorId(filter.proveedorId()),
-                ProductoSpecifications.materialId(filter.materialId()),
+                // Many-to-One (multi-valor)
+                ProductoSpecifications.marcaIds(filter.marcaIds()),
+                ProductoSpecifications.origenIds(filter.origenIds()),
+                ProductoSpecifications.tipoIds(filter.tipoIds()),
+                ProductoSpecifications.clasifGralIds(filter.clasifGralIds()),
+                ProductoSpecifications.clasifGastroIds(filter.clasifGastroIds()),
+                ProductoSpecifications.proveedorIds(filter.proveedorIds()),
+                ProductoSpecifications.materialIds(filter.materialIds()),
                 ProductoSpecifications.costoMin(filter.costoMin()),
                 ProductoSpecifications.costoMax(filter.costoMax()),
                 ProductoSpecifications.ivaMin(filter.ivaMin()),
