@@ -191,6 +191,7 @@ public interface ProductoMapper {
                 producto.getImagenUrl(),
                 producto.getStock(),
                 producto.getActivo(),
+                producto.getTagReposicion(),
 
                 // Relaciones (nombres)
                 producto.getMarca() != null ? producto.getMarca().getNombre() : null,
@@ -203,6 +204,7 @@ public interface ProductoMapper {
 
                 // Dimensiones y atributos
                 producto.getUxb(),
+                producto.getMoq(),
                 producto.getCapacidad(),
                 producto.getLargo(),
                 producto.getAncho(),

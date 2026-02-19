@@ -24,7 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DuxRetryHandler {
 
     private static final int MAX_RETRIES = 3;
-    private static final int MAX_RETRIES_RATE_LIMIT = 5;
+    private static final int MAX_RETRIES_RATE_LIMIT = 10;
     private static final long MAX_WAIT_MS = 300000; // 5 minutos
     private static final long CONFLICT_BASE_WAIT_MS = 2000;
 
@@ -80,7 +80,7 @@ public class DuxRetryHandler {
                         throw e;
                     }
                     rateLimitRetries++;
-                    long waitMs = Math.min(parseRetryAfter(e.getResponseHeaders(), baseWaitMs * 2), MAX_WAIT_MS);
+                    long waitMs = calcularEspera429(e.getResponseHeaders(), rateLimitRetries);
                     log.warn("DUX - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
                     sleep(waitMs);
@@ -147,7 +147,7 @@ public class DuxRetryHandler {
                 if (status == 429) {
                     if (rateLimitRetries >= MAX_RETRIES_RATE_LIMIT) throw e;
                     rateLimitRetries++;
-                    long waitMs = Math.min(parseRetryAfter(e.getResponseHeaders(), baseWaitMs * 2), MAX_WAIT_MS);
+                    long waitMs = calcularEspera429(e.getResponseHeaders(), rateLimitRetries);
                     log.warn("DUX - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
                     sleep(waitMs);
@@ -184,16 +184,27 @@ public class DuxRetryHandler {
         }
     }
 
-    private long parseRetryAfter(HttpHeaders headers, long defaultMs) {
-        if (headers == null) return defaultMs;
+    /**
+     * Calcula espera progresiva para 429: 10s, 15s, 20s, 25s, 30s...
+     * Si DUX envía header Retry-After, lo respeta.
+     */
+    private long calcularEspera429(HttpHeaders headers, int intento) {
+        long headerMs = parseRetryAfter(headers);
+        if (headerMs > 0) return headerMs;
+        // Backoff progresivo: 10s + 5s por cada intento adicional
+        return Math.min(baseWaitMs * 2 + (intento - 1) * 5000L, MAX_WAIT_MS);
+    }
+
+    private long parseRetryAfter(HttpHeaders headers) {
+        if (headers == null) return 0;
 
         String retryAfter = headers.getFirst("Retry-After");
-        if (retryAfter == null) return defaultMs;
+        if (retryAfter == null) return 0;
 
         try {
             return Long.parseLong(retryAfter) * 1000;
         } catch (NumberFormatException e) {
-            return defaultMs;
+            return 0;
         }
     }
 

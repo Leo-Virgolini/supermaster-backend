@@ -7,6 +7,7 @@ import ar.com.leo.super_master_backend.excel.dto.ImportCompletoResultDTO;
 import ar.com.leo.super_master_backend.excel.dto.ImportCostosResultDTO;
 import ar.com.leo.super_master_backend.excel.service.ExcelService;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -142,6 +143,7 @@ public class ExcelController {
             @RequestParam(required = false) Boolean esMaquina,
             @RequestParam(required = false) Boolean tieneMla,
             @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) TagReposicion tagReposicion,
 
             // 2.1) FILTROS MLA
             @RequestParam(required = false) String mla,
@@ -238,6 +240,7 @@ public class ExcelController {
                     esMaquina,
                     tieneMla,
                     activo,
+                    tagReposicion,
                     // Filtros MLA
                     mla,
                     mlau,

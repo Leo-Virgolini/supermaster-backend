@@ -23,7 +23,7 @@ public record DuxProperties(
             readTimeout = Duration.ofSeconds(30);
         }
         if (rateLimitPerSecond <= 0) {
-            rateLimitPerSecond = 1.0 / 7.0; // 1 request cada 7 segundos (límite DUX)
+            rateLimitPerSecond = 1.0 / 7.0; // 1 request cada 7 segundos
         }
         if (itemsPerPage <= 0) {
             itemsPerPage = 50; // Máximo permitido por DUX

@@ -28,8 +28,10 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -221,10 +223,29 @@ public class DuxService {
      * Solo permite obtener de maximo 50 productos por request cada 5 segundos.
      */
     public List<Item> obtenerProductos() {
-        return obtenerProductos(null);
+        return obtenerProductos(null, null);
     }
 
-    private List<Item> obtenerProductos(AtomicBoolean cancelFlag) {
+    /**
+     * Obtiene productos de DUX, opcionalmente filtrados por fecha.
+     *
+     * @param cancelFlag Flag para cancelar la operación
+     * @param desde      Fecha desde la cual filtrar movimientos de stock o cambios de precio.
+     *                   Si es null, trae todos los productos.
+     */
+    public List<Item> obtenerProductos(AtomicBoolean cancelFlag, LocalDateTime desde) {
+        return obtenerProductos(cancelFlag, desde, null);
+    }
+
+    /**
+     * Obtiene productos de DUX con callback de progreso por página.
+     *
+     * @param cancelFlag Flag para cancelar la operación
+     * @param desde      Fecha desde la cual filtrar (null = todos)
+     * @param onProgress Callback (páginaActual, totalPáginas). totalPáginas=0 si desconocido.
+     */
+    public List<Item> obtenerProductos(AtomicBoolean cancelFlag, LocalDateTime desde,
+                                        BiConsumer<Integer, Integer> onProgress) {
         verificarTokens();
 
         List<Item> allItems = new ArrayList<>();
@@ -233,13 +254,21 @@ public class DuxService {
         int limit = properties.itemsPerPage();
         int intentosVacios = 0;
 
+        // Construir query base con filtro de fecha opcional
+        String fechaParam = "";
+        if (desde != null) {
+            DateTimeFormatter duxFmt = DateTimeFormatter.ofPattern("ddMMyyyy HH:mm");
+            fechaParam = "&fecha=" + desde.format(duxFmt);
+            log.info("DUX - Filtrando items modificados desde {}", desde);
+        }
+
         while (offset < total) {
             if (cancelFlag != null && cancelFlag.get()) {
                 log.info("DUX - Obtención de productos cancelada. Obtenidos: {}", allItems.size());
                 break;
             }
             String response = retryHandler.get(
-                    "/items?offset=" + offset + "&limit=" + limit,
+                    "/items?offset=" + offset + "&limit=" + limit + fechaParam,
                     tokens.token
             );
 
@@ -290,6 +319,12 @@ public class DuxService {
             allItems.addAll(duxResponse.getResults());
 
             log.info("DUX - Obtenidos: {}/{} (offset: {})", allItems.size(), total, offset);
+
+            if (onProgress != null) {
+                int currentPage = offset / limit + 1;
+                int totalPages = (total != Integer.MAX_VALUE) ? (int) Math.ceil((double) total / limit) : 0;
+                onProgress.accept(currentPage, totalPages);
+            }
 
             offset += limit;
 
@@ -359,7 +394,7 @@ public class DuxService {
                     true, 0, 0, 0, 0, "ejecutando", iniciadoEn, null,
                     "Obteniendo productos de DUX...");
 
-            List<Item> items = obtenerProductos(cancelarObtencion);
+            List<Item> items = obtenerProductos(cancelarObtencion, null);
 
             String estado = cancelarObtencion.get() ? "cancelado" : "completado";
             resultadoObtencion = items;
@@ -434,7 +469,7 @@ public class DuxService {
                     true, 0, 0, 0, 0, "ejecutando", iniciadoEn, null,
                     "Obteniendo productos de DUX...");
 
-            List<Item> itemsDux = obtenerProductos(cancelarImportacion);
+            List<Item> itemsDux = obtenerProductos(cancelarImportacion, null);
             int totalDux = itemsDux.size();
             log.info("DUX - {} productos obtenidos para importar", totalDux);
 
@@ -636,6 +671,254 @@ public class DuxService {
     }
 
     // =====================================================
+    // REPOSICIÓN: Facturas, Pedidos pendientes, Stock
+    // =====================================================
+
+    /**
+     * Obtiene facturas de DUX en un rango de fechas con paginación automática.
+     *
+     * @param desde      Fecha inicio (yyyy-MM-dd)
+     * @param hasta      Fecha fin (yyyy-MM-dd)
+     * @param idEmpresa  ID de empresa DUX
+     * @param idSucursal ID de sucursal DUX
+     * @param cancelFlag Flag para cancelar la operación
+     * @return Lista de facturas con sus detalles
+     */
+    public List<ar.com.leo.super_master_backend.apis.dux.model.FacturaDux> obtenerFacturas(
+            String desde, String hasta, int idEmpresa, int idSucursal, AtomicBoolean cancelFlag,
+            BiConsumer<Integer, Integer> onProgress) {
+        verificarTokens();
+
+        List<ar.com.leo.super_master_backend.apis.dux.model.FacturaDux> allFacturas = new ArrayList<>();
+        int offset = 0;
+        int limit = properties.itemsPerPage();
+        int intentosVacios = 0;
+
+        while (true) {
+            if (cancelFlag != null && cancelFlag.get()) {
+                log.info("DUX - Obtención de facturas cancelada. Obtenidas: {}", allFacturas.size());
+                break;
+            }
+
+            String uri = String.format("/facturas?fechaDesde=%s&fechaHasta=%s&idEmpresa=%d&idSucursal=%d&limit=%d&offset=%d",
+                    desde, hasta, idEmpresa, idSucursal, limit, offset);
+
+            String response = retryHandler.get(uri, tokens.token);
+            if (response == null) {
+                log.error("DUX - Error obteniendo facturas en offset {}", offset);
+                break;
+            }
+
+            try {
+                tools.jackson.databind.JsonNode root = objectMapper.readTree(response);
+                tools.jackson.databind.JsonNode results = root.isArray() ? root : root.get("results");
+
+                if (results == null || !results.isArray() || results.isEmpty()) {
+                    intentosVacios++;
+                    if (intentosVacios >= MAX_INTENTOS_VACIOS) break;
+                    offset += limit;
+                    continue;
+                }
+
+                intentosVacios = 0;
+                int count = 0;
+                for (tools.jackson.databind.JsonNode node : results) {
+                    ar.com.leo.super_master_backend.apis.dux.model.FacturaDux factura =
+                            objectMapper.treeToValue(node, ar.com.leo.super_master_backend.apis.dux.model.FacturaDux.class);
+                    allFacturas.add(factura);
+                    count++;
+                }
+
+                if (onProgress != null) {
+                    onProgress.accept(offset / limit + 1, 0);
+                }
+
+                if (count < limit) break; // Última página
+                offset += limit;
+
+            } catch (Exception e) {
+                log.error("DUX - Error parseando facturas: {}", e.getMessage());
+                break;
+            }
+        }
+
+        log.info("DUX - {} facturas obtenidas ({} a {})", allFacturas.size(), desde, hasta);
+        return allFacturas;
+    }
+
+    /**
+     * Obtiene pedidos pendientes de DUX (estadoRemito=PENDIENTE) con paginación automática.
+     *
+     * @param desde      Fecha inicio (yyyy-MM-dd)
+     * @param hasta      Fecha fin (yyyy-MM-dd)
+     * @param idEmpresa  ID de empresa DUX
+     * @param idSucursal ID de sucursal DUX
+     * @param cancelFlag Flag para cancelar la operación
+     * @return Lista de pedidos pendientes con sus detalles
+     */
+    public List<ar.com.leo.super_master_backend.apis.dux.model.PedidoDux> obtenerPedidosPendientes(
+            String desde, String hasta, int idEmpresa, int idSucursal, AtomicBoolean cancelFlag,
+            BiConsumer<Integer, Integer> onProgress) {
+        verificarTokens();
+
+        List<ar.com.leo.super_master_backend.apis.dux.model.PedidoDux> allPedidos = new ArrayList<>();
+        int offset = 0;
+        int limit = properties.itemsPerPage();
+        int intentosVacios = 0;
+
+        while (true) {
+            if (cancelFlag != null && cancelFlag.get()) {
+                log.info("DUX - Obtención de pedidos cancelada. Obtenidos: {}", allPedidos.size());
+                break;
+            }
+
+            String uri = String.format("/pedidos?fechaDesde=%s&fechaHasta=%s&idEmpresa=%d&idSucursal=%d&estadoRemito=PENDIENTE&limit=%d&offset=%d",
+                    desde, hasta, idEmpresa, idSucursal, limit, offset);
+
+            String response = retryHandler.get(uri, tokens.token);
+            if (response == null) {
+                log.error("DUX - Error obteniendo pedidos en offset {}", offset);
+                break;
+            }
+
+            try {
+                tools.jackson.databind.JsonNode root = objectMapper.readTree(response);
+                tools.jackson.databind.JsonNode results = root.isArray() ? root : root.get("results");
+
+                if (results == null || !results.isArray() || results.isEmpty()) {
+                    intentosVacios++;
+                    if (intentosVacios >= MAX_INTENTOS_VACIOS) break;
+                    offset += limit;
+                    continue;
+                }
+
+                intentosVacios = 0;
+                int count = 0;
+                for (tools.jackson.databind.JsonNode node : results) {
+                    ar.com.leo.super_master_backend.apis.dux.model.PedidoDux pedido =
+                            objectMapper.treeToValue(node, ar.com.leo.super_master_backend.apis.dux.model.PedidoDux.class);
+                    allPedidos.add(pedido);
+                    count++;
+                }
+
+                if (onProgress != null) {
+                    onProgress.accept(offset / limit + 1, 0);
+                }
+
+                if (count < limit) break;
+                offset += limit;
+
+            } catch (Exception e) {
+                log.error("DUX - Error parseando pedidos: {}", e.getMessage());
+                break;
+            }
+        }
+
+        log.info("DUX - {} pedidos pendientes obtenidos ({} a {})", allPedidos.size(), desde, hasta);
+        return allPedidos;
+    }
+
+    /**
+     * Obtiene el stock total por SKU sumando stock_disponible de todos los depósitos.
+     * Reutiliza obtenerProductos() que ya trae stock por depósito.
+     *
+     * @param cancelFlag Flag para cancelar la operación
+     * @return Mapa de SKU → stock total disponible
+     */
+    public Map<String, Integer> obtenerStockMap(AtomicBoolean cancelFlag) {
+        return obtenerStockMap(cancelFlag, null, null);
+    }
+
+    public Map<String, Integer> obtenerStockMap(AtomicBoolean cancelFlag, LocalDateTime desde) {
+        return obtenerStockMap(cancelFlag, desde, null);
+    }
+
+    /**
+     * Obtiene stock por SKU, opcionalmente filtrado por fecha de movimiento.
+     *
+     * @param cancelFlag Flag para cancelar
+     * @param desde      Solo traer items con movimientos desde esta fecha (null = todos)
+     * @param onProgress Callback de progreso por página (páginaActual, totalPáginas)
+     */
+    public Map<String, Integer> obtenerStockMap(AtomicBoolean cancelFlag, LocalDateTime desde,
+                                                 BiConsumer<Integer, Integer> onProgress) {
+        List<Item> items = obtenerProductos(cancelFlag, desde, onProgress);
+        Map<String, Integer> stockMap = new HashMap<>();
+
+        for (Item item : items) {
+            if (item.getCodItem() == null || item.getCodItem().isBlank()) continue;
+
+            int stockTotal = 0;
+            if (item.getStock() != null) {
+                for (ar.com.leo.super_master_backend.apis.dux.model.Stock stock : item.getStock()) {
+                    if (stock.getStockDisponible() != null && !stock.getStockDisponible().isBlank()) {
+                        try {
+                            stockTotal += Integer.parseInt(stock.getStockDisponible().replace(",", ".").split("\\.")[0]);
+                        } catch (NumberFormatException e) {
+                            // Ignorar valores no numéricos
+                        }
+                    }
+                }
+            }
+            stockMap.put(item.getCodItem().trim(), stockTotal);
+        }
+
+        log.info("DUX - Stock obtenido para {} SKUs", stockMap.size());
+        return stockMap;
+    }
+
+    /**
+     * Obtiene stock y costo por SKU desde DUX.
+     * Reutiliza obtenerProductos() y extrae ambos campos de cada item.
+     *
+     * @param cancelFlag Flag para cancelar
+     * @param desde      Solo traer items modificados desde esta fecha (null = todos)
+     * @param onProgress Callback de progreso por página
+     */
+    public Map<String, DuxItemData> obtenerItemDataMap(AtomicBoolean cancelFlag, LocalDateTime desde,
+                                                        BiConsumer<Integer, Integer> onProgress) {
+        List<Item> items = obtenerProductos(cancelFlag, desde, onProgress);
+        Map<String, DuxItemData> dataMap = new HashMap<>();
+
+        for (Item item : items) {
+            if (item.getCodItem() == null || item.getCodItem().isBlank()) continue;
+
+            int stockTotal = 0;
+            if (item.getStock() != null) {
+                for (ar.com.leo.super_master_backend.apis.dux.model.Stock stock : item.getStock()) {
+                    if (stock.getStockDisponible() != null && !stock.getStockDisponible().isBlank()) {
+                        try {
+                            stockTotal += Integer.parseInt(stock.getStockDisponible().replace(",", ".").split("\\.")[0]);
+                        } catch (NumberFormatException e) {
+                            // Ignorar valores no numéricos
+                        }
+                    }
+                }
+            }
+
+            BigDecimal costo = null;
+            if (item.getCosto() != null && !item.getCosto().isBlank()) {
+                try {
+                    costo = new BigDecimal(item.getCosto().replace(",", "."))
+                            .setScale(2, RoundingMode.HALF_UP);
+                    if (costo.compareTo(BigDecimal.ZERO) < 0 || costo.compareTo(COSTO_MAXIMO) > 0) {
+                        costo = null;
+                    }
+                } catch (NumberFormatException e) {
+                    // Ignorar costos no numéricos
+                }
+            }
+
+            dataMap.put(item.getCodItem().trim(), new DuxItemData(stockTotal, costo));
+        }
+
+        log.info("DUX - Datos obtenidos para {} SKUs", dataMap.size());
+        return dataMap;
+    }
+
+    public record DuxItemData(int stock, BigDecimal costo) {}
+
+    // =====================================================
     // EXPORT: Local → DUX
     // =====================================================
 
@@ -768,6 +1051,30 @@ public class DuxService {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
         return a.compareTo(b) == 0;
+    }
+
+    // =====================================================
+    // EMPRESAS Y SUCURSALES (utilidad para config)
+    // =====================================================
+
+    /**
+     * Obtiene las empresas disponibles en DUX.
+     * Útil para conocer el idEmpresa a configurar en reposicion_config.
+     */
+    public JsonNode obtenerEmpresas() {
+        verificarTokens();
+        String response = retryHandler.get("/empresas", tokens.token);
+        return objectMapper.readTree(response);
+    }
+
+    /**
+     * Obtiene las sucursales de una empresa en DUX.
+     * Útil para conocer el idSucursal a configurar en reposicion_config.
+     */
+    public JsonNode obtenerSucursales(int idEmpresa) {
+        verificarTokens();
+        String response = retryHandler.get("/sucursales?idEmpresa=" + idEmpresa, tokens.token);
+        return objectMapper.readTree(response);
     }
 
     // =====================================================

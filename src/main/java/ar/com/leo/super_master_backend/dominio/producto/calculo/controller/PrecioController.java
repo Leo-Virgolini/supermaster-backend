@@ -7,6 +7,7 @@ import ar.com.leo.super_master_backend.dominio.producto.dto.CanalPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoConPreciosDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -58,6 +59,7 @@ public class PrecioController {
             @RequestParam(required = false) Boolean esMaquina,
             @RequestParam(required = false) Boolean tieneMla,
             @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) TagReposicion tagReposicion,
 
             // =======================
             // 2.1) FILTROS MLA
@@ -147,6 +149,7 @@ public class PrecioController {
                 esMaquina,
                 tieneMla,
                 activo,
+                tagReposicion,
                 // Filtros MLA
                 mla,
                 mlau,

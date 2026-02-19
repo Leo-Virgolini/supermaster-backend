@@ -211,6 +211,20 @@ public class DuxController {
     }
 
     // =====================================================
+    // EMPRESAS Y SUCURSALES
+    // =====================================================
+
+    @GetMapping("/empresas")
+    public ResponseEntity<JsonNode> obtenerEmpresas() {
+        return ResponseEntity.ok(duxService.obtenerEmpresas());
+    }
+
+    @GetMapping("/empresas/{idEmpresa}/sucursales")
+    public ResponseEntity<JsonNode> obtenerSucursales(@PathVariable int idEmpresa) {
+        return ResponseEntity.ok(duxService.obtenerSucursales(idEmpresa));
+    }
+
+    // =====================================================
     // EXPORTACIÓN
     // =====================================================
 

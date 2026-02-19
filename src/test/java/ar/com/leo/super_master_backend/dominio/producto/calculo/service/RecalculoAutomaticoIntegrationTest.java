@@ -360,11 +360,11 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar costo del producto usando el servicio
         productoService.actualizar(producto.getId(),
                 new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, null, null,
                         null, null, null, null, null, null, null,
                         null, null, null, null, null, null, null,
                         new BigDecimal("1500"), // nuevo costo
-                        null
+                        null, null
                 ));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
@@ -402,11 +402,12 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar IVA del producto
         productoService.actualizar(producto.getId(),
                 new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, null, null,
                         null, null, null, null, null, null, null,
                         null, null, null, null, null, null, null,
                         null,
-                        new BigDecimal("10.5") // nuevo IVA
+                        new BigDecimal("10.5"), // nuevo IVA
+                        null
                 ));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
@@ -710,7 +711,8 @@ class RecalculoAutomaticoIntegrationTest {
         proveedorService.actualizar(proveedor.getId(),
                 new ProveedorUpdateDTO(
                         null, null, null, null,
-                        new BigDecimal("15") // aumentar financiación
+                        new BigDecimal("15"), // aumentar financiación
+                        null
                 ));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
@@ -1168,10 +1170,10 @@ class RecalculoAutomaticoIntegrationTest {
         // Cambiar a proveedor 2
         productoService.actualizar(producto.getId(),
                 new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null, null, null, null, null,
                         null, null, null, null, null, proveedor2.getId(), null,
                         null, null, null, null, null, null, null,
-                        null, null
+                        null, null, null
                 ));
 
         BigDecimal pvpConProveedor2 = obtenerPvpActual();

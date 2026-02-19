@@ -1,5 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.dto;
 
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,7 @@ public record ProductoConPreciosDTO(
         String imagenUrl,
         Integer stock,
         Boolean activo,
+        TagReposicion tagReposicion,
 
         // Relaciones (nombres)
         String marcaNombre,
@@ -36,6 +39,7 @@ public record ProductoConPreciosDTO(
 
         // Dimensiones y atributos
         Integer uxb,
+        Integer moq,
         String capacidad,
         BigDecimal largo,
         BigDecimal ancho,

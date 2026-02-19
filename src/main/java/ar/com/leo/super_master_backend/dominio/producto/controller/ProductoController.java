@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoFilter;
 import ar.com.leo.super_master_backend.dominio.producto.dto.ProductoUpdateDTO;
 import ar.com.leo.super_master_backend.dominio.producto.service.ProductoService;
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,7 @@ public class ProductoController {
             @RequestParam(required = false) Boolean esMaquina,
             @RequestParam(required = false) Boolean tieneMla,
             @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) TagReposicion tagReposicion,
 
             // =======================
             // 2.1) FILTROS MLA
@@ -132,6 +134,7 @@ public class ProductoController {
                 esMaquina,
                 tieneMla,
                 activo,
+                tagReposicion,
                 // Filtros MLA
                 mla,
                 mlau,

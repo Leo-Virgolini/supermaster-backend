@@ -3,9 +3,13 @@ package ar.com.leo.super_master_backend.dominio.producto.repository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,5 +45,17 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer>, Jp
     List<Producto> findByMlaId(Integer mlaId);
 
     List<Producto> findByMaterialId(Integer materialId);
+
+    @Query("SELECT p FROM Producto p JOIN FETCH p.proveedor WHERE p.activo = true AND p.proveedor IS NOT NULL")
+    List<Producto> findActivosConProveedor();
+
+    @Modifying
+    @Query("UPDATE Producto p SET p.stock = :stock WHERE p.sku = :sku")
+    int updateStockBySku(@Param("sku") String sku, @Param("stock") Integer stock);
+
+    @Modifying
+    @Query("UPDATE Producto p SET p.stock = :stock, p.costo = :costo, p.fechaUltimoCosto = :fechaUltimoCosto WHERE p.sku = :sku")
+    int updateStockAndCostoBySku(@Param("sku") String sku, @Param("stock") Integer stock,
+                                  @Param("costo") BigDecimal costo, @Param("fechaUltimoCosto") LocalDateTime fechaUltimoCosto);
 
 }

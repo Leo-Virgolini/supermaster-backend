@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -74,6 +75,16 @@ public class ProductoSpecifications {
         return (root, query, cb) -> {
             if (tituloWeb == null || tituloWeb.isBlank()) return null;
             return cb.like(cb.lower(root.get("tituloWeb")), "%" + tituloWeb.toLowerCase() + "%");
+        };
+    }
+
+    /* ================================
+       1.2) FILTRO POR TAG REPOSICIÓN
+       ================================ */
+    public static Specification<Producto> tagReposicion(TagReposicion tag) {
+        return (root, query, cb) -> {
+            if (tag == null) return null;
+            return cb.equal(root.get("tagReposicion"), tag);
         };
     }
 

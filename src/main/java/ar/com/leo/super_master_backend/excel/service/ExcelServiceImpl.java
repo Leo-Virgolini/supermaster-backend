@@ -12,7 +12,7 @@ import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.repository.ClasifGastroRepository;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.repository.ClasifGralRepository;
-import ar.com.leo.super_master_backend.dominio.excel.dto.*;
+import ar.com.leo.super_master_backend.excel.dto.*;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
 import ar.com.leo.super_master_backend.dominio.marca.repository.MarcaRepository;
 import ar.com.leo.super_master_backend.dominio.material.entity.Material;

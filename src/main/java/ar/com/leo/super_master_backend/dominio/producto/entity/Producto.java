@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.entity;
 
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 import ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro;
 import ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral;
 import ar.com.leo.super_master_backend.dominio.marca.entity.Marca;
@@ -64,6 +65,10 @@ public class Producto {
     @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tag_reposicion")
+    private TagReposicion tagReposicion;
+
     // ---------------------------
     // RELACIONES MANY TO ONE
     // ---------------------------
@@ -105,6 +110,9 @@ public class Producto {
 
     @Column(name = "uxb")
     private Integer uxb;
+
+    @Column(name = "moq")
+    private Integer moq;
 
     @Size(max = 45)
     @Column(name = "capacidad", length = 45)

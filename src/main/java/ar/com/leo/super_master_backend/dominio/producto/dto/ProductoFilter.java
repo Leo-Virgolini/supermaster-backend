@@ -1,5 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.dto;
 
+import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,6 +26,7 @@ public record ProductoFilter(
         Boolean esMaquina,
         Boolean tieneMla,
         Boolean activo,
+        TagReposicion tagReposicion,
 
         // 2.1) FILTROS MLA
         String mla,                     // código MLA exacto (case insensitive)

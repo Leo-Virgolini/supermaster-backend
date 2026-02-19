@@ -168,6 +168,7 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+                ProductoSpecifications.tagReposicion(filter.tagReposicion()),
 
                 // =======================
                 // 2.1) FILTROS MLA
@@ -257,6 +258,7 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+                ProductoSpecifications.tagReposicion(filter.tagReposicion()),
                 // Filtros MLA
                 ProductoSpecifications.mla(filter.mla()),
                 ProductoSpecifications.mlau(filter.mlau()),
@@ -554,6 +556,7 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.esMaquina(filter.esMaquina()),
                 ProductoSpecifications.tieneMla(filter.tieneMla()),
                 ProductoSpecifications.activo(filter.activo()),
+                ProductoSpecifications.tagReposicion(filter.tagReposicion()),
                 // Filtros MLA
                 ProductoSpecifications.mla(filter.mla()),
                 ProductoSpecifications.mlau(filter.mlau()),
