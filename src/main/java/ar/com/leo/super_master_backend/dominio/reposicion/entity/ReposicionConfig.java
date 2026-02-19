@@ -46,7 +46,4 @@ public class ReposicionConfig {
 
     @Column(name = "ultimo_ventas_fetch")
     private LocalDate ultimoVentasFetch;
-
-    @Column(name = "sucursales_hash", length = 64)
-    private String sucursalesHash;
 }

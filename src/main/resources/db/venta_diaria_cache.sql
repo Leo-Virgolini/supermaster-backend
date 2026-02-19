@@ -8,4 +8,3 @@ CREATE TABLE venta_diaria_cache (
 );
 
 ALTER TABLE reposicion_config ADD COLUMN ultimo_ventas_fetch DATE DEFAULT NULL;
-ALTER TABLE reposicion_config ADD COLUMN sucursales_hash VARCHAR(64) DEFAULT NULL;
