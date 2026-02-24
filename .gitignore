@@ -8,6 +8,7 @@ logs/
 *.md
 !README.md
 !frontend_api.md
+!guia_frontend_vistas.md
 
 ### STS ###
 .apt_generated
