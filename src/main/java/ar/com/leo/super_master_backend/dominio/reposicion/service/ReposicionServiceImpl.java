@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.apis.dux.model.PedidoDux;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService.DuxItemData;
 import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.config.AuditEventListener;
 import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.orden_compra.dto.OrdenCompraCreateDTO;
@@ -38,8 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -77,16 +76,17 @@ public class ReposicionServiceImpl implements ReposicionService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ofPattern("MMM d, yyyy h:mm:ss a", java.util.Locale.US)
     };
 
     public ReposicionServiceImpl(ReposicionConfigRepository configRepository,
-                                  ProductoRepository productoRepository,
-                                  DuxService duxService,
-                                  OrdenCompraService ordenCompraService,
-                                  OrdenCompraRepository ordenCompraRepository,
-                                  RecalculoPrecioFacade recalculoPrecioFacade,
-                                  VentaDiariaCacheRepository ventaDiariaCacheRepository) {
+                                 ProductoRepository productoRepository,
+                                 DuxService duxService,
+                                 OrdenCompraService ordenCompraService,
+                                 OrdenCompraRepository ordenCompraRepository,
+                                 RecalculoPrecioFacade recalculoPrecioFacade,
+                                 VentaDiariaCacheRepository ventaDiariaCacheRepository) {
         this.configRepository = configRepository;
         this.productoRepository = productoRepository;
         this.duxService = duxService;
@@ -223,7 +223,10 @@ public class ReposicionServiceImpl implements ReposicionService {
                 datosDux = duxService.obtenerItemDataMap(cancelarCalculo, null, stockProgress);
                 log.info("REPOSICIÓN - Fase 1 completada: {} SKUs con datos", datosDux.size());
             }
-            if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+            if (cancelarCalculo.get()) {
+                finalizarCancelado(iniciadoEn);
+                return;
+            }
 
             // Persistir stock y costo en Producto, actualizar timestamp
             actualizarEstado(true, 0, 0, 0, 0, "ejecutando", iniciadoEn,
@@ -239,14 +242,22 @@ public class ReposicionServiceImpl implements ReposicionService {
                 log.info("REPOSICIÓN - Recalculando precios para {} productos con costo modificado...", costosCambiados.size());
                 actualizarEstado(true, costosCambiados.size(), 0, 0, 0, "ejecutando", iniciadoEn,
                         String.format("Recalculando precios (%d productos)...", costosCambiados.size()));
-                for (Integer productoId : costosCambiados) {
-                    if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
-                    try {
-                        recalculoPrecioFacade.recalcularPorCambioProducto(productoId);
-                    } catch (Exception e) {
-                        log.warn("Error recalculando precios para producto {}: {}", productoId, e.getMessage());
-                        advertencias.add("Error recalculando producto ID " + productoId + ": " + e.getMessage());
+                AuditEventListener.disable();
+                try {
+                    for (Integer productoId : costosCambiados) {
+                        if (cancelarCalculo.get()) {
+                            finalizarCancelado(iniciadoEn);
+                            return;
+                        }
+                        try {
+                            recalculoPrecioFacade.recalcularPorCambioProducto(productoId);
+                        } catch (Exception e) {
+                            log.warn("Error recalculando precios para producto {}: {}", productoId, e.getMessage());
+                            advertencias.add("Error recalculando producto ID " + productoId + ": " + e.getMessage());
+                        }
                     }
+                } finally {
+                    AuditEventListener.enable();
                 }
                 log.info("REPOSICIÓN - Recálculo completado");
             }
@@ -255,17 +266,7 @@ public class ReposicionServiceImpl implements ReposicionService {
             LocalDate hoy = LocalDate.now();
             LocalDate inicio90Dias = hoy.minusDays(90);
 
-            // Verificar si las sucursales cambiaron (invalidar cache si es así)
-            String hashActual = calcularSucursalesHash(sucursales);
             LocalDate ultimoVentasFetch = config.getUltimoVentasFetch();
-
-            if (config.getSucursalesHash() != null && !config.getSucursalesHash().equals(hashActual)) {
-                log.info("REPOSICIÓN - Fase 2: Sucursales cambiaron (hash {} -> {}), invalidando cache de ventas",
-                        config.getSucursalesHash(), hashActual);
-                self.invalidarCacheVentas();
-                ultimoVentasFetch = null;
-                advertencias.add("Cache de ventas invalidado por cambio en sucursales configuradas");
-            }
 
             // Determinar rango a fetchear
             LocalDate fetchDesde;
@@ -285,7 +286,10 @@ public class ReposicionServiceImpl implements ReposicionService {
 
                 List<FacturaDux> todasFacturas = new ArrayList<>();
                 for (int idSucursal : sucursales) {
-                    if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+                    if (cancelarCalculo.get()) {
+                        finalizarCancelado(iniciadoEn);
+                        return;
+                    }
 
                     log.info("REPOSICIÓN - Fase 2: Obteniendo facturas ({} a {}) sucursal {}...",
                             fetchDesde, hoy, idSucursal);
@@ -323,7 +327,6 @@ public class ReposicionServiceImpl implements ReposicionService {
             // Actualizar config
             configRepository.findById(1).ifPresent(c -> {
                 c.setUltimoVentasFetch(hoy);
-                c.setSucursalesHash(hashActual);
                 configRepository.save(c);
             });
 
@@ -345,13 +348,19 @@ public class ReposicionServiceImpl implements ReposicionService {
                         i + 1, periodoInicio, periodoFin, ventasMes.size());
             }
 
-            if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+            if (cancelarCalculo.get()) {
+                finalizarCancelado(iniciadoEn);
+                return;
+            }
 
             // ---- Fase 3: Pedidos pendientes (clientes) x sucursal ----
             Map<String, Integer> pendienteClientes = new HashMap<>();
             LocalDate desde = hoy.minusDays(180);
             for (int idSucursal : sucursales) {
-                if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+                if (cancelarCalculo.get()) {
+                    finalizarCancelado(iniciadoEn);
+                    return;
+                }
 
                 log.info("REPOSICIÓN - Fase 3: Obteniendo pedidos pendientes sucursal {}...", idSucursal);
                 actualizarEstado(true, 0, 0, 0, 0, "ejecutando", iniciadoEn,
@@ -371,7 +380,8 @@ public class ReposicionServiceImpl implements ReposicionService {
                             try {
                                 int ctd = Integer.parseInt(det.getCtd().replace(",", ".").split("\\.")[0]);
                                 pendienteClientes.merge(det.getCodItem().trim(), ctd, Integer::sum);
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) {
+                            }
                         }
                     }
                 }
@@ -379,7 +389,10 @@ public class ReposicionServiceImpl implements ReposicionService {
                         pedidos.size(), pendienteClientes.size() - prevSize, idSucursal);
             }
 
-            if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+            if (cancelarCalculo.get()) {
+                finalizarCancelado(iniciadoEn);
+                return;
+            }
 
             // ---- Fase 4: OC pendientes + última compra (locales) ----
             log.info("REPOSICIÓN - Fase 4: Obteniendo OC pendientes y última compra...");
@@ -407,7 +420,10 @@ public class ReposicionServiceImpl implements ReposicionService {
             int procesados = 0;
 
             for (Producto producto : productos) {
-                if (cancelarCalculo.get()) { finalizarCancelado(iniciadoEn); return; }
+                if (cancelarCalculo.get()) {
+                    finalizarCancelado(iniciadoEn);
+                    return;
+                }
 
                 String sku = producto.getSku();
                 int stock = producto.getStock() != null ? producto.getStock() : 0;
@@ -584,7 +600,9 @@ public class ReposicionServiceImpl implements ReposicionService {
                     descCell.setCellStyle(centeredStyle);
 
                     Cell uxbCell = row.createCell(3);
-                    if (s.uxb() != null) { uxbCell.setCellValue(s.uxb()); }
+                    if (s.uxb() != null) {
+                        uxbCell.setCellValue(s.uxb());
+                    }
                     uxbCell.setCellStyle(numStyle);
 
                     crearCeldaNum(row, 4, s.stockActual(), numStyle);
@@ -694,7 +712,9 @@ public class ReposicionServiceImpl implements ReposicionService {
                 descCell.setCellStyle(centeredStyle);
 
                 Cell uxbCell = row.createCell(3);
-                if (prod.getUxb() != null) { uxbCell.setCellValue(prod.getUxb()); }
+                if (prod.getUxb() != null) {
+                    uxbCell.setCellValue(prod.getUxb());
+                }
                 uxbCell.setCellStyle(numStyle);
 
                 Cell cantCell = row.createCell(4);
@@ -867,6 +887,15 @@ public class ReposicionServiceImpl implements ReposicionService {
     @Override
     @Transactional
     public List<Integer> persistirDatosDux(Map<String, DuxItemData> dataMap) {
+        AuditEventListener.disable();
+        try {
+            return ejecutarPersistirDatosDux(dataMap);
+        } finally {
+            AuditEventListener.enable();
+        }
+    }
+
+    private List<Integer> ejecutarPersistirDatosDux(Map<String, DuxItemData> dataMap) {
         // Cargar productos actuales para comparar costos
         Map<String, Producto> productosBySku = productoRepository.findAll().stream()
                 .filter(p -> p.getSku() != null)
@@ -907,21 +936,34 @@ public class ReposicionServiceImpl implements ReposicionService {
     @Override
     @Transactional
     public void persistirVentasEnCache(List<FacturaDux> facturas, LocalDate fechaDesde, LocalDate fechaHasta) {
-        // Agregar ventas por (sku, fecha)
+        AuditEventListener.disable();
+        try {
+            ejecutarPersistirVentasEnCache(facturas, fechaDesde, fechaHasta);
+        } finally {
+            AuditEventListener.enable();
+        }
+    }
+
+    private void ejecutarPersistirVentasEnCache(List<FacturaDux> facturas, LocalDate fechaDesde, LocalDate fechaHasta) {
+        // Agregar ventas por (sku, fecha) - notas de crédito restan
         Map<String, Map<LocalDate, Integer>> ventasPorSkuFecha = new HashMap<>();
         for (FacturaDux factura : facturas) {
             if (factura.getDetalles() == null || factura.getFecha() == null) continue;
             LocalDate fecha = parseFechaDux(factura.getFecha());
             if (fecha == null) continue;
 
+            boolean esNotaCredito = "NOTA_CREDITO".equals(factura.getTipoComp());
+
             for (FacturaDux.FacturaDetalleDux det : factura.getDetalles()) {
                 if (det.getCodItem() != null && det.getCtd() != null) {
                     try {
                         int ctd = Integer.parseInt(det.getCtd().replace(",", ".").split("\\.")[0]);
+                        int cantidad = esNotaCredito ? -Math.abs(ctd) : Math.abs(ctd);
                         ventasPorSkuFecha
                                 .computeIfAbsent(det.getCodItem().trim(), k -> new HashMap<>())
-                                .merge(fecha, Math.abs(ctd), Integer::sum);
-                    } catch (NumberFormatException ignored) {}
+                                .merge(fecha, cantidad, Integer::sum);
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
             }
         }
@@ -932,7 +974,10 @@ public class ReposicionServiceImpl implements ReposicionService {
         List<VentaDiariaCache> entradas = new ArrayList<>();
         for (Map.Entry<String, Map<LocalDate, Integer>> skuEntry : ventasPorSkuFecha.entrySet()) {
             for (Map.Entry<LocalDate, Integer> fechaEntry : skuEntry.getValue().entrySet()) {
-                entradas.add(new VentaDiariaCache(skuEntry.getKey(), fechaEntry.getKey(), fechaEntry.getValue()));
+                int cantidad = Math.max(0, fechaEntry.getValue());
+                if (cantidad > 0) {
+                    entradas.add(new VentaDiariaCache(skuEntry.getKey(), fechaEntry.getKey(), cantidad));
+                }
             }
         }
 
@@ -958,52 +1003,26 @@ public class ReposicionServiceImpl implements ReposicionService {
     // HELPERS
     // =====================================================
 
+    private final Set<String> fechasNoParseadasLogueadas = new HashSet<>();
+
     private LocalDate parseFechaDux(String fechaStr) {
         if (fechaStr == null || fechaStr.isBlank()) return null;
         for (DateTimeFormatter fmt : FORMATOS_FECHA_DUX) {
             try {
-                // Intentar como LocalDateTime primero, luego como LocalDate
-                if (fechaStr.contains("T")) {
-                    return LocalDateTime.parse(fechaStr.length() > 19 ? fechaStr.substring(0, 23) : fechaStr.substring(0, 19), fmt).toLocalDate();
-                } else {
-                    return LocalDate.parse(fechaStr, fmt);
-                }
-            } catch (DateTimeParseException ignored) {}
+                return LocalDateTime.parse(fechaStr.contains("T")
+                        ? (fechaStr.length() > 19 ? fechaStr.substring(0, 23) : fechaStr.substring(0, 19))
+                        : fechaStr, fmt).toLocalDate();
+            } catch (DateTimeParseException ignored) {
+            }
+            try {
+                return LocalDate.parse(fechaStr, fmt);
+            } catch (DateTimeParseException ignored) {
+            }
         }
-        log.warn("REPOSICIÓN - No se pudo parsear fecha DUX: {}", fechaStr);
+        if (fechasNoParseadasLogueadas.add(fechaStr)) {
+            log.warn("REPOSICIÓN - No se pudo parsear fecha DUX: {}", fechaStr);
+        }
         return null;
-    }
-
-    private String calcularSucursalesHash(List<Integer> sucursales) {
-        List<Integer> sorted = new ArrayList<>(sucursales);
-        Collections.sort(sorted);
-        String input = sorted.toString();
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            // Fallback: usar el string directamente
-            return input;
-        }
-    }
-
-    private void agregarVentas(List<FacturaDux> facturas, Map<String, Integer> ventasMap) {
-        for (FacturaDux factura : facturas) {
-            if (factura.getDetalles() == null) continue;
-            for (FacturaDux.FacturaDetalleDux det : factura.getDetalles()) {
-                if (det.getCodItem() != null && det.getCtd() != null) {
-                    try {
-                        int ctd = Integer.parseInt(det.getCtd().replace(",", ".").split("\\.")[0]);
-                        ventasMap.merge(det.getCodItem().trim(), Math.abs(ctd), Integer::sum);
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        }
     }
 
     private void finalizarCancelado(LocalDateTime iniciadoEn) {
@@ -1015,8 +1034,8 @@ public class ReposicionServiceImpl implements ReposicionService {
     }
 
     private void actualizarEstado(boolean enEjecucion, int total, int procesados,
-                                   int exitosos, int errores, String estado,
-                                   LocalDateTime iniciadoEn, String mensaje) {
+                                  int exitosos, int errores, String estado,
+                                  LocalDateTime iniciadoEn, String mensaje) {
         estadoCalculo = new ProcesoMasivoEstadoDTO(
                 enEjecucion, total, procesados, exitosos, errores,
                 estado, iniciadoEn, null, mensaje);

@@ -24,7 +24,7 @@ public record MercadoLibreProperties(
             readTimeout = Duration.ofSeconds(30);
         }
         if (rateLimitPerSecond <= 0) {
-            rateLimitPerSecond = 5.0; // Límite de ML API
+            rateLimitPerSecond = 5.0; // 18000 RPH = 300 RPM = 5 req/s
         }
         if (retryBaseWaitMs <= 0) {
             retryBaseWaitMs = 2000L;

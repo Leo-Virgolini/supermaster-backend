@@ -1,5 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.producto.calculo.service;
 
+import ar.com.leo.super_master_backend.config.AuditEventListener;
 import ar.com.leo.super_master_backend.dominio.canal.repository.CanalConceptoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
@@ -33,13 +34,18 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioProducto(Integer productoId) {
         log.info("Recalculando precios por cambio en producto: {}", productoId);
 
-        productoCanalPrecioRepository.findByProductoId(productoId)
-                .stream()
-                .map(p -> p.getCanal().getId())
-                .distinct()
-                .forEach(canalId ->
-                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
-                );
+        AuditEventListener.disable();
+        try {
+            productoCanalPrecioRepository.findByProductoId(productoId)
+                    .stream()
+                    .map(p -> p.getCanal().getId())
+                    .distinct()
+                    .forEach(canalId ->
+                            calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
+                    );
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -50,14 +56,19 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioProductoMargen(Integer productoId) {
         log.info("Recalculando precios por cambio en producto-margen: producto={}", productoId);
 
-        // Recalcular en todos los canales donde el producto tiene precios
-        productoCanalPrecioRepository.findByProductoId(productoId)
-                .stream()
-                .map(p -> p.getCanal().getId())
-                .distinct()
-                .forEach(canalId ->
-                        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
-                );
+        AuditEventListener.disable();
+        try {
+            // Recalcular en todos los canales donde el producto tiene precios
+            productoCanalPrecioRepository.findByProductoId(productoId)
+                    .stream()
+                    .map(p -> p.getCanal().getId())
+                    .distinct()
+                    .forEach(canalId ->
+                            calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
+                    );
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -68,11 +79,16 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioConceptoCalculo(Integer conceptoId) {
         log.info("Recalculando precios por cambio en concepto de cálculo: {}", conceptoId);
 
-        canalConceptoRepository.findByConceptoId(conceptoId)
-                .stream()
-                .map(cc -> cc.getCanal().getId())
-                .distinct()
-                .forEach(this::recalcularTodosProductosDelCanal);
+        AuditEventListener.disable();
+        try {
+            canalConceptoRepository.findByConceptoId(conceptoId)
+                    .stream()
+                    .map(cc -> cc.getCanal().getId())
+                    .distinct()
+                    .forEach(this::recalcularTodosProductosDelCanal);
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -83,7 +99,12 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioCuotaCanal(Integer canalId) {
         log.info("Recalculando precios por cambio en cuotas del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(canalId);
+        AuditEventListener.disable();
+        try {
+            recalcularTodosProductosDelCanal(canalId);
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -94,8 +115,13 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioProveedor(Integer proveedorId) {
         log.info("Recalculando precios por cambio en proveedor: {}", proveedorId);
 
-        productoRepository.findByProveedorId(proveedorId)
-                .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        AuditEventListener.disable();
+        try {
+            productoRepository.findByProveedorId(proveedorId)
+                    .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -106,7 +132,12 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioPrecioInflado(Integer productoId, Integer canalId) {
         log.info("Recalculando precios por cambio en precio inflado: producto={}, canal={}", productoId, canalId);
 
-        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId);
+        AuditEventListener.disable();
+        try {
+            calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId);
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -117,8 +148,13 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioMla(Integer mlaId) {
         log.info("Recalculando precios por cambio en MLA: {}", mlaId);
 
-        productoRepository.findByMlaId(mlaId)
-                .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        AuditEventListener.disable();
+        try {
+            productoRepository.findByMlaId(mlaId)
+                    .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -129,7 +165,12 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioReglaDescuentoEnCanal(Integer canalId) {
         log.info("Recalculando precios por cambio en regla de descuento del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(canalId);
+        AuditEventListener.disable();
+        try {
+            recalcularTodosProductosDelCanal(canalId);
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -140,8 +181,13 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioClasifGastro(Integer clasifGastroId) {
         log.info("Recalculando precios por cambio en clasificación gastronómica: clasifGastro={}", clasifGastroId);
 
-        productoRepository.findByClasifGastroId(clasifGastroId)
-                .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        AuditEventListener.disable();
+        try {
+            productoRepository.findByClasifGastroId(clasifGastroId)
+                    .forEach(producto -> recalcularPorCambioProducto(producto.getId()));
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**
@@ -152,7 +198,12 @@ public class RecalculoPrecioFacade {
     public void recalcularPorCambioCanalBase(Integer canalId) {
         log.info("Recalculando precios por cambio en canalBase del canal: {}", canalId);
 
-        recalcularTodosProductosDelCanal(canalId);
+        AuditEventListener.disable();
+        try {
+            recalcularTodosProductosDelCanal(canalId);
+        } finally {
+            AuditEventListener.enable();
+        }
     }
 
     /**

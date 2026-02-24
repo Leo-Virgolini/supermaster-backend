@@ -26,6 +26,8 @@ Este documento describe los endpoints de la API REST para el desarrollo del fron
    - [DUX ERP](#dux-erp)
    - [Tienda Nube](#tienda-nube)
    - [Configuración Automatización](#configuración-automatización)
+   - [Órdenes de Compra](#órdenes-de-compra)
+   - [Reposición](#reposición)
 
 ---
 
@@ -127,8 +129,10 @@ Donde los conceptos de cálculo modifican diferentes partes de la fórmula segú
 | `costo` | Precio de compra/costo base |
 | `iva` | Porcentaje de IVA (ej: 21) |
 | `es_combo` | Si es un pack/combo |
+| `moq` | Minimum Order Quantity (cantidad mínima de pedido) |
 | `stock` | Cantidad disponible |
 | `activo` | Si está activo para venta |
+| `tag_reposicion` | Tag de reposición: PRIO (prioritario) o LIQ (liquidación) |
 
 **Relaciones:** marca, tipo, origen, material, proveedor, clasificaciones (gral y gastro), MLA.
 
@@ -386,6 +390,15 @@ Los descuentos aplicables se muestran automáticamente en `GET /api/precios` y `
 | `clientes` | Clientes especiales |
 | `proveedores` | Proveedores con % financiación |
 
+### Tablas de Operaciones
+
+| Tabla | Descripción |
+|-------|-------------|
+| `ordenes_compra` | Órdenes de compra a proveedores |
+| `orden_compra_lineas` | Líneas/items de cada orden de compra |
+| `reposicion_config` | Configuración del módulo de reposición (fila única) |
+| `venta_diaria_cache` | Cache de ventas diarias por SKU (obtenido de DUX) |
+
 #### `catalogos` - Detalle
 | Campo | Descripción |
 |-------|-------------|
@@ -511,9 +524,11 @@ interface Producto {
   tituloWeb: string;
   esCombo: boolean | null;
   uxb: number | null;
+  moq: number | null;
   imagenUrl: string | null;
   stock: number | null;
   activo: boolean | null;
+  tagReposicion: 'PRIO' | 'LIQ' | null;
 
   // IDs de relaciones
   marcaId: number | null;
@@ -550,6 +565,7 @@ interface ProductoCreate {
   tituloWeb: string;              // @NotNull, max 100
   esCombo?: boolean;
   uxb?: number;                   // > 0
+  moq?: number;                   // > 0
   imagenUrl?: string;             // max 500
   stock?: number;                 // >= 0
   activo?: boolean;
@@ -572,6 +588,7 @@ interface ProductoCreate {
 
   costo: number;                  // @NotNull, >= 0
   iva: number;                    // @NotNull, 0-100
+  tagReposicion?: 'PRIO' | 'LIQ';
 }
 
 // Para PUT (update parcial - solo enviar campos a modificar)
@@ -601,6 +618,7 @@ interface ProductoConPrecios {
   imagenUrl: string | null;
   stock: number | null;
   activo: boolean | null;
+  tagReposicion: 'PRIO' | 'LIQ' | null;
 
   // Nombres de relaciones (no IDs)
   marcaNombre: string | null;
@@ -613,6 +631,7 @@ interface ProductoConPrecios {
 
   // Dimensiones
   uxb: number | null;
+  moq: number | null;
   capacidad: string | null;
   largo: number | null;
   ancho: number | null;
@@ -692,6 +711,7 @@ interface ProductoFilter {
   esMaquina?: boolean;
   tieneMla?: boolean;
   activo?: boolean;
+  tagReposicion?: 'PRIO' | 'LIQ';
 
   // Filtros MLA (requieren que el producto tenga MLA asignado)
   mla?: string;                     // Código MLA exacto (case insensitive)
@@ -1449,6 +1469,116 @@ interface ClienteCreate {
 
 interface ClienteUpdate {
   cliente?: string;           // max 45
+}
+```
+
+### Orden de Compra
+
+```typescript
+type EstadoOrdenCompra = 'BORRADOR' | 'ENVIADA' | 'RECIBIDA_PARCIAL' | 'COMPLETA' | 'CANCELADA';
+
+interface OrdenCompra {
+  id: number;
+  proveedorId: number;
+  proveedorNombre: string;
+  estado: EstadoOrdenCompra;
+  observaciones: string | null;
+  lineas: OrdenCompraLinea[];
+  fechaCreacion: string;          // ISO DateTime
+  fechaModificacion: string | null;
+}
+
+interface OrdenCompraLinea {
+  id: number;
+  productoId: number;
+  productoSku: string;
+  productoDescripcion: string;
+  cantidadPedida: number;
+  cantidadRecibida: number;
+  costoUnitario: number | null;   // BigDecimal
+}
+
+interface OrdenCompraCreate {
+  proveedorId: number;            // @NotNull, @Positive
+  observaciones?: string;         // max 500
+  lineas: OrdenCompraLineaCreate[];  // @NotEmpty
+}
+
+interface OrdenCompraLineaCreate {
+  productoId: number;             // @NotNull, @Positive
+  cantidadPedida: number;         // @NotNull, > 0
+  costoUnitario?: number;         // >= 0
+}
+
+interface OrdenCompraUpdate {
+  observaciones?: string;         // max 500
+  lineas?: OrdenCompraLineaCreate[];
+}
+
+interface Recepcion {
+  lineas: LineaRecepcion[];       // @NotEmpty
+}
+
+interface LineaRecepcion {
+  lineaId: number;                // @NotNull, @Positive
+  cantidadRecibida: number;       // @NotNull, >= 0
+}
+```
+
+### Reposición
+
+```typescript
+type TagReposicion = 'PRIO' | 'LIQ';
+
+interface ReposicionResult {
+  sugerencias: SugerenciaReposicion[];
+  totalProductos: number;
+  productosConSugerencia: number;
+  advertencias: string[];
+}
+
+interface SugerenciaReposicion {
+  productoId: number;
+  sku: string;
+  codExt: string | null;
+  descripcion: string;
+  proveedorNombre: string | null;
+  uxb: number | null;
+  moq: number | null;
+  tagReposicion: TagReposicion | null;
+  stockActual: number;
+  pendienteClientes: number;
+  pendienteProveedores: number;
+  saldoDisponible: number;
+  ventasMes1: number;
+  ventasMes2: number;
+  ventasMes3: number;
+  promedioVentas: number;
+  promedioDiario: number;
+  puntoReorden: number;
+  urgente: boolean;
+  sugerencia: number;
+  pedido: number;
+  ultimaCompraFecha: string | null;  // ISO DateTime
+  ultimaCompraCantidad: number;
+}
+
+interface AjustePedido {
+  ajustes: LineaAjuste[];         // @NotEmpty
+}
+
+interface LineaAjuste {
+  productoId: number;             // @NotNull, @Positive
+  pedido: number;                 // @NotNull, >= 0
+}
+
+interface ReposicionConfig {
+  mesesCobertura?: number;        // @Positive
+  pesoMes1?: number;              // 0.0 - 1.0
+  pesoMes2?: number;              // 0.0 - 1.0
+  pesoMes3?: number;              // 0.0 - 1.0
+  idEmpresaDux?: number;          // @Positive
+  idsSucursalDux?: number[];      // cada uno @Positive
 }
 ```
 
@@ -2722,6 +2852,20 @@ GET /api/dux/procesos/{idProceso}/estado
 }
 ```
 
+#### Empresas y Sucursales
+
+Consulta las empresas y sucursales configuradas en DUX. Se usan para configurar el módulo de reposición.
+
+```http
+GET /api/dux/empresas
+```
+**Response:** JSON con todas las empresas de DUX
+
+```http
+GET /api/dux/empresas/{idEmpresa}/sucursales
+```
+**Response:** JSON con las sucursales de la empresa
+
 #### Importar Productos (DUX → Local) — Async
 
 ```http
@@ -2940,6 +3084,218 @@ Content-Type: application/json
 DELETE /api/config-automatizacion/{id}
 ```
 **Response:** `204 No Content`
+
+---
+
+### Órdenes de Compra
+
+Módulo para gestionar **órdenes de compra** a proveedores. Se integra con el módulo de reposición para generar órdenes automáticamente.
+
+**Flujo de estados:**
+```
+BORRADOR → ENVIADA → RECIBIDA_PARCIAL → COMPLETA
+                  └──────────────────→ CANCELADA
+```
+
+**Base:** `/api/ordenes-compra`
+
+#### Listar
+
+```http
+GET /api/ordenes-compra
+GET /api/ordenes-compra?proveedorId=5
+GET /api/ordenes-compra?estado=BORRADOR
+GET /api/ordenes-compra?proveedorId=5&estado=ENVIADA&page=0&size=20
+```
+
+**Query params:**
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `proveedorId` | number | Filtrar por proveedor (opcional) |
+| `estado` | string | Filtrar por estado: BORRADOR, ENVIADA, RECIBIDA_PARCIAL, COMPLETA, CANCELADA (opcional) |
+| `page`, `size`, `sort` | - | Paginación estándar |
+
+**Response:** `PageResponse<OrdenCompra>`
+
+#### Obtener
+
+```http
+GET /api/ordenes-compra/{id}
+```
+**Response:** `OrdenCompra`
+
+#### Crear
+
+```http
+POST /api/ordenes-compra
+Content-Type: application/json
+
+{
+  "proveedorId": 5,
+  "observaciones": "Pedido urgente",
+  "lineas": [
+    { "productoId": 10, "cantidadPedida": 100, "costoUnitario": 1500.00 },
+    { "productoId": 20, "cantidadPedida": 50 }
+  ]
+}
+```
+**Response:** `201 Created` + `OrdenCompra`
+
+#### Actualizar
+
+```http
+PUT /api/ordenes-compra/{id}
+Content-Type: application/json
+
+{
+  "observaciones": "Pedido actualizado",
+  "lineas": [
+    { "productoId": 10, "cantidadPedida": 200, "costoUnitario": 1400.00 }
+  ]
+}
+```
+**Response:** `OrdenCompra`
+
+#### Eliminar
+
+```http
+DELETE /api/ordenes-compra/{id}
+```
+**Response:** `204 No Content`
+
+#### Enviar orden
+
+Cambia el estado de BORRADOR a ENVIADA.
+
+```http
+POST /api/ordenes-compra/{id}/enviar
+```
+**Response:** `OrdenCompra` (con estado ENVIADA)
+
+#### Registrar recepción
+
+Registra las cantidades recibidas en cada línea. Cambia el estado a RECIBIDA_PARCIAL o COMPLETA según corresponda.
+
+```http
+POST /api/ordenes-compra/{id}/recepcion
+Content-Type: application/json
+
+{
+  "lineas": [
+    { "lineaId": 1, "cantidadRecibida": 80 },
+    { "lineaId": 2, "cantidadRecibida": 50 }
+  ]
+}
+```
+**Response:** `OrdenCompra` (con cantidades recibidas actualizadas)
+
+---
+
+### Reposición
+
+Módulo para calcular **sugerencias de reposición** de stock basándose en ventas históricas (obtenidas de DUX). El cálculo es asíncrono y usa datos de ventas de los últimos 3 meses.
+
+**Flujo típico:**
+1. Configurar parámetros (meses de cobertura, pesos por mes, empresa DUX)
+2. Iniciar cálculo async → obtiene ventas de DUX, stock, y calcula sugerencias
+3. Revisar resultado → ajustar pedidos manualmente si se desea
+4. Generar órdenes de compra desde el resultado
+
+**Base:** `/api/reposicion`
+
+#### Configuración
+
+```http
+GET /api/reposicion/config
+```
+**Response:** `ReposicionConfig`
+
+```http
+PUT /api/reposicion/config
+Content-Type: application/json
+
+{
+  "mesesCobertura": 2,
+  "pesoMes1": 0.50,
+  "pesoMes2": 0.30,
+  "pesoMes3": 0.20,
+  "idEmpresaDux": 1,
+  "idsSucursalDux": [1, 2]
+}
+```
+**Response:** `ReposicionConfig`
+
+#### Cálculo (Asíncrono)
+
+```http
+POST /api/reposicion/calcular
+```
+Inicia el cálculo de reposición en background.
+- **`202 Accepted`** si se inició correctamente
+- **`409 Conflict`** si ya hay un cálculo en ejecución
+
+```http
+GET /api/reposicion/calcular/estado
+```
+**Response:** `ProcesoMasivoEstado`
+
+```http
+POST /api/reposicion/calcular/cancelar
+```
+- **`200 OK`** si se canceló
+- **`409 Conflict`** si no hay cálculo en ejecución
+
+#### Resultado
+
+```http
+GET /api/reposicion/resultado
+```
+**Response:** `ReposicionResult` o `204 No Content` si no hay resultado disponible
+
+#### Ajustar pedidos
+
+Permite modificar manualmente las cantidades sugeridas antes de generar órdenes.
+
+```http
+PUT /api/reposicion/resultado/ajustar
+Content-Type: application/json
+
+{
+  "ajustes": [
+    { "productoId": 10, "pedido": 200 },
+    { "productoId": 20, "pedido": 0 }
+  ]
+}
+```
+**Response:** `ReposicionResult` (actualizado)
+
+#### Generar órdenes de compra
+
+Genera órdenes de compra agrupadas por proveedor desde el resultado del cálculo.
+
+```http
+POST /api/reposicion/generar-ordenes
+POST /api/reposicion/generar-ordenes?proveedorId=5
+```
+
+**Query params:**
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `proveedorId` | number | Generar solo para un proveedor específico (opcional) |
+
+**Response:** `201 Created` + `List<OrdenCompra>`
+
+#### Exportar Excel
+
+```http
+GET /api/reposicion/resultado/excel
+```
+**Response:** Archivo Excel con todas las sugerencias de reposición
+
+```http
+GET /api/reposicion/resultado/excel/oc/{id}
+```
+**Response:** Archivo Excel con los datos de una orden de compra específica
 
 ---
 

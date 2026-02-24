@@ -17,8 +17,11 @@ public class FacturaDux {
     @JsonProperty("id")
     private Long id;
 
-    @JsonProperty("fecha")
+    @JsonProperty("fecha_comp")
     private String fecha;
+
+    @JsonProperty("tipo_comp")
+    private String tipoComp;
 
     @JsonProperty("detalles")
     private List<FacturaDetalleDux> detalles;
