@@ -103,8 +103,8 @@ public class ProductoServiceImpl implements ProductoService {
         productoRepository.save(entity);
 
         // Recalcular precios si cambió costo, IVA, clasifGastro o proveedor
-        boolean cambioCosto = dto.costo() != null && !Objects.equals(costoAnterior, dto.costo());
-        boolean cambioIva = dto.iva() != null && !Objects.equals(ivaAnterior, dto.iva());
+        boolean cambioCosto = dto.costo() != null && (costoAnterior == null || costoAnterior.compareTo(dto.costo()) != 0);
+        boolean cambioIva = dto.iva() != null && (ivaAnterior == null || ivaAnterior.compareTo(dto.iva()) != 0);
         boolean cambioClasifGastro = dto.clasifGastroId() != null && !Objects.equals(clasifGastroIdAnterior, dto.clasifGastroId());
         boolean cambioProveedor = dto.proveedorId() != null && !Objects.equals(proveedorIdAnterior, dto.proveedorId());
 
