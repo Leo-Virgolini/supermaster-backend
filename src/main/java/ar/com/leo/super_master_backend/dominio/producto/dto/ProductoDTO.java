@@ -27,6 +27,7 @@ public record ProductoDTO(
         Integer tipoId,
         Integer proveedorId,
         Integer materialId,
+        Integer mlaId,
 
         // Atributos extra
         String capacidad,

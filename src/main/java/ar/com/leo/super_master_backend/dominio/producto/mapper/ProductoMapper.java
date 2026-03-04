@@ -28,6 +28,7 @@ public interface ProductoMapper {
     @Mapping(source = "tipo.id", target = "tipoId")
     @Mapping(source = "proveedor.id", target = "proveedorId")
     @Mapping(source = "material.id", target = "materialId")
+    @Mapping(source = "mla.id", target = "mlaId")
     ProductoDTO toDTO(Producto entity);
 
     // ================================================================
