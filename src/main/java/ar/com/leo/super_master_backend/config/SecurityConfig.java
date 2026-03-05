@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/imagenes/**").permitAll()
+                        .requestMatchers("/api/imagenes/**", "/api/imagenes/buscar/**", "/api/imagenes/listar").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

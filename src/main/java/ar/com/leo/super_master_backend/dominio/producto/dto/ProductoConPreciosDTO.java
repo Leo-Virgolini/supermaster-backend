@@ -61,6 +61,11 @@ public record ProductoConPreciosDTO(
         LocalDateTime fechaCreacion,
         LocalDateTime fechaModificacion,
 
+        // Many-to-many (nombres)
+        List<String> aptos,
+        List<String> catalogos,
+        List<String> clientes,
+
         // Canales con sus precios
         List<CanalPreciosDTO> canales
 ) {

@@ -2,7 +2,6 @@ package ar.com.leo.super_master_backend.dominio.imagen.controller;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -28,8 +28,11 @@ public class ImagenController {
     }
 
     @GetMapping("/buscar/{sku}")
-    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<String> buscarPorSku(@PathVariable String sku) throws IOException {
+        if (!Files.isDirectory(baseDir)) {
+            return ResponseEntity.notFound().build();
+        }
+
         try (Stream<Path> entries = Files.list(baseDir)) {
             return entries
                     .filter(Files::isRegularFile)
@@ -42,8 +45,11 @@ public class ImagenController {
     }
 
     @GetMapping("/listar")
-    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<List<String>> listar(@RequestParam(defaultValue = "") String search) throws IOException {
+        if (!Files.isDirectory(baseDir)) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
         try (Stream<Path> entries = Files.list(baseDir)) {
             List<String> archivos = entries
                     .filter(Files::isRegularFile)

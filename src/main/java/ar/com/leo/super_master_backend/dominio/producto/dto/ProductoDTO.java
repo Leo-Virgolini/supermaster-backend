@@ -4,6 +4,7 @@ import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ProductoDTO(
         Integer id,
@@ -41,8 +42,13 @@ public record ProductoDTO(
         LocalDateTime fechaUltimoCosto,
         BigDecimal iva,
 
-        // NUEVAS FECHAS
+        // Fechas
         LocalDateTime fechaCreacion,
-        LocalDateTime fechaModificacion
+        LocalDateTime fechaModificacion,
+
+        // Many-to-many (nombres)
+        List<String> aptos,
+        List<String> catalogos,
+        List<String> clientes
 ) {
 }

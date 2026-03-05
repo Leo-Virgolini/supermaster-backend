@@ -219,14 +219,14 @@ public class ProductoSpecifications {
     public static Specification<Producto> catalogoIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
-            return root.join("catalogos").get("id").in(ids);
+            return root.join("productoCatalogos").get("catalogo").get("id").in(ids);
         };
     }
 
     public static Specification<Producto> clienteIds(List<Integer> ids) {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
-            return root.join("clientes").get("id").in(ids);
+            return root.join("productoClientes").get("cliente").get("id").in(ids);
         };
     }
 

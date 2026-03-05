@@ -15,21 +15,75 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Mapper(config = GlobalMapperConfig.class)
+@Mapper(config = GlobalMapperConfig.class, imports = {
+        ar.com.leo.super_master_backend.dominio.marca.entity.Marca.class,
+        ar.com.leo.super_master_backend.dominio.origen.entity.Origen.class,
+        ar.com.leo.super_master_backend.dominio.clasif_gral.entity.ClasifGral.class,
+        ar.com.leo.super_master_backend.dominio.clasif_gastro.entity.ClasifGastro.class,
+        ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo.class,
+        ar.com.leo.super_master_backend.dominio.proveedor.entity.Proveedor.class,
+        ar.com.leo.super_master_backend.dominio.material.entity.Material.class
+})
 public interface ProductoMapper {
 
     // ================================================================
     // ENTITY → DTO
     // ================================================================
-    @Mapping(source = "marca.id", target = "marcaId")
-    @Mapping(source = "origen.id", target = "origenId")
-    @Mapping(source = "clasifGral.id", target = "clasifGralId")
-    @Mapping(source = "clasifGastro.id", target = "clasifGastroId")
-    @Mapping(source = "tipo.id", target = "tipoId")
-    @Mapping(source = "proveedor.id", target = "proveedorId")
-    @Mapping(source = "material.id", target = "materialId")
-    @Mapping(source = "mla.id", target = "mlaId")
-    ProductoDTO toDTO(Producto entity);
+    default ProductoDTO toDTO(Producto entity) {
+        if (entity == null) return null;
+        return new ProductoDTO(
+                entity.getId(),
+                entity.getSku(),
+                entity.getCodExt(),
+                entity.getDescripcion(),
+                entity.getTituloWeb(),
+                entity.getEsCombo(),
+                entity.getUxb(),
+                entity.getMoq(),
+                entity.getImagenUrl(),
+                entity.getStock(),
+                entity.getActivo(),
+                entity.getTagReposicion(),
+                entity.getMarca() != null ? entity.getMarca().getId() : null,
+                entity.getOrigen() != null ? entity.getOrigen().getId() : null,
+                entity.getClasifGral() != null ? entity.getClasifGral().getId() : null,
+                entity.getClasifGastro() != null ? entity.getClasifGastro().getId() : null,
+                entity.getTipo() != null ? entity.getTipo().getId() : null,
+                entity.getProveedor() != null ? entity.getProveedor().getId() : null,
+                entity.getMaterial() != null ? entity.getMaterial().getId() : null,
+                entity.getMla() != null ? entity.getMla().getId() : null,
+                entity.getCapacidad(),
+                entity.getLargo(),
+                entity.getAncho(),
+                entity.getAlto(),
+                entity.getDiamboca(),
+                entity.getDiambase(),
+                entity.getEspesor(),
+                entity.getCosto(),
+                entity.getFechaUltimoCosto(),
+                entity.getIva(),
+                entity.getFechaCreacion(),
+                entity.getFechaModificacion(),
+                entity.getProductosApto() != null
+                        ? entity.getProductosApto().stream()
+                            .map(pa -> pa.getApto().getApto())
+                            .sorted()
+                            .toList()
+                        : List.of(),
+                entity.getProductoCatalogos() != null
+                        ? entity.getProductoCatalogos().stream()
+                            .map(pc -> pc.getCatalogo().getCatalogo())
+                            .sorted()
+                            .toList()
+                        : List.of(),
+                entity.getProductoClientes() != null
+                        ? entity.getProductoClientes().stream()
+                            .map(pcl -> pcl.getCliente().getCliente())
+                            .sorted()
+                            .toList()
+                        : List.of()
+        );
+    }
 
     // ================================================================
     // DTO CREATE → ENTITY
@@ -226,6 +280,26 @@ public interface ProductoMapper {
                 // Fechas
                 producto.getFechaCreacion(),
                 producto.getFechaModificacion(),
+
+                // Many-to-many (nombres)
+                producto.getProductosApto() != null
+                        ? producto.getProductosApto().stream()
+                            .map(pa -> pa.getApto().getApto())
+                            .sorted()
+                            .toList()
+                        : List.of(),
+                producto.getProductoCatalogos() != null
+                        ? producto.getProductoCatalogos().stream()
+                            .map(pc -> pc.getCatalogo().getCatalogo())
+                            .sorted()
+                            .toList()
+                        : List.of(),
+                producto.getProductoClientes() != null
+                        ? producto.getProductoClientes().stream()
+                            .map(pcl -> pcl.getCliente().getCliente())
+                            .sorted()
+                            .toList()
+                        : List.of(),
 
                 // Precios por canal
                 preciosCanales
