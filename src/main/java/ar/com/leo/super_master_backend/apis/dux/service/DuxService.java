@@ -8,7 +8,7 @@ import ar.com.leo.super_master_backend.apis.dux.dto.ImportDuxResultDTO;
 import ar.com.leo.super_master_backend.apis.dux.model.DuxResponse;
 import ar.com.leo.super_master_backend.apis.dux.model.Item;
 import ar.com.leo.super_master_backend.apis.dux.model.TokensDux;
-import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
@@ -94,6 +94,10 @@ public class DuxService {
                 properties.rateLimitPerSecond()
         );
         cargarTokens();
+    }
+
+    public DuxRetryHandler getRetryHandler() {
+        return retryHandler;
     }
 
     // =====================================================

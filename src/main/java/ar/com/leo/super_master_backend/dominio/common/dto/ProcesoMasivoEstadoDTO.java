@@ -1,4 +1,4 @@
-package ar.com.leo.super_master_backend.apis.ml.dto;
+package ar.com.leo.super_master_backend.dominio.common.dto;
 
 import java.time.LocalDateTime;
 

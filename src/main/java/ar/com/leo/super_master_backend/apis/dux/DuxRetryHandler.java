@@ -10,6 +10,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 
 /**
  * Handler de reintentos para DUX con soporte para:
@@ -31,11 +32,20 @@ public class DuxRetryHandler {
     private final RestClient restClient;
     private final long baseWaitMs;
     private final RateLimiter rateLimiter;
+    private volatile Consumer<String> retryListener;
 
     public DuxRetryHandler(RestClient restClient, long baseWaitMs, double permitsPerSecond) {
         this.restClient = restClient;
         this.baseWaitMs = baseWaitMs;
         this.rateLimiter = RateLimiter.create(permitsPerSecond);
+    }
+
+    public void setRetryListener(Consumer<String> listener) {
+        this.retryListener = listener;
+    }
+
+    public void clearRetryListener() {
+        this.retryListener = null;
     }
 
     /**
@@ -81,8 +91,11 @@ public class DuxRetryHandler {
                     }
                     rateLimitRetries++;
                     long waitMs = calcularEspera429(e.getResponseHeaders(), rateLimitRetries);
+                    String msg = String.format("DUX rate limit - reintentando en %ds... (%d/%d)",
+                            waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
                     log.warn("DUX - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
+                    notifyRetryListener(msg);
                     sleep(waitMs);
                     continue;
                 }
@@ -148,8 +161,11 @@ public class DuxRetryHandler {
                     if (rateLimitRetries >= MAX_RETRIES_RATE_LIMIT) throw e;
                     rateLimitRetries++;
                     long waitMs = calcularEspera429(e.getResponseHeaders(), rateLimitRetries);
+                    String msg = String.format("DUX rate limit - reintentando en %ds... (%d/%d)",
+                            waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
                     log.warn("DUX - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
+                    notifyRetryListener(msg);
                     sleep(waitMs);
                     continue;
                 }
@@ -205,6 +221,16 @@ public class DuxRetryHandler {
             return Long.parseLong(retryAfter) * 1000;
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    private void notifyRetryListener(String message) {
+        Consumer<String> listener = this.retryListener;
+        if (listener != null) {
+            try {
+                listener.accept(message);
+            } catch (Exception ignored) {
+            }
         }
     }
 

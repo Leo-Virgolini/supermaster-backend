@@ -4,7 +4,7 @@ import ar.com.leo.super_master_backend.apis.dux.model.FacturaDux;
 import ar.com.leo.super_master_backend.apis.dux.model.PedidoDux;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService.DuxItemData;
-import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.config.AuditEventListener;
 import ar.com.leo.super_master_backend.dominio.common.exception.BadRequestException;
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
@@ -184,6 +184,9 @@ public class ReposicionServiceImpl implements ReposicionService {
     @Async
     public void calcularAsync() {
         LocalDateTime iniciadoEn = estadoCalculo.iniciadoEn();
+
+        duxService.getRetryHandler().setRetryListener(msg ->
+                actualizarEstado(true, 0, 0, 0, 0, "ejecutando", iniciadoEn, msg));
 
         try {
             log.info("REPOSICIÓN - Iniciando cálculo de sugerencias...");
@@ -530,6 +533,7 @@ public class ReposicionServiceImpl implements ReposicionService {
                     false, 0, 0, 0, 0, "error", iniciadoEn, LocalDateTime.now(),
                     "Error fatal: " + e.getMessage());
         } finally {
+            duxService.getRetryHandler().clearRetryListener();
             calculoEnEjecucion.set(false);
             cancelarCalculo.set(false);
         }

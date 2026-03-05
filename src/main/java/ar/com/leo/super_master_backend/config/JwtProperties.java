@@ -6,7 +6,4 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JwtProperties(
         long accessTokenExpirationMs
 ) {
-    public JwtProperties {
-        if (accessTokenExpirationMs <= 0) accessTokenExpirationMs = 43200000; // 12 horas
-    }
 }

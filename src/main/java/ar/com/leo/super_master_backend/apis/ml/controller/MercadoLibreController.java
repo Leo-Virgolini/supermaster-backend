@@ -4,7 +4,7 @@ import ar.com.leo.super_master_backend.apis.ml.dto.ConfiguracionMlDTO;
 import ar.com.leo.super_master_backend.apis.ml.dto.CostoEnvioMasivoResponseDTO;
 import ar.com.leo.super_master_backend.apis.ml.dto.CostoEnvioResponseDTO;
 import ar.com.leo.super_master_backend.apis.ml.dto.CostoVentaMasivoResponseDTO;
-import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.apis.ml.service.ConfiguracionMlService;
 import ar.com.leo.super_master_backend.apis.ml.service.MercadoLibreService;
 import jakarta.validation.Valid;

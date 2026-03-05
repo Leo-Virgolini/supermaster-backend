@@ -1,6 +1,6 @@
 package ar.com.leo.super_master_backend.dominio.reposicion.controller;
 
-import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.dominio.orden_compra.dto.OrdenCompraDTO;
 import ar.com.leo.super_master_backend.dominio.reposicion.dto.AjustePedidoDTO;
 import ar.com.leo.super_master_backend.dominio.reposicion.dto.ReposicionConfigDTO;

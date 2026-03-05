@@ -9,6 +9,8 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+import java.util.function.Consumer;
+
 /**
  * Handler de reintentos para Tiendanube con soporte para:
  * - Rate limiting
@@ -27,11 +29,20 @@ public class NubeRetryHandler {
     private final RestClient restClient;
     private final long baseWaitMs;
     private final RateLimiter rateLimiter;
+    private volatile Consumer<String> retryListener;
 
     public NubeRetryHandler(RestClient restClient, long baseWaitMs, double permitsPerSecond) {
         this.restClient = restClient;
         this.baseWaitMs = baseWaitMs;
         this.rateLimiter = RateLimiter.create(permitsPerSecond);
+    }
+
+    public void setRetryListener(Consumer<String> listener) {
+        this.retryListener = listener;
+    }
+
+    public void clearRetryListener() {
+        this.retryListener = null;
     }
 
     public record HttpResponse(String body, HttpHeaders headers) {}
@@ -75,6 +86,8 @@ public class NubeRetryHandler {
                     long waitMs = Math.min(parseRetryAfter(e.getResponseHeaders(), baseWaitMs * 2), MAX_WAIT_MS);
                     log.warn("NUBE - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
+                    notifyRetryListener(String.format("Nube rate limit - reintentando en %ds... (%d/%d)",
+                            waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT));
                     sleep(waitMs);
                     continue;
                 }
@@ -117,6 +130,16 @@ public class NubeRetryHandler {
             return Long.parseLong(retryAfter) * 1000;
         } catch (NumberFormatException e) {
             return defaultMs;
+        }
+    }
+
+    private void notifyRetryListener(String message) {
+        Consumer<String> listener = this.retryListener;
+        if (listener != null) {
+            try {
+                listener.accept(message);
+            } catch (Exception ignored) {
+            }
         }
     }
 

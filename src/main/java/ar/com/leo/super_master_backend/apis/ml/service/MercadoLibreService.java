@@ -3,6 +3,7 @@ package ar.com.leo.super_master_backend.apis.ml.service;
 import ar.com.leo.super_master_backend.apis.ml.MlRetryHandler;
 import ar.com.leo.super_master_backend.apis.ml.config.MercadoLibreProperties;
 import ar.com.leo.super_master_backend.apis.ml.dto.*;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import ar.com.leo.super_master_backend.apis.ml.entity.ConfiguracionMl;
 import ar.com.leo.super_master_backend.apis.ml.model.MLCredentials;
 import ar.com.leo.super_master_backend.apis.ml.model.Producto;

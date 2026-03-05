@@ -7,7 +7,7 @@ import ar.com.leo.super_master_backend.apis.dux.dto.ImportDuxResultDTO;
 import ar.com.leo.super_master_backend.apis.dux.model.Item;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService;
 import ar.com.leo.super_master_backend.apis.dux.service.DuxService.ProductoPrecioData;
-import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
+import ar.com.leo.super_master_backend.dominio.common.dto.ProcesoMasivoEstadoDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

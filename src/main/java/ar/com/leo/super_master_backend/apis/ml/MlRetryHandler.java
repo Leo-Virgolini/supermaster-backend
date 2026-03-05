@@ -10,6 +10,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -35,12 +36,21 @@ public class MlRetryHandler {
     private final long baseWaitMs;
     private final RateLimiter rateLimiter;
     private final Runnable tokenRefresher;
+    private volatile Consumer<String> retryListener;
 
     public MlRetryHandler(RestClient restClient, long baseWaitMs, double permitsPerSecond, Runnable tokenRefresher) {
         this.restClient = restClient;
         this.baseWaitMs = baseWaitMs;
         this.rateLimiter = RateLimiter.create(permitsPerSecond);
         this.tokenRefresher = tokenRefresher;
+    }
+
+    public void setRetryListener(Consumer<String> listener) {
+        this.retryListener = listener;
+    }
+
+    public void clearRetryListener() {
+        this.retryListener = null;
     }
 
     /**
@@ -98,6 +108,8 @@ public class MlRetryHandler {
                     long waitMs = Math.min(parseRetryAfter(e.getResponseHeaders(), baseWaitMs), MAX_WAIT_MS);
                     log.warn("ML - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
+                    notifyRetryListener(String.format("ML rate limit - reintentando en %ds... (%d/%d)",
+                            waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT));
                     sleep(waitMs);
                     continue;
                 }
@@ -159,6 +171,8 @@ public class MlRetryHandler {
                     long waitMs = Math.min(parseRetryAfter(e.getResponseHeaders(), baseWaitMs), MAX_WAIT_MS);
                     log.warn("ML - 429 Too Many Requests. Retry en {} segundos... (intento {}/{})",
                             waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT);
+                    notifyRetryListener(String.format("ML rate limit - reintentando en %ds... (%d/%d)",
+                            waitMs / 1000, rateLimitRetries, MAX_RETRIES_RATE_LIMIT));
                     sleep(waitMs);
                     continue;
                 }
@@ -210,6 +224,16 @@ public class MlRetryHandler {
                 return Math.max(epoch - System.currentTimeMillis(), defaultMs);
             } catch (Exception ignored) {
                 return defaultMs;
+            }
+        }
+    }
+
+    private void notifyRetryListener(String message) {
+        Consumer<String> listener = this.retryListener;
+        if (listener != null) {
+            try {
+                listener.accept(message);
+            } catch (Exception ignored) {
             }
         }
     }
