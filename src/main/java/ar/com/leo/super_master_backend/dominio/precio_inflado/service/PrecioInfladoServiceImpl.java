@@ -8,11 +8,16 @@ import ar.com.leo.super_master_backend.dominio.precio_inflado.dto.PrecioInfladoU
 import ar.com.leo.super_master_backend.dominio.precio_inflado.entity.PrecioInflado;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.mapper.PrecioInfladoMapper;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.repository.PrecioInfladoRepository;
+import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioInfladoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,8 @@ public class PrecioInfladoServiceImpl implements PrecioInfladoService {
 
     private final PrecioInfladoRepository repository;
     private final PrecioInfladoMapper mapper;
+    private final ProductoCanalPrecioInfladoRepository asignacionRepository;
+    private final RecalculoPrecioFacade recalculoPrecioFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -72,8 +79,16 @@ public class PrecioInfladoServiceImpl implements PrecioInfladoService {
             }
         }
 
+        boolean cambioValor = (dto.tipo() != null && dto.tipo() != precioInflado.getTipo())
+                || (dto.valor() != null && dto.valor().compareTo(precioInflado.getValor()) != 0);
+
         mapper.updateEntityFromDTO(dto, precioInflado);
         precioInflado = repository.save(precioInflado);
+
+        if (cambioValor) {
+            recalcularAsignaciones(id);
+        }
+
         return mapper.toDTO(precioInflado);
     }
 
@@ -82,6 +97,19 @@ public class PrecioInfladoServiceImpl implements PrecioInfladoService {
     public void eliminar(Integer id) {
         PrecioInflado precioInflado = repository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Precio inflado no encontrado con ID: " + id));
+
+        List<ProductoCanalPrecioInflado> asignaciones = asignacionRepository.findByPrecioInfladoId(id);
         repository.delete(precioInflado);
+
+        for (ProductoCanalPrecioInflado asignacion : asignaciones) {
+            recalculoPrecioFacade.recalcularPorCambioPrecioInflado(
+                    asignacion.getProducto().getId(), asignacion.getCanal().getId());
+        }
+    }
+
+    private void recalcularAsignaciones(Integer precioInfladoId) {
+        asignacionRepository.findByPrecioInfladoId(precioInfladoId)
+                .forEach(asignacion -> recalculoPrecioFacade.recalcularPorCambioPrecioInflado(
+                        asignacion.getProducto().getId(), asignacion.getCanal().getId()));
     }
 }

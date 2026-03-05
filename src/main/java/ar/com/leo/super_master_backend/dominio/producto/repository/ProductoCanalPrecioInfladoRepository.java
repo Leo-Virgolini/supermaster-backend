@@ -19,6 +19,8 @@ public interface ProductoCanalPrecioInfladoRepository extends JpaRepository<Prod
 
     List<ProductoCanalPrecioInflado> findByActivaTrue();
 
+    List<ProductoCanalPrecioInflado> findByPrecioInfladoId(Integer precioInfladoId);
+
     @Query("SELECT pcpi FROM ProductoCanalPrecioInflado pcpi JOIN FETCH pcpi.precioInflado")
     List<ProductoCanalPrecioInflado> findAllWithPrecioInfladoFetch();
 }
