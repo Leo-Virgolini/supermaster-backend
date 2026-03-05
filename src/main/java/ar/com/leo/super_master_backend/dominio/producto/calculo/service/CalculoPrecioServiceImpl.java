@@ -65,6 +65,8 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
     private static final ThreadLocal<Map<String, BigDecimal>> CACHE_PORCENTAJE_CUOTAS = new ThreadLocal<>();
     // Cache de precios calculados para canales base (clave: "productoId-canalId-cuotas")
     private static final ThreadLocal<Map<String, PrecioCalculadoDTO>> CACHE_PRECIOS_BASE = new ThreadLocal<>();
+    // Cache de precios inflados por producto-canal (clave: "productoId-canalId")
+    private static final ThreadLocal<Map<String, ProductoCanalPrecioInflado>> CACHE_PRECIOS_INFLADOS = new ThreadLocal<>();
 
     // ====================================================
     // API PÚBLICA
@@ -1878,8 +1880,14 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Aplicar precio inflado de producto_canal_precio_inflado (si existe y está activo)
         Optional<ProductoCanalPrecioInflado> precioInfladoOpt = Optional.empty();
         if (canalId != null) {
-            precioInfladoOpt = productoCanalPrecioInfladoRepository
-                    .findByProductoIdAndCanalId(productoId, canalId);
+            Map<String, ProductoCanalPrecioInflado> cache = CACHE_PRECIOS_INFLADOS.get();
+            if (cache != null) {
+                ProductoCanalPrecioInflado cached = cache.get(productoId + "-" + canalId);
+                precioInfladoOpt = Optional.ofNullable(cached);
+            } else {
+                precioInfladoOpt = productoCanalPrecioInfladoRepository
+                        .findByProductoIdAndCanalId(productoId, canalId);
+            }
         }
 
         if (precioInfladoOpt.isPresent()) {
@@ -2192,13 +2200,13 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         log.info("Precargando datos en memoria...");
 
         // Productos con márgenes
-        List<ProductoMargen> productosConMargenes = productoMargenRepository.findAll();
+        List<ProductoMargen> productosConMargenes = productoMargenRepository.findAllWithProductoFetch();
         List<Canal> todosLosCanales = canalRepository.findAll();
 
         // Cache de conceptos por canal (evita N consultas)
         Map<Integer, List<CanalConcepto>> conceptosPorCanal = new HashMap<>();
         for (Canal canal : todosLosCanales) {
-            conceptosPorCanal.put(canal.getId(), canalConceptoRepository.findByCanalId(canal.getId()));
+            conceptosPorCanal.put(canal.getId(), canalConceptoRepository.findByCanalIdWithConceptoFetch(canal.getId()));
         }
 
         // Cache de cuotas por canal
@@ -2212,7 +2220,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Cache de reglas por canal
         Map<Integer, List<CanalConceptoRegla>> reglasPorCanal = new HashMap<>();
         for (Canal canal : todosLosCanales) {
-            reglasPorCanal.put(canal.getId(), canalConceptoReglaRepository.findByCanalId(canal.getId()));
+            reglasPorCanal.put(canal.getId(), canalConceptoReglaRepository.findByCanalIdWithRelationsFetch(canal.getId()));
         }
 
         // Determinar qué tipo de margen usa cada canal
@@ -2256,7 +2264,17 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                 conceptosPorCanal.values().stream().mapToInt(List::size).sum(),
                 preciosExistentes.size(), cachePorcentajeCuotas.size());
 
-        // Setear cache en ThreadLocal para que lo use obtenerPorcentajeCuota()
+        // Cache de precios inflados (evita ~33k consultas individuales)
+        Map<String, ProductoCanalPrecioInflado> cachePreciosInflados = new HashMap<>();
+        List<ProductoCanalPrecioInflado> todosLosPreciosInflados = productoCanalPrecioInfladoRepository.findAllWithPrecioInfladoFetch();
+        for (ProductoCanalPrecioInflado pcpi : todosLosPreciosInflados) {
+            String clave = pcpi.getProducto().getId() + "-" + pcpi.getCanal().getId();
+            cachePreciosInflados.put(clave, pcpi);
+        }
+        log.info("Precios inflados cargados: {}", cachePreciosInflados.size());
+
+        // Setear caches en ThreadLocal
+        CACHE_PRECIOS_INFLADOS.set(cachePreciosInflados);
         CACHE_PORCENTAJE_CUOTAS.set(cachePorcentajeCuotas);
 
         // Separar canales en "base" (sin canalBase) y "dependientes" (con canalBase)
@@ -2511,6 +2529,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
         // Limpiar ThreadLocals
         CACHE_PORCENTAJE_CUOTAS.remove();
         CACHE_PRECIOS_BASE.remove();
+        CACHE_PRECIOS_INFLADOS.remove();
 
         long tiempoTotal = (System.currentTimeMillis() - inicio) / 1000;
         log.info("Recálculo masivo completado en {}s: {}/{} productos, {} precios calculados, {} errores, {} sin costo, {} sin margen",

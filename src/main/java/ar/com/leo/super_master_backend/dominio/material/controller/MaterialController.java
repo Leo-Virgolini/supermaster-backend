@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -25,16 +26,19 @@ public class MaterialController {
     private final MaterialService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<Page<MaterialDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
         return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<MaterialDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<MaterialDTO> crear(@Valid @RequestBody MaterialCreateDTO dto) {
         MaterialDTO creado = service.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -46,6 +50,7 @@ public class MaterialController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<MaterialDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody MaterialUpdateDTO dto
@@ -54,12 +59,14 @@ public class MaterialController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/productos")
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.listarProductos(id));

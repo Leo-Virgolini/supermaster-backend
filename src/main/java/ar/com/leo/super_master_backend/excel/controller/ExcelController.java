@@ -15,11 +15,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,6 +46,7 @@ public class ExcelController {
      * @return Resultado de la importación completa con estadísticas por hoja
      */
     @PostMapping("/importar-migracion")
+    @PreAuthorize("hasAuthority('EXCEL_EDITAR')")
     public ResponseEntity<?> importarMigracion(
             @RequestParam("archivo") MultipartFile file
     ) {
@@ -85,6 +89,7 @@ public class ExcelController {
      * @return Resultado de la importación con estadísticas
      */
     @PostMapping("/importar-costos")
+    @PreAuthorize("hasAuthority('EXCEL_EDITAR')")
     public ResponseEntity<?> importarCostos(
             @RequestParam("archivo") MultipartFile file
     ) {
@@ -121,6 +126,7 @@ public class ExcelController {
      * @return Archivo Excel descargable
      */
     @GetMapping("/exportar-precios")
+    @PreAuthorize("hasAuthority('EXCEL_VER')")
     public ResponseEntity<?> exportarPrecios(
             // FORMATO DE EXPORTACIÓN
             @RequestParam(required = false, defaultValue = "completo") String formato,
@@ -327,6 +333,7 @@ public class ExcelController {
      * @return Archivo Excel descargable
      */
     @GetMapping("/exportar-catalogo")
+    @PreAuthorize("hasAuthority('EXCEL_VER')")
     public ResponseEntity<?> exportarCatalogo(
             @RequestParam("catalogoId") Integer catalogoId,
             @RequestParam("canalId") Integer canalId,
@@ -383,14 +390,7 @@ public class ExcelController {
             headers.setContentDispositionFormData("attachment", filename);
             headers.setContentLength(result.archivo().length);
 
-            // Agregar resumen de advertencias en header (evitar headers muy grandes)
-            if (result.tieneAdvertencias()) {
-                // Solo enviar cantidad en header para evitar HeadersTooLargeException
-                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
-                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
-                // Loguear detalles completos en servidor
-                log.warn("Advertencias en exportación: {}", result.advertencias());
-            }
+            agregarHeadersAdvertencias(headers, result.advertencias());
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
@@ -425,14 +425,7 @@ public class ExcelController {
             headers.setContentDispositionFormData("attachment", filename);
             headers.setContentLength(result.archivo().length);
 
-            // Agregar resumen de advertencias en header (evitar headers muy grandes)
-            if (result.tieneAdvertencias()) {
-                // Solo enviar cantidad en header para evitar HeadersTooLargeException
-                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
-                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
-                // Loguear detalles completos en servidor
-                log.warn("Advertencias en exportación: {}", result.advertencias());
-            }
+            agregarHeadersAdvertencias(headers, result.advertencias());
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
@@ -467,11 +460,7 @@ public class ExcelController {
             headers.setContentDispositionFormData("attachment", filename);
             headers.setContentLength(result.archivo().length);
 
-            if (result.tieneAdvertencias()) {
-                headers.add("X-Advertencias-Count", String.valueOf(result.advertencias().size()));
-                headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count");
-                log.warn("Advertencias en exportación: {}", result.advertencias());
-            }
+            agregarHeadersAdvertencias(headers, result.advertencias());
 
             return new ResponseEntity<>(result.archivo(), headers, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
@@ -487,6 +476,37 @@ public class ExcelController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ErrorResponse.of("Error interno del servidor: " + e.getMessage(), "/api/excel/exportar-precios?formato=kt-gastro"));
         }
+    }
+
+    /**
+     * Agrega headers de advertencias a la respuesta de exportación.
+     * Envía cantidad + detalle (máx 50 items, URL-encoded JSON).
+     */
+    private void agregarHeadersAdvertencias(HttpHeaders headers, List<String> advertencias) {
+        if (advertencias == null || advertencias.isEmpty()) {
+            return;
+        }
+
+        int total = advertencias.size();
+        headers.add("X-Advertencias-Count", String.valueOf(total));
+
+        // Limitar a 50 para evitar HeadersTooLargeException
+        int MAX_ADVERTENCIAS = 50;
+        List<String> limitadas = total > MAX_ADVERTENCIAS
+                ? advertencias.subList(0, MAX_ADVERTENCIAS)
+                : advertencias;
+
+        // Construir JSON array manualmente
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < limitadas.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(limitadas.get(i).replace("\"", "\\\"")).append("\"");
+        }
+        sb.append("]");
+        headers.add("X-Advertencias", URLEncoder.encode(sb.toString(), StandardCharsets.UTF_8));
+
+        headers.add("Access-Control-Expose-Headers", "X-Advertencias-Count, X-Advertencias");
+        log.warn("Exportación con {} advertencias", total);
     }
 }
 

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -25,16 +26,19 @@ public class ProveedorController {
     private final ProveedorService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<Page<ProveedorDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
         return ResponseEntity.ok(service.listar(search, pageable));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<ProveedorDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<ProveedorDTO> crear(@Valid @RequestBody ProveedorCreateDTO dto) {
         ProveedorDTO creado = service.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -46,6 +50,7 @@ public class ProveedorController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<ProveedorDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody ProveedorUpdateDTO dto
@@ -54,12 +59,14 @@ public class ProveedorController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('MAESTROS_EDITAR')")
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/productos")
+    @PreAuthorize("hasAuthority('MAESTROS_VER')")
     public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.listarProductos(id));

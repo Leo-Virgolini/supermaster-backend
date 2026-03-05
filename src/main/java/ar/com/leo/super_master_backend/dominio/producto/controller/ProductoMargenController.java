@@ -1,6 +1,7 @@
 package ar.com.leo.super_master_backend.dominio.producto.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,7 @@ public class ProductoMargenController {
     private final ProductoMargenService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<ProductoMargenDTO> obtener(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId) {
         return service.obtener(productoId)
@@ -31,6 +33,7 @@ public class ProductoMargenController {
     }
 
     @PutMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoMargenDTO> guardar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @Valid @RequestBody ProductoMargenDTO dto) {
@@ -48,6 +51,7 @@ public class ProductoMargenController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId) {
         service.eliminar(productoId);

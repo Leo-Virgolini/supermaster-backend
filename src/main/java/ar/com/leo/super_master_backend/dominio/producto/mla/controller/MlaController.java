@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -25,17 +26,20 @@ public class MlaController {
     private final MlaService mlaService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<Page<MlaDTO>> listar(@RequestParam(required = false) String search, Pageable pageable) {
         return ResponseEntity.ok(mlaService.listar(search, pageable));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<MlaDTO> obtener(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(mlaService.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<MlaDTO> crear(@Valid @RequestBody MlaCreateDTO dto) {
         MlaDTO creado = mlaService.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -47,6 +51,7 @@ public class MlaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<MlaDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody MlaUpdateDTO dto) {
@@ -54,6 +59,7 @@ public class MlaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         mlaService.eliminar(id);
@@ -61,6 +67,7 @@ public class MlaController {
     }
 
     @GetMapping("/{id}/productos")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<List<ProductoResumenDTO>> listarProductos(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(mlaService.listarProductos(id));

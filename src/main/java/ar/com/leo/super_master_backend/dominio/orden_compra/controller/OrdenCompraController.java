@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -22,6 +23,7 @@ public class OrdenCompraController {
     private final OrdenCompraService ordenCompraService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_VER')")
     public ResponseEntity<Page<OrdenCompraDTO>> listar(
             @RequestParam(required = false) Integer proveedorId,
             @RequestParam(required = false) EstadoOrdenCompra estado,
@@ -31,6 +33,7 @@ public class OrdenCompraController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_VER')")
     public ResponseEntity<OrdenCompraDTO> obtener(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id
     ) {
@@ -38,6 +41,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_EDITAR')")
     public ResponseEntity<OrdenCompraDTO> crear(@Valid @RequestBody OrdenCompraCreateDTO dto) {
         OrdenCompraDTO creado = ordenCompraService.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -49,6 +53,7 @@ public class OrdenCompraController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_EDITAR')")
     public ResponseEntity<OrdenCompraDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody OrdenCompraUpdateDTO dto
@@ -57,6 +62,7 @@ public class OrdenCompraController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id
     ) {
@@ -65,6 +71,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/{id}/enviar")
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_EDITAR')")
     public ResponseEntity<OrdenCompraDTO> enviar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id
     ) {
@@ -72,6 +79,7 @@ public class OrdenCompraController {
     }
 
     @PostMapping("/{id}/recepcion")
+    @PreAuthorize("hasAuthority('ORDENES_COMPRA_EDITAR')")
     public ResponseEntity<OrdenCompraDTO> registrarRecepcion(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody RecepcionDTO dto

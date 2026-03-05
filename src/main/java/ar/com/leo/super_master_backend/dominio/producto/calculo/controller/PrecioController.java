@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ public class PrecioController {
     // LISTAR PRODUCTOS CON PRECIOS (PAGINADO)
     // =====================================================
     @GetMapping
+    @PreAuthorize("hasAuthority('PRECIOS_VER')")
     public ResponseEntity<Page<ProductoConPreciosDTO>> listar(
 
             // =======================
@@ -198,6 +200,7 @@ public class PrecioController {
     // OBTENER FÓRMULA DEL CÁLCULO PASO A PASO
     // =====================================================
     @GetMapping("/formula")
+    @PreAuthorize("hasAuthority('PRECIOS_VER')")
     public ResponseEntity<FormulaCalculoDTO> obtenerFormula(
             @RequestParam @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @RequestParam @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
@@ -217,6 +220,7 @@ public class PrecioController {
     // - productoId + canalId + cuotas: recalcula solo para esas cuotas en ese canal
     // =====================================================
     @PostMapping("/calcular")
+    @PreAuthorize("hasAuthority('PRECIOS_EDITAR')")
     public ResponseEntity<CalculoResultadoDTO> calcular(
             @RequestParam(required = false) @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @RequestParam(required = false) @Positive(message = "El ID de canal debe ser positivo") Integer canalId,

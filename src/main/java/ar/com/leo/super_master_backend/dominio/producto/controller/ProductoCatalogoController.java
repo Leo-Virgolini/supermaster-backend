@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.dominio.producto.service.ProductoCatalogo
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -19,11 +20,13 @@ public class ProductoCatalogoController {
     private final ProductoCatalogoService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<List<ProductoCatalogoDTO>> listar(@PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId) {
         return ResponseEntity.ok(service.listar(productoId));
     }
 
     @PostMapping("/{catalogoId}")
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoCatalogoDTO> agregar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de catálogo debe ser positivo") Integer catalogoId
@@ -38,6 +41,7 @@ public class ProductoCatalogoController {
     }
 
     @DeleteMapping("/{catalogoId}")
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de catálogo debe ser positivo") Integer catalogoId

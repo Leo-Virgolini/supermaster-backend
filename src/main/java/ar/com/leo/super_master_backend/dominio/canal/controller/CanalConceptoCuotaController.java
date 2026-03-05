@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -24,23 +25,27 @@ public class CanalConceptoCuotaController {
     private final CanalConceptoCuotaService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('CANALES_VER')")
     public ResponseEntity<Page<CanalConceptoCuotaDTO>> listar(Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('CANALES_VER')")
     public ResponseEntity<CanalConceptoCuotaDTO> obtener(
             @PathVariable @Positive(message = "El ID debe ser positivo") Long id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @GetMapping("/canal/{canalId}")
+    @PreAuthorize("hasAuthority('CANALES_VER')")
     public ResponseEntity<List<CanalConceptoCuotaDTO>> listarPorCanal(
             @PathVariable @Positive(message = "El ID del canal debe ser positivo") Integer canalId) {
         return ResponseEntity.ok(service.listarPorCanal(canalId));
     }
 
     @GetMapping("/canal/{canalId}/cuotas/{cuotas}")
+    @PreAuthorize("hasAuthority('CANALES_VER')")
     public ResponseEntity<List<CanalConceptoCuotaDTO>> listarPorCanalYCuotas(
             @PathVariable @Positive(message = "El ID del canal debe ser positivo") Integer canalId,
             @PathVariable Integer cuotas) {  // -1=transferencia, 0=contado, >0=cuotas
@@ -48,6 +53,7 @@ public class CanalConceptoCuotaController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('CANALES_EDITAR')")
     public ResponseEntity<CanalConceptoCuotaDTO> crear(@Valid @RequestBody CanalConceptoCuotaCreateDTO dto) {
         CanalConceptoCuotaDTO creado = service.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -59,6 +65,7 @@ public class CanalConceptoCuotaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('CANALES_EDITAR')")
     public ResponseEntity<CanalConceptoCuotaDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Long id,
             @Valid @RequestBody CanalConceptoCuotaUpdateDTO dto
@@ -67,6 +74,7 @@ public class CanalConceptoCuotaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('CANALES_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Long id) {
         service.eliminar(id);

@@ -10,6 +10,7 @@ import ar.com.leo.super_master_backend.apis.ml.service.MercadoLibreService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -36,6 +37,7 @@ public class MercadoLibreController {
      * @return DTO con el costo de envío calculado o confirmación de inicio de proceso masivo
      */
     @PostMapping("/costo-envio")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<?> calcularCostoEnvio(
             @RequestParam(required = false) String mla,
             @RequestParam(required = false) Integer productoId) {
@@ -75,6 +77,7 @@ public class MercadoLibreController {
      * @return Mensaje indicando si se canceló o no había proceso en ejecución
      */
     @PostMapping("/costo-envio/cancelar")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<?> cancelarCostoEnvio() {
         boolean cancelado = mercadoLibreService.cancelarProcesoMasivo();
         if (cancelado) {
@@ -94,6 +97,7 @@ public class MercadoLibreController {
      * @return Estado del proceso masivo
      */
     @GetMapping("/costo-envio/estado")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<ProcesoMasivoEstadoDTO> estadoCostoEnvio() {
         return ResponseEntity.ok(mercadoLibreService.obtenerEstadoProcesoMasivo());
     }
@@ -104,6 +108,7 @@ public class MercadoLibreController {
      * @return Resultados del proceso masivo o mensaje si no hay resultados disponibles
      */
     @GetMapping("/costo-envio/resultado")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<?> resultadoCostoEnvio() {
         CostoEnvioMasivoResponseDTO resultado = mercadoLibreService.obtenerResultadoProcesoMasivo();
         if (resultado != null) {
@@ -130,6 +135,7 @@ public class MercadoLibreController {
      * @return DTO con los costos de venta o confirmación de inicio de proceso masivo
      */
     @PostMapping("/costo-venta")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<?> calcularCostoVenta(
             @RequestParam(required = false) String mla,
             @RequestParam(required = false) Integer productoId) {
@@ -167,6 +173,7 @@ public class MercadoLibreController {
      * @return Mensaje indicando si se canceló o no había proceso en ejecución
      */
     @PostMapping("/costo-venta/cancelar")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<?> cancelarCostoVenta() {
         boolean cancelado = mercadoLibreService.cancelarProcesoMasivoCostoVenta();
         if (cancelado) {
@@ -186,6 +193,7 @@ public class MercadoLibreController {
      * @return Estado del proceso masivo
      */
     @GetMapping("/costo-venta/estado")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<ProcesoMasivoEstadoDTO> estadoCostoVenta() {
         return ResponseEntity.ok(mercadoLibreService.obtenerEstadoProcesoMasivoCostoVenta());
     }
@@ -196,6 +204,7 @@ public class MercadoLibreController {
      * @return Resultados del proceso masivo o mensaje si no hay resultados disponibles
      */
     @GetMapping("/costo-venta/resultado")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<?> resultadoCostoVenta() {
         CostoVentaMasivoResponseDTO resultado = mercadoLibreService.obtenerResultadoProcesoMasivoCostoVenta();
         if (resultado != null) {
@@ -211,11 +220,13 @@ public class MercadoLibreController {
     // =====================================================
 
     @GetMapping("/configuracion")
+    @PreAuthorize("hasAuthority('MLAS_VER')")
     public ResponseEntity<ConfiguracionMlDTO> obtenerConfiguracion() {
         return ResponseEntity.ok(configuracionMlService.obtener());
     }
 
     @PutMapping("/configuracion")
+    @PreAuthorize("hasAuthority('MLAS_EDITAR')")
     public ResponseEntity<ConfiguracionMlDTO> actualizarConfiguracion(
             @Valid @RequestBody ConfiguracionMlDTO dto) {
         return ResponseEntity.ok(configuracionMlService.actualizar(dto));

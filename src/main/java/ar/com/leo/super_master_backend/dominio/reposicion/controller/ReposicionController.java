@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public class ReposicionController {
     // =====================================================
 
     @PostMapping("/calcular")
+    @PreAuthorize("hasAuthority('REPOSICION_EDITAR')")
     public ResponseEntity<Void> iniciarCalculo() {
         boolean iniciado = reposicionService.iniciarCalculo();
         if (iniciado) {
@@ -37,11 +39,13 @@ public class ReposicionController {
     }
 
     @GetMapping("/calcular/estado")
+    @PreAuthorize("hasAuthority('REPOSICION_VER')")
     public ResponseEntity<ProcesoMasivoEstadoDTO> obtenerEstadoCalculo() {
         return ResponseEntity.ok(reposicionService.obtenerEstadoCalculo());
     }
 
     @PostMapping("/calcular/cancelar")
+    @PreAuthorize("hasAuthority('REPOSICION_EDITAR')")
     public ResponseEntity<Void> cancelarCalculo() {
         boolean cancelado = reposicionService.cancelarCalculo();
         if (cancelado) {
@@ -55,6 +59,7 @@ public class ReposicionController {
     // =====================================================
 
     @GetMapping("/resultado")
+    @PreAuthorize("hasAuthority('REPOSICION_VER')")
     public ResponseEntity<ReposicionResultDTO> obtenerResultado() {
         ReposicionResultDTO resultado = reposicionService.obtenerResultado();
         if (resultado == null) {
@@ -64,6 +69,7 @@ public class ReposicionController {
     }
 
     @GetMapping("/resultado/excel")
+    @PreAuthorize("hasAuthority('REPOSICION_VER')")
     public ResponseEntity<byte[]> descargarExcelSugerencias() {
         ReposicionService.ExcelResult result = reposicionService.generarExcelSugerencias();
         return ResponseEntity.ok()
@@ -73,6 +79,7 @@ public class ReposicionController {
     }
 
     @GetMapping("/resultado/excel/oc/{id}")
+    @PreAuthorize("hasAuthority('REPOSICION_VER')")
     public ResponseEntity<byte[]> descargarExcelOrdenCompra(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id
     ) {
@@ -88,6 +95,7 @@ public class ReposicionController {
     // =====================================================
 
     @PutMapping("/resultado/ajustar")
+    @PreAuthorize("hasAuthority('REPOSICION_EDITAR')")
     public ResponseEntity<ReposicionResultDTO> ajustarPedidos(@Valid @RequestBody AjustePedidoDTO dto) {
         return ResponseEntity.ok(reposicionService.ajustarPedidos(dto));
     }
@@ -97,6 +105,7 @@ public class ReposicionController {
     // =====================================================
 
     @PostMapping("/generar-ordenes")
+    @PreAuthorize("hasAuthority('REPOSICION_EDITAR')")
     public ResponseEntity<List<OrdenCompraDTO>> generarOrdenes(
             @RequestParam(required = false) @Positive(message = "El ID de proveedor debe ser positivo") Integer proveedorId
     ) {
@@ -109,11 +118,13 @@ public class ReposicionController {
     // =====================================================
 
     @GetMapping("/config")
+    @PreAuthorize("hasAuthority('REPOSICION_VER') or hasAuthority('CONFIGURACION_VER')")
     public ResponseEntity<ReposicionConfigDTO> obtenerConfig() {
         return ResponseEntity.ok(reposicionService.obtenerConfig());
     }
 
     @PutMapping("/config")
+    @PreAuthorize("hasAuthority('REPOSICION_EDITAR') or hasAuthority('CONFIGURACION_EDITAR')")
     public ResponseEntity<ReposicionConfigDTO> actualizarConfig(@Valid @RequestBody ReposicionConfigDTO dto) {
         return ResponseEntity.ok(reposicionService.actualizarConfig(dto));
     }

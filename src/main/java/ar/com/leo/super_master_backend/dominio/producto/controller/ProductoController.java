@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -31,6 +32,7 @@ public class ProductoController {
     // LISTAR / FILTRAR PRODUCTOS
     // =====================================================
     @GetMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<Page<ProductoDTO>> listar(
 
             // =======================
@@ -184,6 +186,7 @@ public class ProductoController {
     // =====================================================
 
     @PostMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoCreateDTO dto) {
         ProductoDTO creado = productoService.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -195,11 +198,13 @@ public class ProductoController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<ProductoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(productoService.obtener(id));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody ProductoUpdateDTO dto) {
@@ -207,6 +212,7 @@ public class ProductoController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         productoService.eliminar(id);
         return ResponseEntity.noContent().build();

@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -22,6 +23,7 @@ public class ProductoCanalPrecioInfladoController {
     private final ProductoCanalPrecioInfladoService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_VER')")
     public ResponseEntity<ProductoCanalPrecioInfladoDTO> obtener(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId) {
@@ -29,6 +31,7 @@ public class ProductoCanalPrecioInfladoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoCanalPrecioInfladoDTO> crear(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
@@ -46,6 +49,7 @@ public class ProductoCanalPrecioInfladoController {
     }
 
     @PutMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<ProductoCanalPrecioInfladoDTO> actualizar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId,
@@ -54,6 +58,7 @@ public class ProductoCanalPrecioInfladoController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasAuthority('PRODUCTOS_EDITAR')")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El ID de producto debe ser positivo") Integer productoId,
             @PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId) {

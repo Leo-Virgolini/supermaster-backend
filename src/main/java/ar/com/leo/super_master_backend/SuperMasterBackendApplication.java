@@ -2,10 +2,12 @@ package ar.com.leo.super_master_backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 import java.util.TimeZone;
 
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class SuperMasterBackendApplication {
 
     public static void main(String[] args) {

@@ -10,6 +10,7 @@ import ar.com.leo.super_master_backend.apis.dux.service.DuxService.ProductoPreci
 import ar.com.leo.super_master_backend.apis.ml.dto.ProcesoMasivoEstadoDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
 
@@ -28,6 +29,7 @@ public class DuxController {
     // =====================================================
 
     @GetMapping("/status")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<Map<String, Object>> obtenerStatus() {
         return ResponseEntity.ok(Map.of(
                 "configurado", duxService.isConfigured(),
@@ -40,6 +42,7 @@ public class DuxController {
     // =====================================================
 
     @PostMapping("/obtener-productos")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<?> iniciarObtenerProductos() {
         boolean iniciado = duxService.iniciarObtenerProductos();
         if (iniciado) {
@@ -58,11 +61,13 @@ public class DuxController {
     }
 
     @GetMapping("/obtener-productos/estado")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<ProcesoMasivoEstadoDTO> estadoObtenerProductos() {
         return ResponseEntity.ok(duxService.obtenerEstadoObtencionProductos());
     }
 
     @PostMapping("/obtener-productos/cancelar")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<?> cancelarObtenerProductos() {
         boolean cancelado = duxService.cancelarObtencionProductos();
         if (cancelado) {
@@ -76,6 +81,7 @@ public class DuxController {
     }
 
     @GetMapping("/obtener-productos/resultado")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<?> resultadoObtenerProductos() {
         List<Item> resultado = duxService.obtenerResultadoObtencionProductos();
         if (resultado != null) {
@@ -87,6 +93,7 @@ public class DuxController {
     }
 
     @GetMapping("/productos/{codItem}")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<Item> obtenerProducto(@PathVariable String codItem) {
         Item item = duxService.obtenerProductoPorCodigo(codItem);
         if (item == null) {
@@ -100,11 +107,13 @@ public class DuxController {
     // =====================================================
 
     @GetMapping("/listas-precios")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<JsonNode> obtenerListasPrecios() {
         return ResponseEntity.ok(duxService.obtenerListasPrecios());
     }
 
     @GetMapping("/listas-precios/{nombre}/id")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<Map<String, Object>> obtenerIdListaPrecio(@PathVariable String nombre) {
         long id = duxService.obtenerIdListaPrecio(nombre);
         return ResponseEntity.ok(Map.of(
@@ -124,6 +133,7 @@ public class DuxController {
      * @param productos Lista de productos con SKU, tipo (SIMPLE/COMBO) y precio
      */
     @PostMapping("/listas-precios/{idLista}/precios")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<?> modificarPrecios(
             @PathVariable long idLista,
             @RequestBody List<ProductoPrecioRequest> productos) {
@@ -151,6 +161,7 @@ public class DuxController {
     // =====================================================
 
     @GetMapping("/procesos/{idProceso}/estado")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<Map<String, Object>> obtenerEstadoProceso(@PathVariable int idProceso) {
         String estado = duxService.obtenerEstadoProceso(idProceso);
         return ResponseEntity.ok(Map.of(
@@ -164,6 +175,7 @@ public class DuxController {
     // =====================================================
 
     @PostMapping("/importar-productos")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<?> importarProductos() {
         boolean iniciado = duxService.iniciarImportacion();
         if (iniciado) {
@@ -182,11 +194,13 @@ public class DuxController {
     }
 
     @GetMapping("/importar-productos/estado")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<ProcesoMasivoEstadoDTO> estadoImportacion() {
         return ResponseEntity.ok(duxService.obtenerEstadoImportacion());
     }
 
     @PostMapping("/importar-productos/cancelar")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<?> cancelarImportacion() {
         boolean cancelado = duxService.cancelarImportacion();
         if (cancelado) {
@@ -200,6 +214,7 @@ public class DuxController {
     }
 
     @GetMapping("/importar-productos/resultado")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<?> resultadoImportacion() {
         ImportDuxResultDTO resultado = duxService.obtenerResultadoImportacion();
         if (resultado != null) {
@@ -215,11 +230,13 @@ public class DuxController {
     // =====================================================
 
     @GetMapping("/empresas")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<JsonNode> obtenerEmpresas() {
         return ResponseEntity.ok(duxService.obtenerEmpresas());
     }
 
     @GetMapping("/empresas/{idEmpresa}/sucursales")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<JsonNode> obtenerSucursales(@PathVariable int idEmpresa) {
         return ResponseEntity.ok(duxService.obtenerSucursales(idEmpresa));
     }
@@ -229,6 +246,7 @@ public class DuxController {
     // =====================================================
 
     @PostMapping("/exportar-productos")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_EDITAR')")
     public ResponseEntity<ExportDuxResultDTO> exportarProductos(
             @RequestBody(required = false) ExportDuxRequestDTO request) {
         List<String> skus = request != null ? request.skus() : null;

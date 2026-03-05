@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +18,7 @@ public interface ProductoCanalPrecioInfladoRepository extends JpaRepository<Prod
     List<ProductoCanalPrecioInflado> findByCanalId(Integer canalId);
 
     List<ProductoCanalPrecioInflado> findByActivaTrue();
+
+    @Query("SELECT pcpi FROM ProductoCanalPrecioInflado pcpi JOIN FETCH pcpi.precioInflado")
+    List<ProductoCanalPrecioInflado> findAllWithPrecioInfladoFetch();
 }

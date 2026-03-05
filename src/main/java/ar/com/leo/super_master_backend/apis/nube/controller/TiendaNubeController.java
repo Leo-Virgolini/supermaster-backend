@@ -5,6 +5,7 @@ import ar.com.leo.super_master_backend.apis.nube.dto.VentaNubeDTO;
 import ar.com.leo.super_master_backend.apis.nube.service.TiendaNubeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
 
@@ -23,6 +24,7 @@ public class TiendaNubeController {
     // =====================================================
 
     @GetMapping("/status")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<Map<String, Object>> obtenerStatus() {
         return ResponseEntity.ok(Map.of(
                 "configurado", tiendaNubeService.isConfigured(),
@@ -36,16 +38,19 @@ public class TiendaNubeController {
     // =====================================================
 
     @GetMapping("/ventas")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<List<VentaNubeDTO>> obtenerTodasLasVentas() {
         return ResponseEntity.ok(tiendaNubeService.obtenerTodasLasVentas());
     }
 
     @GetMapping("/ventas/hogar")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<List<VentaNubeDTO>> obtenerVentasHogar() {
         return ResponseEntity.ok(tiendaNubeService.obtenerVentasHogar());
     }
 
     @GetMapping("/ventas/gastro")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<List<VentaNubeDTO>> obtenerVentasGastro() {
         return ResponseEntity.ok(tiendaNubeService.obtenerVentasGastro());
     }
@@ -55,6 +60,7 @@ public class TiendaNubeController {
     // =====================================================
 
     @GetMapping("/stock/{sku}")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<StockNubeDTO> obtenerStock(@PathVariable String sku) {
         StockNubeDTO stock = tiendaNubeService.obtenerStockPorSku(sku);
         if (stock == null) {
@@ -68,6 +74,7 @@ public class TiendaNubeController {
     // =====================================================
 
     @GetMapping("/ordenes/{numero}")
+    @PreAuthorize("hasAuthority('INTEGRACIONES_VER')")
     public ResponseEntity<JsonNode> buscarOrden(@PathVariable String numero) {
         JsonNode orden = tiendaNubeService.buscarOrdenPorNumero(numero);
         if (orden == null) {

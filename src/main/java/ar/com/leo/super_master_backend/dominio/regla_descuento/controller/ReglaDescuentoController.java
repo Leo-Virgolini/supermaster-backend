@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -24,21 +25,25 @@ public class ReglaDescuentoController {
     private final ReglaDescuentoService service;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PRECIOS_VER')")
     public ResponseEntity<Page<ReglaDescuentoDTO>> listar(Pageable pageable) {
         return ResponseEntity.ok(service.listar(pageable));
     }
 
     @GetMapping("/canal/{canalId}")
+    @PreAuthorize("hasAuthority('PRECIOS_VER')")
     public ResponseEntity<List<ReglaDescuentoDTO>> listarPorCanal(@PathVariable @Positive(message = "El ID de canal debe ser positivo") Integer canalId) {
         return ResponseEntity.ok(service.listarPorCanal(canalId));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRECIOS_VER')")
     public ResponseEntity<ReglaDescuentoDTO> obtener(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         return ResponseEntity.ok(service.obtener(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('PRECIOS_EDITAR')")
     public ResponseEntity<ReglaDescuentoDTO> crear(@Valid @RequestBody ReglaDescuentoCreateDTO dto) {
         ReglaDescuentoDTO creado = service.crear(dto);
         URI location = ServletUriComponentsBuilder
@@ -50,6 +55,7 @@ public class ReglaDescuentoController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRECIOS_EDITAR')")
     public ResponseEntity<ReglaDescuentoDTO> actualizar(
             @PathVariable @Positive(message = "El ID debe ser positivo") Integer id,
             @Valid @RequestBody ReglaDescuentoUpdateDTO dto
@@ -58,6 +64,7 @@ public class ReglaDescuentoController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PRECIOS_EDITAR')")
     public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El ID debe ser positivo") Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
