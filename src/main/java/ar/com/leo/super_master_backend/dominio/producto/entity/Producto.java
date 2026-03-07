@@ -12,6 +12,7 @@ import ar.com.leo.super_master_backend.dominio.tipo.entity.Tipo;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.hibernate.annotations.BatchSize;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -162,6 +163,7 @@ public class Producto {
     // ---------------------------
 
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private Set<ProductoApto> productosApto = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
@@ -171,9 +173,11 @@ public class Producto {
     private Set<ProductoCanalPrecio> productoCanalPrecios = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
+    @BatchSize(size = 50)
     private Set<ProductoCatalogo> productoCatalogos = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")
+    @BatchSize(size = 50)
     private Set<ProductoCliente> productoClientes = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "producto")

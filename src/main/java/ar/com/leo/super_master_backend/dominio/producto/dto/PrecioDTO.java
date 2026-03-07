@@ -21,10 +21,13 @@ public record PrecioDTO(
         BigDecimal margenSobrePvp,
         BigDecimal markupPorcentaje,
         LocalDateTime fechaUltimoCalculo,
-        List<DescuentoAplicableDTO> descuentos
+        List<DescuentoAplicableDTO> descuentos,
+        String precioInfladoCodigo,
+        String precioInfladoTipo,
+        BigDecimal precioInfladoValor
 ) {
     /**
-     * Constructor sin descuentos (compatibilidad hacia atrás)
+     * Constructor sin descuentos ni inflado (compatibilidad hacia atrás)
      */
     public PrecioDTO(
             Integer cuotas,
@@ -42,6 +45,29 @@ public record PrecioDTO(
     ) {
         this(cuotas, descripcion, pvp, pvpInflado, costoProducto, costosVenta,
                 ingresoNetoVendedor, ganancia, margenSobreIngresoNeto, margenSobrePvp,
-                markupPorcentaje, fechaUltimoCalculo, null);
+                markupPorcentaje, fechaUltimoCalculo, null, null, null, null);
+    }
+
+    /**
+     * Constructor con descuentos pero sin inflado (compatibilidad hacia atrás)
+     */
+    public PrecioDTO(
+            Integer cuotas,
+            String descripcion,
+            BigDecimal pvp,
+            BigDecimal pvpInflado,
+            BigDecimal costoProducto,
+            BigDecimal costosVenta,
+            BigDecimal ingresoNetoVendedor,
+            BigDecimal ganancia,
+            BigDecimal margenSobreIngresoNeto,
+            BigDecimal margenSobrePvp,
+            BigDecimal markupPorcentaje,
+            LocalDateTime fechaUltimoCalculo,
+            List<DescuentoAplicableDTO> descuentos
+    ) {
+        this(cuotas, descripcion, pvp, pvpInflado, costoProducto, costosVenta,
+                ingresoNetoVendedor, ganancia, margenSobreIngresoNeto, margenSobrePvp,
+                markupPorcentaje, fechaUltimoCalculo, descuentos, null, null, null);
     }
 }

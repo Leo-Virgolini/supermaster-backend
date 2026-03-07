@@ -4,6 +4,7 @@ import ar.com.leo.super_master_backend.config.GlobalMapperConfig;
 import ar.com.leo.super_master_backend.dominio.producto.dto.*;
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -38,6 +39,7 @@ public interface ProductoMapper {
                 entity.getDescripcion(),
                 entity.getTituloWeb(),
                 entity.getEsCombo(),
+                entity.getClasifGastro() != null ? entity.getClasifGastro().getEsMaquina() : null,
                 entity.getUxb(),
                 entity.getMoq(),
                 entity.getImagenUrl(),
@@ -156,9 +158,6 @@ public interface ProductoMapper {
 
     /**
      * Versión completa que incluye nombres de canales explícitos.
-     * @param descripcionesCuotas Mapa de (canalId + "_" + cuotas) -> descripcion
-     * @param descuentosPorCanal Mapa de canalId -> lista de descuentos aplicables (puede ser null)
-     * @param nombresPorCanal Mapa de canalId -> nombre del canal (puede ser null, usa lazy loading)
      */
     default ProductoConPreciosDTO toProductoConPreciosDTO(
             Producto producto,
@@ -167,6 +166,21 @@ public interface ProductoMapper {
             Map<String, String> descripcionesCuotas,
             Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal,
             Map<Integer, String> nombresPorCanal) {
+        return toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, nombresPorCanal, null);
+    }
+
+    /**
+     * Versión completa que incluye nombres de canales y reglas de inflado.
+     * @param infladosPorProductoCanal Mapa de "productoId_canalId" -> ProductoCanalPrecioInflado activo (puede ser null)
+     */
+    default ProductoConPreciosDTO toProductoConPreciosDTO(
+            Producto producto,
+            ProductoMargen productoMargen,
+            List<ProductoCanalPrecio> precios,
+            Map<String, String> descripcionesCuotas,
+            Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal,
+            Map<Integer, String> nombresPorCanal,
+            Map<String, ProductoCanalPrecioInflado> infladosPorProductoCanal) {
         // Obtener MLA (si existe)
         ar.com.leo.super_master_backend.dominio.producto.mla.entity.Mla mlaEntity = producto.getMla();
         String mla = mlaEntity != null ? mlaEntity.getMla() : null;
@@ -194,6 +208,23 @@ public interface ProductoMapper {
                             ? descuentosPorCanal.get(canalId)
                             : null;
 
+                    // Obtener regla de inflado para este producto+canal (si existe)
+                    String infCodigo = null;
+                    String infTipo = null;
+                    java.math.BigDecimal infValor = null;
+                    if (infladosPorProductoCanal != null) {
+                        String infKey = producto.getId() + "_" + canalId;
+                        ProductoCanalPrecioInflado pcpi = infladosPorProductoCanal.get(infKey);
+                        if (pcpi != null && pcpi.getPrecioInflado() != null) {
+                            infCodigo = pcpi.getPrecioInflado().getCodigo();
+                            infTipo = pcpi.getPrecioInflado().getTipo().name();
+                            infValor = pcpi.getPrecioInflado().getValor();
+                        }
+                    }
+                    final String finalInfCodigo = infCodigo;
+                    final String finalInfTipo = infTipo;
+                    final java.math.BigDecimal finalInfValor = infValor;
+
                     List<PrecioDTO> preciosList = preciosDelCanal.stream()
                             .map(pcp -> new PrecioDTO(
                                     pcp.getCuotas(),
@@ -208,7 +239,10 @@ public interface ProductoMapper {
                                     pcp.getMargenSobrePvp(),
                                     pcp.getMarkupPorcentaje(),
                                     pcp.getFechaUltimoCalculo(),
-                                    descuentosCanal
+                                    descuentosCanal,
+                                    finalInfCodigo,
+                                    finalInfTipo,
+                                    finalInfValor
                             ))
                             .toList();
 

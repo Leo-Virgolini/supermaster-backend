@@ -1,10 +1,9 @@
 package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.reposicion.entity.TagReposicion;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -234,6 +233,32 @@ public class ProductoSpecifications {
         return (root, query, cb) -> {
             if (ids == null || ids.isEmpty()) return null;
             return root.join("mla", JoinType.LEFT).get("id").in(ids);
+        };
+    }
+
+    /**
+     * Filtra productos que tienen precios calculados para un canal y/o cuotas específicos.
+     * Usa INNER JOIN para que la paginación SQL sea exacta (no filtra en memoria).
+     */
+    public static Specification<Producto> tienePreciosEnCanalCuotas(Integer canalId, Integer cuotas) {
+        return (root, query, cb) -> {
+            // EXISTS subquery: filtra productos que tengan al menos un precio calculado.
+            // Usar EXISTS en vez de JOIN evita duplicados y garantiza que el count sea correcto.
+            Subquery<Integer> subquery = query.subquery(Integer.class);
+            Root<ProductoCanalPrecio> precioRoot = subquery.from(ProductoCanalPrecio.class);
+
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(precioRoot.get("producto"), root));
+
+            if (canalId != null) {
+                predicates.add(cb.equal(precioRoot.get("canal").get("id"), canalId));
+            }
+            if (cuotas != null) {
+                predicates.add(cb.equal(precioRoot.get("cuotas"), cuotas));
+            }
+
+            subquery.select(precioRoot.get("id")).where(predicates.toArray(new Predicate[0]));
+            return cb.exists(subquery);
         };
     }
 

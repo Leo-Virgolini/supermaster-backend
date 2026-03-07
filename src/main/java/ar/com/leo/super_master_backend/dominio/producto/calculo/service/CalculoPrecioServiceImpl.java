@@ -2745,22 +2745,40 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
             BigDecimal pvpConDescuento = pvp.multiply(factorDescuento)
                     .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-            // Calcular ganancia con descuento
+            // Calcular métricas con descuento
+            BigDecimal costosVentaConDescuento = BigDecimal.ZERO;
+            BigDecimal ingresoNetoConDescuento = BigDecimal.ZERO;
             BigDecimal gananciaConDescuento = BigDecimal.ZERO;
-            BigDecimal margenConDescuento = BigDecimal.ZERO;
+            BigDecimal margenSobreIngresoNetoConDescuento = BigDecimal.ZERO;
+            BigDecimal margenSobrePvpConDescuento = BigDecimal.ZERO;
+            BigDecimal markupConDescuento = BigDecimal.ZERO;
 
             if (gananciaOriginal != null && costoProducto != null && ingresoNetoOriginal != null
                     && ingresoNetoOriginal.compareTo(BigDecimal.ZERO) > 0) {
                 // Proporción del ingreso neto respecto al PVP
                 BigDecimal proporcionIngreso = ingresoNetoOriginal.divide(pvp, 6, RoundingMode.HALF_UP);
-                BigDecimal ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso);
+                ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso)
+                        .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                // Costos de venta proporcionales
+                costosVentaConDescuento = pvpConDescuento.subtract(ingresoNetoConDescuento)
+                        .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
                 gananciaConDescuento = ingresoNetoConDescuento.subtract(costoProducto)
                         .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-                // Margen con descuento
+                // Margen sobre ingreso neto
                 if (ingresoNetoConDescuento.compareTo(BigDecimal.ZERO) > 0) {
-                    margenConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                    margenSobreIngresoNetoConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
                             .divide(ingresoNetoConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                }
+                // Margen sobre PVP
+                if (pvpConDescuento.compareTo(BigDecimal.ZERO) > 0) {
+                    margenSobrePvpConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                            .divide(pvpConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                }
+                // Markup
+                if (costoProducto.compareTo(BigDecimal.ZERO) > 0) {
+                    markupConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                            .divide(costoProducto, PRECISION_RESULTADO, RoundingMode.HALF_UP);
                 }
             }
 
@@ -2768,8 +2786,12 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
                     montoMinimo,
                     descuentoPct,
                     pvpConDescuento,
+                    costosVentaConDescuento,
+                    ingresoNetoConDescuento,
                     gananciaConDescuento,
-                    margenConDescuento
+                    margenSobreIngresoNetoConDescuento,
+                    margenSobrePvpConDescuento,
+                    markupConDescuento
             ));
         }
 

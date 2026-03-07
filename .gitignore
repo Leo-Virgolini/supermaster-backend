@@ -42,3 +42,6 @@ build/
 
 ### Windows reserved names ###
 nul
+
+### Docker ###
+.env

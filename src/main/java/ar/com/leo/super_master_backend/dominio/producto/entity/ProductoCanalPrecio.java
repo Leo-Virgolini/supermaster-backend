@@ -107,6 +107,16 @@ public class ProductoCanalPrecio {
     @Column(name = "fecha_ultimo_calculo")
     private LocalDateTime fechaUltimoCalculo;
 
+    // ---------------------------
+    // RELACIÓN CON PRECIO INFLADO (solo lectura, para sorting)
+    // ---------------------------
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "id_producto", referencedColumnName = "id_producto", insertable = false, updatable = false),
+            @JoinColumn(name = "id_canal", referencedColumnName = "id_canal", insertable = false, updatable = false)
+    })
+    private ProductoCanalPrecioInflado precioInfladoAsignacion;
+
     @PrePersist
     @PreUpdate
     public void actualizarFechaCalculo() {

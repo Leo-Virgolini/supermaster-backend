@@ -49,6 +49,22 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer>, Jp
     @Query("SELECT p FROM Producto p JOIN FETCH p.proveedor WHERE p.activo = true AND p.proveedor IS NOT NULL")
     List<Producto> findActivosConProveedor();
 
+    /**
+     * Carga productos con todas las relaciones ManyToOne en un solo query (evita N+1).
+     * Usado por listarConPrecios para construir DTOs sin lazy loading.
+     */
+    @Query("SELECT DISTINCT p FROM Producto p " +
+           "LEFT JOIN FETCH p.marca " +
+           "LEFT JOIN FETCH p.origen " +
+           "LEFT JOIN FETCH p.clasifGral " +
+           "LEFT JOIN FETCH p.clasifGastro " +
+           "LEFT JOIN FETCH p.tipo " +
+           "LEFT JOIN FETCH p.proveedor " +
+           "LEFT JOIN FETCH p.material " +
+           "LEFT JOIN FETCH p.mla " +
+           "WHERE p.id IN :ids")
+    List<Producto> findAllByIdWithRelaciones(@Param("ids") List<Integer> ids);
+
     @Modifying
     @Query("UPDATE Producto p SET p.stock = :stock WHERE p.sku = :sku")
     int updateStockBySku(@Param("sku") String sku, @Param("stock") Integer stock);

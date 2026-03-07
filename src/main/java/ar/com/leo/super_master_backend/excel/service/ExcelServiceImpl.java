@@ -3227,7 +3227,7 @@ public class ExcelServiceImpl implements ExcelService {
 
                                 Cell cellDescMargen = row.createCell(cellIndex++);
                                 if (descuento != null) {
-                                    setCellValue(cellDescMargen, descuento.margenConDescuento(), currentPorcentajeStyle);
+                                    setCellValue(cellDescMargen, descuento.margenSobreIngresoNetoConDescuento(), currentPorcentajeStyle);
                                 } else {
                                     cellDescMargen.setBlank();
                                     cellDescMargen.setCellStyle(estiloData);

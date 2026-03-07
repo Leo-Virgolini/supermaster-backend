@@ -1,0 +1,45 @@
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supermaster-backend
+    ports:
+      - "8080:8080"
+    environment:
+      # Base de datos (MySQL instalado en el host)
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/supermaster?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-admin}
+      # Directorio de secretos (montado como volumen)
+      APP_SECRETS_DIR: /app/secrets
+      # Directorio de imagenes (montado como volumen)
+      APP_IMAGENES_DIR: /app/imagenes/
+      # JWT
+      JWT_ACCESS_TOKEN_EXPIRATION_MS: ${JWT_EXPIRATION:-43200000}
+      # Desactivar devtools en produccion
+      SPRING_DEVTOOLS_RESTART_ENABLED: "false"
+    volumes:
+      # Secretos (JWT key, tokens ML/Dux/Nube)
+      - ${SECRETS_DIR:-C:/ProgramData/SuperMaster/secrets}:/app/secrets:ro
+      # Directorio de imagenes compartido
+      - ${IMAGENES_DIR:-D:/Doc. Compartidos/IMAGENES}:/app/imagenes:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ${FRONTEND_PATH:-../master-application}
+      dockerfile: Dockerfile
+      args:
+        # IP del servidor en la LAN - los browsers de los clientes usan esta URL
+        NEXT_PUBLIC_API_BASE_URL: http://${SERVER_IP:-localhost}:8080
+        NEXT_PUBLIC_DATA_SOURCE: api
+    container_name: supermaster-frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - backend

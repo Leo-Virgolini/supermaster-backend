@@ -13,6 +13,7 @@ public record ProductoDTO(
         String descripcion,
         String tituloWeb,
         Boolean esCombo,
+        Boolean esMaquina,
         Integer uxb,
         Integer moq,
         String imagenUrl,

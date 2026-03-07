@@ -14,8 +14,11 @@ import ar.com.leo.super_master_backend.dominio.producto.entity.Producto;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.mapper.ProductoMapper;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecioInflado;
+import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioInfladoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
+import ar.com.leo.super_master_backend.dominio.producto.repository.PrecioSpecifications;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,7 @@ public class ProductoServiceImpl implements ProductoService {
     private final ProductoMapper productoMapper;
     private final ProductoCanalPrecioRepository productoCanalPrecioRepository;
     private final ProductoMargenRepository productoMargenRepository;
+    private final ProductoCanalPrecioInfladoRepository productoCanalPrecioInfladoRepository;
     private final RecalculoPrecioFacade recalculoFacade;
     private final CanalRepository canalRepository;
     private final CanalConceptoCuotaRepository canalConceptoCuotaRepository;
@@ -234,6 +238,8 @@ public class ProductoServiceImpl implements ProductoService {
 
     // ======================================================
     // LISTAR CON PRECIOS (PAGINADO)
+    // Pagina sobre filas de precio (producto+canal+cuota),
+    // no sobre productos. Cada fila = 1 producto con 1 precio.
     // ======================================================
     @Override
     @Transactional(readOnly = true)
@@ -242,100 +248,103 @@ public class ProductoServiceImpl implements ProductoService {
         // Validar que el canal tenga las cuotas especificadas
         validarCanalConCuotas(filter.canalId(), filter.cuotas());
 
-        Specification<Producto> spec = Specification.allOf(
+        // Traducir sort de campos especiales a campos de ProductoCanalPrecio
+        Pageable sortedPageable = traducirSort(pageable);
+
+        // 1) Construir Specification sobre ProductoCanalPrecio
+        Specification<ProductoCanalPrecio> spec = Specification.allOf(
+                // Filtros de precio (canal/cuotas)
+                PrecioSpecifications.canalId(filter.canalId()),
+                PrecioSpecifications.cuotas(filter.cuotas()),
                 // ID
-                ProductoSpecifications.productoId(filter.productoId()),
+                PrecioSpecifications.productoId(filter.productoId()),
                 // Texto
-                ProductoSpecifications.textoLike(filter.search()),
+                PrecioSpecifications.textoLike(filter.search()),
                 // Filtros de texto dedicados
-                ProductoSpecifications.sku(filter.sku()),
-                ProductoSpecifications.codExt(filter.codExt()),
-                ProductoSpecifications.descripcion(filter.descripcion()),
-                ProductoSpecifications.tituloWeb(filter.tituloWeb()),
+                PrecioSpecifications.sku(filter.sku()),
+                PrecioSpecifications.codExt(filter.codExt()),
+                PrecioSpecifications.descripcion(filter.descripcion()),
+                PrecioSpecifications.tituloWeb(filter.tituloWeb()),
                 // Booleanos/Numéricos
-                ProductoSpecifications.esCombo(filter.esCombo()),
-                ProductoSpecifications.uxb(filter.uxb()),
-                ProductoSpecifications.esMaquina(filter.esMaquina()),
-                ProductoSpecifications.tieneMla(filter.tieneMla()),
-                ProductoSpecifications.activo(filter.activo()),
-                ProductoSpecifications.tagReposicion(filter.tagReposicion()),
+                PrecioSpecifications.esCombo(filter.esCombo()),
+                PrecioSpecifications.uxb(filter.uxb()),
+                PrecioSpecifications.esMaquina(filter.esMaquina()),
+                PrecioSpecifications.tieneMla(filter.tieneMla()),
+                PrecioSpecifications.activo(filter.activo()),
+                PrecioSpecifications.tagReposicion(filter.tagReposicion()),
                 // Filtros MLA
-                ProductoSpecifications.mla(filter.mla()),
-                ProductoSpecifications.mlau(filter.mlau()),
-                ProductoSpecifications.precioEnvioMin(filter.precioEnvioMin()),
-                ProductoSpecifications.precioEnvioMax(filter.precioEnvioMax()),
-                ProductoSpecifications.comisionPorcentajeMin(filter.comisionPorcentajeMin()),
-                ProductoSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
-                ProductoSpecifications.tieneComision(filter.tieneComision()),
-                ProductoSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
+                PrecioSpecifications.mla(filter.mla()),
+                PrecioSpecifications.mlau(filter.mlau()),
+                PrecioSpecifications.precioEnvioMin(filter.precioEnvioMin()),
+                PrecioSpecifications.precioEnvioMax(filter.precioEnvioMax()),
+                PrecioSpecifications.comisionPorcentajeMin(filter.comisionPorcentajeMin()),
+                PrecioSpecifications.comisionPorcentajeMax(filter.comisionPorcentajeMax()),
+                PrecioSpecifications.tieneComision(filter.tieneComision()),
+                PrecioSpecifications.tienePrecioEnvio(filter.tienePrecioEnvio()),
                 // Many-to-One (multi-valor)
-                ProductoSpecifications.marcaIds(filter.marcaIds()),
-                ProductoSpecifications.origenIds(filter.origenIds()),
-                ProductoSpecifications.tipoIds(filter.tipoIds()),
-                ProductoSpecifications.clasifGralIds(filter.clasifGralIds()),
-                ProductoSpecifications.clasifGastroIds(filter.clasifGastroIds()),
-                ProductoSpecifications.proveedorIds(filter.proveedorIds()),
-                ProductoSpecifications.materialIds(filter.materialIds()),
+                PrecioSpecifications.marcaIds(filter.marcaIds()),
+                PrecioSpecifications.origenIds(filter.origenIds()),
+                PrecioSpecifications.tipoIds(filter.tipoIds()),
+                PrecioSpecifications.clasifGralIds(filter.clasifGralIds()),
+                PrecioSpecifications.clasifGastroIds(filter.clasifGastroIds()),
+                PrecioSpecifications.proveedorIds(filter.proveedorIds()),
+                PrecioSpecifications.materialIds(filter.materialIds()),
                 // Rangos
-                ProductoSpecifications.costoMin(filter.costoMin()),
-                ProductoSpecifications.costoMax(filter.costoMax()),
-                ProductoSpecifications.ivaMin(filter.ivaMin()),
-                ProductoSpecifications.ivaMax(filter.ivaMax()),
-                ProductoSpecifications.stockMin(filter.stockMin()),
-                ProductoSpecifications.stockMax(filter.stockMax()),
-                // Rango PVP
-                ProductoSpecifications.pvpEnRango(filter.pvpMin(), filter.pvpMax(), filter.pvpCanalId()),
+                PrecioSpecifications.costoMin(filter.costoMin()),
+                PrecioSpecifications.costoMax(filter.costoMax()),
+                PrecioSpecifications.ivaMin(filter.ivaMin()),
+                PrecioSpecifications.ivaMax(filter.ivaMax()),
+                PrecioSpecifications.stockMin(filter.stockMin()),
+                PrecioSpecifications.stockMax(filter.stockMax()),
+                // Rango PVP (directo sobre precio)
+                PrecioSpecifications.pvpMin(filter.pvpMin()),
+                PrecioSpecifications.pvpMax(filter.pvpMax()),
                 // Fechas
-                ProductoSpecifications.desdeFechaUltimoCosto(filter.desdeFechaUltimoCosto()),
-                ProductoSpecifications.hastaFechaUltimoCosto(filter.hastaFechaUltimoCosto()),
-                ProductoSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
-                ProductoSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
-                ProductoSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
-                ProductoSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
+                PrecioSpecifications.desdeFechaUltimoCosto(filter.desdeFechaUltimoCosto()),
+                PrecioSpecifications.hastaFechaUltimoCosto(filter.hastaFechaUltimoCosto()),
+                PrecioSpecifications.desdeFechaCreacion(filter.desdeFechaCreacion()),
+                PrecioSpecifications.hastaFechaCreacion(filter.hastaFechaCreacion()),
+                PrecioSpecifications.desdeFechaModificacion(filter.desdeFechaModificacion()),
+                PrecioSpecifications.hastaFechaModificacion(filter.hastaFechaModificacion()),
                 // Many-to-Many
-                ProductoSpecifications.aptoIds(filter.aptoIds()),
-                ProductoSpecifications.canalIds(filter.canalIds()),
-                ProductoSpecifications.catalogoIds(filter.catalogoIds()),
-                ProductoSpecifications.clienteIds(filter.clienteIds()),
-                ProductoSpecifications.mlaIds(filter.mlaIds())
+                PrecioSpecifications.aptoIds(filter.aptoIds()),
+                PrecioSpecifications.canalIds(filter.canalIds()),
+                PrecioSpecifications.catalogoIds(filter.catalogoIds()),
+                PrecioSpecifications.clienteIds(filter.clienteIds()),
+                PrecioSpecifications.mlaIds(filter.mlaIds())
         );
 
-        // 1) Obtener página de productos (entidades)
-        Page<Producto> productosPage = productoRepository.findAll(spec, pageable);
+        // 2) Paginar sobre filas de precio (producto+canal+cuota)
+        Page<ProductoCanalPrecio> preciosPage = productoCanalPrecioRepository.findAll(spec, sortedPageable);
 
-        if (productosPage.isEmpty()) {
+        if (preciosPage.isEmpty()) {
             return new PageImpl<>(Collections.emptyList(), pageable, 0);
         }
 
-        // 2) Extraer IDs de productos
-        List<Integer> productoIds = productosPage.getContent().stream()
-                .map(Producto::getId)
+        // 3) Extraer productos únicos de esta página de precios
+        List<ProductoCanalPrecio> preciosEnPagina = preciosPage.getContent();
+        List<Integer> productoIds = preciosEnPagina.stream()
+                .map(pcp -> pcp.getProducto().getId())
+                .distinct()
                 .toList();
 
-        // 3) Obtener todos los precios en UNA query (evita N+1)
-        List<ProductoCanalPrecio> todosPrecios = productoCanalPrecioRepository
-                .findByProductoIdInOrderByProductoIdAscCanalIdAscCuotasAsc(productoIds);
+        // 4) Cargar productos con todas las relaciones ManyToOne (1 query en vez de N+1)
+        Map<Integer, Producto> productosMap = productoRepository.findAllByIdWithRelaciones(productoIds).stream()
+                .collect(Collectors.toMap(Producto::getId, p -> p));
 
-        // 4) Agrupar precios por producto_id
-        Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto = todosPrecios.stream()
-                .collect(Collectors.groupingBy(pcp -> pcp.getProducto().getId()));
-
-        // 4.1) Obtener todos los márgenes en UNA query (evita N+1)
-        List<ProductoMargen> todosMargenes = productoMargenRepository.findByProductoIdIn(productoIds);
-        Map<Integer, ProductoMargen> margenesPorProducto = todosMargenes.stream()
+        // 4.1) Cargar márgenes
+        Map<Integer, ProductoMargen> margenesPorProducto = productoMargenRepository.findByProductoIdIn(productoIds).stream()
                 .collect(Collectors.toMap(pm -> pm.getProducto().getId(), pm -> pm));
 
-        // 4.2) Obtener IDs de canales y sus nombres
-        Set<Integer> canalIds = todosPrecios.stream()
+        // 4.2) Cargar nombres de canales
+        Set<Integer> canalIdsEnPagina = preciosEnPagina.stream()
                 .map(p -> p.getCanal().getId())
                 .collect(Collectors.toSet());
-
-        // Cargar nombres de canales explícitamente (evita problemas de lazy loading)
-        Map<Integer, String> nombresPorCanal = canalRepository.findAllById(canalIds).stream()
+        Map<Integer, String> nombresPorCanal = canalRepository.findAllById(canalIdsEnPagina).stream()
                 .collect(Collectors.toMap(Canal::getId, Canal::getCanal));
 
-        // 4.3) Obtener descripciones de cuotas por canal (para PrecioDTO.descripcion)
-        Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIds).stream()
+        // 4.3) Cargar descripciones de cuotas
+        Map<String, String> descripcionesCuotas = canalConceptoCuotaRepository.findByCanalIdIn(canalIdsEnPagina).stream()
                 .filter(c -> c.getDescripcion() != null)
                 .collect(Collectors.toMap(
                         c -> c.getCanal().getId() + "_" + c.getCuotas(),
@@ -343,9 +352,9 @@ public class ProductoServiceImpl implements ProductoService {
                         (a, b) -> a
                 ));
 
-        // 4.3) Obtener reglas de descuento por canal (siempre se cargan si existen)
+        // 4.4) Cargar reglas de descuento
         Map<Integer, List<ReglaDescuento>> reglasPorCanal = new HashMap<>();
-        for (Integer canalId : canalIds) {
+        for (Integer canalId : canalIdsEnPagina) {
             List<ReglaDescuento> reglas = reglaDescuentoRepository
                     .findByCanalIdAndActivoTrueOrderByPrioridadAsc(canalId);
             if (!reglas.isEmpty()) {
@@ -353,54 +362,85 @@ public class ProductoServiceImpl implements ProductoService {
             }
         }
 
-        // 5) Mapear cada producto + sus márgenes + sus precios a DTO
-        List<ProductoConPreciosDTO> dtos = productosPage.getContent().stream()
-                .map(producto -> {
-                    ProductoMargen productoMargen = margenesPorProducto.get(producto.getId());
-                    List<ProductoCanalPrecio> precios = preciosPorProducto
-                            .getOrDefault(producto.getId(), Collections.emptyList());
-
-                    // Filtrar por canalId (singular) si se especifica
-                    if (filter.canalId() != null) {
-                        precios = precios.stream()
-                                .filter(p -> p.getCanal().getId().equals(filter.canalId()))
-                                .toList();
-                    }
-                    // Filtrar por canalIds (lista) si se especifica
-                    else if (filter.canalIds() != null && !filter.canalIds().isEmpty()) {
-                        precios = precios.stream()
-                                .filter(p -> filter.canalIds().contains(p.getCanal().getId()))
-                                .toList();
-                    }
-
-                    // Filtrar por cuotas si se especifica
-                    if (filter.cuotas() != null) {
-                        precios = precios.stream()
-                                .filter(p -> filter.cuotas().equals(p.getCuotas()))
-                                .toList();
-                    }
-
-                    // Calcular descuentos aplicables por canal (siempre si hay reglas)
-                    Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal = null;
-                    if (!precios.isEmpty() && !reglasPorCanal.isEmpty()) {
-                        descuentosPorCanal = calcularDescuentosPorCanal(precios, reglasPorCanal);
-                    }
-
-                    return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, nombresPorCanal);
-                })
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        // 5.1) Si se filtra por canal o cuotas, excluir productos sin precios
-        if (filter.canalId() != null || filter.cuotas() != null) {
-            dtos.removeIf(dto -> dto.canales() == null || dto.canales().isEmpty() ||
-                    dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
+        // 4.5) Cargar reglas de precio inflado activas para los productos de esta página
+        // Clave: "productoId_canalId" -> ProductoCanalPrecioInflado
+        Map<String, ProductoCanalPrecioInflado> infladosPorProductoCanal = new HashMap<>();
+        if (!productoIds.isEmpty()) {
+            List<ProductoCanalPrecioInflado> inflados = productoCanalPrecioInfladoRepository
+                    .findByProductoIdInAndActivaTrueWithFetch(productoIds);
+            for (ProductoCanalPrecioInflado pcpi : inflados) {
+                String key = pcpi.getProducto().getId() + "_" + pcpi.getCanal().getId();
+                infladosPorProductoCanal.put(key, pcpi);
+            }
         }
 
-        // 6) Aplicar ordenamiento especial si se solicita (detectar desde Pageable.sort)
-        aplicarOrdenamientoEspecial(dtos, pageable.getSort(), filter.canalId(), filter.cuotas(), preciosPorProducto);
+        // 5) Mapear cada fila de precio a un ProductoConPreciosDTO (1 producto, 1 canal, 1 cuota)
+        List<ProductoConPreciosDTO> dtos = preciosEnPagina.stream()
+                .map(pcp -> {
+                    Producto producto = productosMap.get(pcp.getProducto().getId());
+                    ProductoMargen productoMargen = margenesPorProducto.get(producto.getId());
 
-        // 7) Retornar nueva Page con el mismo metadata
-        return new PageImpl<>(dtos, pageable, productosPage.getTotalElements());
+                    // Calcular descuentos para este canal si hay reglas
+                    Map<Integer, List<DescuentoAplicableDTO>> descuentosPorCanal = null;
+                    if (!reglasPorCanal.isEmpty()) {
+                        descuentosPorCanal = calcularDescuentosPorCanal(List.of(pcp), reglasPorCanal);
+                    }
+
+                    return productoMapper.toProductoConPreciosDTO(
+                            producto, productoMargen, List.of(pcp),
+                            descripcionesCuotas, descuentosPorCanal, nombresPorCanal, infladosPorProductoCanal);
+                })
+                .toList();
+
+        // 6) Retornar Page con metadata de filas de precio
+        return new PageImpl<>(dtos, pageable, preciosPage.getTotalElements());
+    }
+
+    /**
+     * Traduce nombres de sort del frontend a campos de ProductoCanalPrecio.
+     * Campos de producto se prefijan con "producto.", campos de precio se usan directo.
+     */
+    private Pageable traducirSort(Pageable pageable) {
+        if (pageable.getSort().isUnsorted()) {
+            return pageable;
+        }
+
+        List<Sort.Order> translated = new ArrayList<>();
+        for (Sort.Order order : pageable.getSort()) {
+            String campo = order.getProperty().toLowerCase();
+            String mappedField = switch (campo) {
+                case "pvp" -> "pvp";
+                case "pvpinflado" -> "pvpInflado";
+                case "costoproducto" -> "costoProducto";
+                case "costosventa" -> "costosVenta";
+                case "ingresonetovendedor" -> "ingresoNetoVendedor";
+                case "ganancia" -> "ganancia";
+                case "margensobreingreso" -> "margenSobreIngresoNeto";
+                case "margensobrepvp" -> "margenSobrePvp";
+                case "markup" -> "markupPorcentaje";
+                case "cuotas" -> "cuotas";
+                case "canal" -> "canal.canal";
+                case "canalid" -> "canal.id";
+                // Campos de producto via join
+                case "mla" -> "producto.mla.mla";
+                case "mlau" -> "producto.mla.mlau";
+                case "precioenvio" -> "producto.mla.precioEnvio";
+                case "comisionporcentaje" -> "producto.mla.comisionPorcentaje";
+                case "margenminorista" -> "producto.productoMargenes.margenMinorista";
+                case "margenmayorista" -> "producto.productoMargenes.margenMayorista";
+                case "margenfijominorista" -> "producto.productoMargenes.margenFijoMinorista";
+                case "margenfijomayorista" -> "producto.productoMargenes.margenFijoMayorista";
+                // Precio inflado (regla asignada)
+                case "precioinflado", "precioinfladocodigo" -> "precioInfladoAsignacion.precioInflado.codigo";
+                case "precioinfladotipo" -> "precioInfladoAsignacion.precioInflado.tipo";
+                case "precioinfladovalor" -> "precioInfladoAsignacion.precioInflado.valor";
+                default -> "producto." + order.getProperty();
+            };
+            translated.add(new Sort.Order(order.getDirection(), mappedField));
+        }
+
+        return org.springframework.data.domain.PageRequest.of(
+                pageable.getPageNumber(), pageable.getPageSize(), Sort.by(translated));
     }
 
     /**
@@ -591,7 +631,9 @@ public class ProductoServiceImpl implements ProductoService {
                 ProductoSpecifications.canalIds(filter.canalIds()),
                 ProductoSpecifications.catalogoIds(filter.catalogoIds()),
                 ProductoSpecifications.clienteIds(filter.clienteIds()),
-                ProductoSpecifications.mlaIds(filter.mlaIds())
+                ProductoSpecifications.mlaIds(filter.mlaIds()),
+                // Filtro SQL: solo productos que tengan precios para este canal/cuotas
+                ProductoSpecifications.tienePreciosEnCanalCuotas(filter.canalId(), filter.cuotas())
         );
 
         // Obtener todos los productos (sin paginación)
@@ -678,12 +720,6 @@ public class ProductoServiceImpl implements ProductoService {
                     return productoMapper.toProductoConPreciosDTO(producto, productoMargen, precios, descripcionesCuotas, descuentosPorCanal, nombresPorCanal);
                 })
                 .collect(Collectors.toCollection(ArrayList::new));
-
-        // Si se filtra por canal o cuotas, excluir productos sin precios
-        if (filter.canalId() != null || filter.cuotas() != null) {
-            dtos.removeIf(dto -> dto.canales() == null || dto.canales().isEmpty() ||
-                    dto.canales().stream().allMatch(c -> c.precios() == null || c.precios().isEmpty()));
-        }
 
         // Aplicar ordenamiento especial si se solicita
         aplicarOrdenamientoEspecial(dtos, sort, filter.canalId(), filter.cuotas(), preciosPorProducto);
@@ -788,27 +824,37 @@ public class ProductoServiceImpl implements ProductoService {
                 BigDecimal pvpConDescuento = pvp.multiply(factorDescuento)
                         .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-                // Calcular ganancia con descuento
-                // gananciaConDescuento = pvpConDescuento - costoProducto - (costosVenta proporcionales)
-                // Simplificación: ganancia = pvpConDescuento * (gananciaOriginal / pvpOriginal)
+                // Calcular métricas con descuento
                 BigDecimal gananciaOriginal = precioBase.getGanancia();
+                BigDecimal costosVentaConDescuento = BigDecimal.ZERO;
+                BigDecimal ingresoNetoConDescuento = BigDecimal.ZERO;
                 BigDecimal gananciaConDescuento = BigDecimal.ZERO;
-                BigDecimal margenConDescuento = BigDecimal.ZERO;
+                BigDecimal margenSobreIngresoNetoConDescuento = BigDecimal.ZERO;
+                BigDecimal margenSobrePvpConDescuento = BigDecimal.ZERO;
+                BigDecimal markupConDescuento = BigDecimal.ZERO;
 
                 if (gananciaOriginal != null && costoProducto != null) {
-                    // Recalcular ganancia aproximada: ingresoNetoVendedor proporcional - costo
                     BigDecimal ingresoNetoOriginal = precioBase.getIngresoNetoVendedor();
                     if (ingresoNetoOriginal != null && ingresoNetoOriginal.compareTo(BigDecimal.ZERO) > 0) {
-                        // Proporción del ingreso neto respecto al PVP
                         BigDecimal proporcionIngreso = ingresoNetoOriginal.divide(pvp, 6, RoundingMode.HALF_UP);
-                        BigDecimal ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso);
+                        ingresoNetoConDescuento = pvpConDescuento.multiply(proporcionIngreso)
+                                .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                        costosVentaConDescuento = pvpConDescuento.subtract(ingresoNetoConDescuento)
+                                .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
                         gananciaConDescuento = ingresoNetoConDescuento.subtract(costoProducto)
                                 .setScale(PRECISION_RESULTADO, RoundingMode.HALF_UP);
 
-                        // Margen con descuento = (gananciaConDescuento / ingresoNetoConDescuento) * 100
                         if (ingresoNetoConDescuento.compareTo(BigDecimal.ZERO) > 0) {
-                            margenConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                            margenSobreIngresoNetoConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
                                     .divide(ingresoNetoConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                        }
+                        if (pvpConDescuento.compareTo(BigDecimal.ZERO) > 0) {
+                            margenSobrePvpConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                                    .divide(pvpConDescuento, PRECISION_RESULTADO, RoundingMode.HALF_UP);
+                        }
+                        if (costoProducto.compareTo(BigDecimal.ZERO) > 0) {
+                            markupConDescuento = gananciaConDescuento.multiply(BigDecimal.valueOf(100))
+                                    .divide(costoProducto, PRECISION_RESULTADO, RoundingMode.HALF_UP);
                         }
                     }
                 }
@@ -817,8 +863,12 @@ public class ProductoServiceImpl implements ProductoService {
                         montoMinimo,
                         descuentoPct,
                         pvpConDescuento,
+                        costosVentaConDescuento,
+                        ingresoNetoConDescuento,
                         gananciaConDescuento,
-                        margenConDescuento
+                        margenSobreIngresoNetoConDescuento,
+                        margenSobrePvpConDescuento,
+                        markupConDescuento
                 ));
             }
 

@@ -2,6 +2,7 @@ package ar.com.leo.super_master_backend.dominio.producto.repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCanalPrecio, Integer> {
+public interface ProductoCanalPrecioRepository extends JpaRepository<ProductoCanalPrecio, Integer>, JpaSpecificationExecutor<ProductoCanalPrecio> {
 
     List<ProductoCanalPrecio> findByProductoId(Integer productoId);
 

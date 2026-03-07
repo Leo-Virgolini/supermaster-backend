@@ -9,6 +9,10 @@ public record DescuentoAplicableDTO(
         BigDecimal montoMinimo,
         BigDecimal descuentoPorcentaje,
         BigDecimal pvpConDescuento,
+        BigDecimal costosVentaConDescuento,
+        BigDecimal ingresoNetoConDescuento,
         BigDecimal gananciaConDescuento,
-        BigDecimal margenConDescuento
+        BigDecimal margenSobreIngresoNetoConDescuento,
+        BigDecimal margenSobrePvpConDescuento,
+        BigDecimal markupConDescuento
 ) {}
