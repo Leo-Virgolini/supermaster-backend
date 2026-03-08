@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -453,7 +454,9 @@ public class ProductoServiceImpl implements ProductoService {
             // Campos de MLA
             "mla", "mlau", "comisionporcentaje", "precioenvio",
             // Campos de relaciones
-            "esmaquina"
+            "esmaquina",
+            // Campos de fechas
+            "fechaultimocosto", "fechaultimocalculo"
     );
 
     /**
@@ -527,6 +530,11 @@ public class ProductoServiceImpl implements ProductoService {
             case "margensobreingreso" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMargenSobreIngresoNeto);
             case "margensobrepvp" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMargenSobrePvp);
             case "markup" -> crearComparadorPrecio(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getMarkupPorcentaje);
+            case "fechaultimocosto" -> Comparator.comparing(
+                    ProductoConPreciosDTO::fechaUltimoCosto,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+            case "fechaultimocalculo" -> crearComparadorPrecioTemporal(canalId, cuotas, preciosPorProducto, ProductoCanalPrecio::getFechaUltimoCalculo);
             default -> null;
         };
     }
@@ -562,6 +570,39 @@ public class ProductoServiceImpl implements ProductoService {
                     }
 
                     // Obtener el MAX del campo especificado
+                    return precios.stream()
+                            .map(extractor)
+                            .filter(v -> v != null)
+                            .max(Comparator.naturalOrder())
+                            .orElse(null);
+                },
+                Comparator.nullsLast(Comparator.naturalOrder())
+        );
+    }
+
+    private Comparator<ProductoConPreciosDTO> crearComparadorPrecioTemporal(
+            Integer canalId,
+            Integer cuotas,
+            Map<Integer, List<ProductoCanalPrecio>> preciosPorProducto,
+            java.util.function.Function<ProductoCanalPrecio, LocalDateTime> extractor) {
+
+        return Comparator.comparing(
+                (ProductoConPreciosDTO dto) -> {
+                    List<ProductoCanalPrecio> precios = preciosPorProducto.get(dto.id());
+                    if (precios == null || precios.isEmpty()) return null;
+
+                    if (canalId != null) {
+                        precios = precios.stream()
+                                .filter(p -> p.getCanal().getId().equals(canalId))
+                                .toList();
+                    }
+
+                    if (cuotas != null) {
+                        precios = precios.stream()
+                                .filter(p -> cuotas.equals(p.getCuotas()))
+                                .toList();
+                    }
+
                     return precios.stream()
                             .map(extractor)
                             .filter(v -> v != null)

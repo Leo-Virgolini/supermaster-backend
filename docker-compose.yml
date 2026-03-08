@@ -22,7 +22,7 @@ services:
       SPRING_DEVTOOLS_RESTART_ENABLED: "false"
     volumes:
       # Secretos (JWT key, tokens ML/Dux/Nube)
-      - ${SECRETS_DIR:-C:/ProgramData/SuperMaster/secrets}:/app/secrets:ro
+      - ${SECRETS_DIR:-C:/ProgramData/SuperMaster/secrets}:/app/secrets
       # Directorio de imagenes compartido
       - ${IMAGENES_DIR:-D:/Doc. Compartidos/IMAGENES}:/app/imagenes:ro
     extra_hosts:

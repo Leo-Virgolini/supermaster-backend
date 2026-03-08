@@ -100,7 +100,7 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
             precioInflado.setActiva(true);
         }
 
-        precioInflado = repository.save(precioInflado);
+        precioInflado = repository.saveAndFlush(precioInflado);
 
         recalculoFacade.recalcularPorCambioPrecioInflado(dto.productoId(), dto.canalId());
 
@@ -126,7 +126,7 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
             mapper.updateEntityFromDTO(dto, precioInflado);
         }
 
-        precioInflado = repository.save(precioInflado);
+        precioInflado = repository.saveAndFlush(precioInflado);
 
         recalculoFacade.recalcularPorCambioPrecioInflado(productoId, canalId);
 
@@ -140,6 +140,7 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
                 .orElseThrow(() -> new NotFoundException(
                         "Precio inflado no encontrado para producto ID: " + productoId + " y canal ID: " + canalId));
         repository.delete(precioInflado);
+        repository.flush();
 
         recalculoFacade.recalcularPorCambioPrecioInflado(productoId, canalId);
     }
