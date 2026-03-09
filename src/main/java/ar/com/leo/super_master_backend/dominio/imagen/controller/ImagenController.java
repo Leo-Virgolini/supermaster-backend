@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 public class ImagenController {
 
     private static final String EXTENSIONES_IMAGEN = "(?i).*\\.(jpg|jpeg|png|gif|webp|bmp|svg)$";
+    private static final String[] EXTENSIONES = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"};
 
     private final Path baseDir;
 
@@ -28,20 +29,23 @@ public class ImagenController {
     }
 
     @GetMapping("/buscar/{sku}")
-    public ResponseEntity<String> buscarPorSku(@PathVariable String sku) throws IOException {
+    public ResponseEntity<String> buscarPorSku(@PathVariable String sku) {
         if (!Files.isDirectory(baseDir)) {
             return ResponseEntity.notFound().build();
         }
 
-        try (Stream<Path> entries = Files.list(baseDir)) {
-            return entries
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().matches(EXTENSIONES_IMAGEN))
-                    .filter(p -> nombreSinExtension(p).equalsIgnoreCase(sku))
-                    .findFirst()
-                    .map(p -> ResponseEntity.ok(p.getFileName().toString()))
-                    .orElse(ResponseEntity.notFound().build());
+        for (String ext : EXTENSIONES) {
+            Path candidate = baseDir.resolve(sku + "." + ext);
+            if (Files.isRegularFile(candidate)) {
+                return ResponseEntity.ok(candidate.getFileName().toString());
+            }
+            // Intentar con extensión en mayúsculas
+            Path candidateUpper = baseDir.resolve(sku + "." + ext.toUpperCase());
+            if (Files.isRegularFile(candidateUpper)) {
+                return ResponseEntity.ok(candidateUpper.getFileName().toString());
+            }
         }
+        return ResponseEntity.notFound().build();
     }
 
     @GetMapping("/listar")

@@ -1,7 +1,7 @@
 services:
 
   db:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: supermaster-db
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-admin}
@@ -17,6 +17,11 @@ services:
       --collation-server=utf8mb4_unicode_ci
       --innodb-buffer-pool-size=2G
       --max-connections=100
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-admin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   backend:
@@ -28,7 +33,7 @@ services:
       - "8080:8080"
     environment:
       # Base de datos (MySQL en el mismo Docker network)
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/supermaster?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&characterEncoding=UTF-8&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/supermaster?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Argentina/Buenos_Aires&characterEncoding=UTF-8&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&rewriteBatchedStatements=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-admin}
       # Directorio de secretos (montado como volumen)
@@ -47,7 +52,7 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build:
