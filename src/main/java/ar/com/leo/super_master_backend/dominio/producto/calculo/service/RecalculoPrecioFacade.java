@@ -36,10 +36,7 @@ public class RecalculoPrecioFacade {
 
         AuditEventListener.disable();
         try {
-            productoCanalPrecioRepository.findByProductoId(productoId)
-                    .stream()
-                    .map(p -> p.getCanal().getId())
-                    .distinct()
+            productoCanalPrecioRepository.findDistinctCanalIdsByProductoId(productoId)
                     .forEach(canalId ->
                             calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
                     );
@@ -59,10 +56,7 @@ public class RecalculoPrecioFacade {
         AuditEventListener.disable();
         try {
             // Recalcular en todos los canales donde el producto tiene precios
-            productoCanalPrecioRepository.findByProductoId(productoId)
-                    .stream()
-                    .map(p -> p.getCanal().getId())
-                    .distinct()
+            productoCanalPrecioRepository.findDistinctCanalIdsByProductoId(productoId)
                     .forEach(canalId ->
                             calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(productoId, canalId)
                     );

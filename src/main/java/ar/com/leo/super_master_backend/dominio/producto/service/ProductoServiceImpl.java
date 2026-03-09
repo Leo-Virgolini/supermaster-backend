@@ -103,17 +103,24 @@ public class ProductoServiceImpl implements ProductoService {
         BigDecimal ivaAnterior = entity.getIva();
         Integer clasifGastroIdAnterior = entity.getClasifGastro() != null ? entity.getClasifGastro().getId() : null;
         Integer proveedorIdAnterior = entity.getProveedor() != null ? entity.getProveedor().getId() : null;
+        Integer tipoIdAnterior = entity.getTipo() != null ? entity.getTipo().getId() : null;
+        Integer marcaIdAnterior = entity.getMarca() != null ? entity.getMarca().getId() : null;
+        Integer clasifGralIdAnterior = entity.getClasifGral() != null ? entity.getClasifGral().getId() : null;
 
         productoMapper.updateEntityFromDTO(dto, entity);
         productoRepository.save(entity);
 
-        // Recalcular precios si cambió costo, IVA, clasifGastro o proveedor
+        // Recalcular precios si cambió algún atributo que afecte el cálculo o las reglas de conceptos
         boolean cambioCosto = dto.costo() != null && (costoAnterior == null || costoAnterior.compareTo(dto.costo()) != 0);
         boolean cambioIva = dto.iva() != null && (ivaAnterior == null || ivaAnterior.compareTo(dto.iva()) != 0);
         boolean cambioClasifGastro = dto.clasifGastroId() != null && !Objects.equals(clasifGastroIdAnterior, dto.clasifGastroId());
         boolean cambioProveedor = dto.proveedorId() != null && !Objects.equals(proveedorIdAnterior, dto.proveedorId());
+        boolean cambioTipo = dto.tipoId() != null && !Objects.equals(tipoIdAnterior, dto.tipoId());
+        boolean cambioMarca = dto.marcaId() != null && !Objects.equals(marcaIdAnterior, dto.marcaId());
+        boolean cambioClasifGral = dto.clasifGralId() != null && !Objects.equals(clasifGralIdAnterior, dto.clasifGralId());
 
-        if (cambioCosto || cambioIva || cambioClasifGastro || cambioProveedor) {
+        if (cambioCosto || cambioIva || cambioClasifGastro || cambioProveedor
+                || cambioTipo || cambioMarca || cambioClasifGral) {
             recalculoFacade.recalcularPorCambioProducto(id);
         }
 

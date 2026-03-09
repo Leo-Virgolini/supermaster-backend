@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
@@ -14,7 +15,8 @@ public interface ProductoMargenRepository extends JpaRepository<ProductoMargen, 
 
     Optional<ProductoMargen> findByProductoId(Integer productoId);
 
-    List<ProductoMargen> findByProductoIdIn(List<Integer> productoIds);
+    @Query("SELECT pm FROM ProductoMargen pm JOIN FETCH pm.producto WHERE pm.producto.id IN :productoIds")
+    List<ProductoMargen> findByProductoIdIn(@Param("productoIds") List<Integer> productoIds);
 
     void deleteByProductoId(Integer productoId);
 

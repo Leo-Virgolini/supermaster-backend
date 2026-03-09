@@ -13,6 +13,8 @@ import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanal
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoRepository;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.entity.PrecioInflado;
 import ar.com.leo.super_master_backend.dominio.precio_inflado.repository.PrecioInfladoRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,9 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
     private final CanalRepository canalRepository;
     private final PrecioInfladoRepository precioInfladoRepository;
     private final RecalculoPrecioFacade recalculoFacade;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -139,6 +144,19 @@ public class ProductoCanalPrecioInfladoServiceImpl implements ProductoCanalPreci
         ProductoCanalPrecioInflado precioInflado = repository.findByProductoIdAndCanalId(productoId, canalId)
                 .orElseThrow(() -> new NotFoundException(
                         "Precio inflado no encontrado para producto ID: " + productoId + " y canal ID: " + canalId));
+
+        // Limpiar el contexto de persistencia ANTES del delete para evitar
+        // TransientPropertyValueException: si ProductoCanalPrecio está en la sesión
+        // con una referencia a este ProductoCanalPrecioInflado, Hibernate falla al hacer flush
+        Integer precioInfladoDbId = precioInflado.getId();
+        entityManager.flush();
+        entityManager.clear();
+
+        // Re-cargar la entidad en el contexto limpio
+        precioInflado = repository.findById(precioInfladoDbId)
+                .orElseThrow(() -> new NotFoundException(
+                        "Precio inflado no encontrado con ID: " + precioInfladoDbId));
+
         repository.delete(precioInflado);
         repository.flush();
 

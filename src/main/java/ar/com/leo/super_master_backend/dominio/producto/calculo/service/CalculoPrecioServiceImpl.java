@@ -1655,7 +1655,7 @@ public class CalculoPrecioServiceImpl implements CalculoPrecioService {
 
         // Obtener conceptos asociados al canal a través de canal_concepto
         // Nota: NO se heredan conceptos del canal padre, cada canal tiene sus propios conceptos
-        List<CanalConcepto> conceptosPorCanal = canalConceptoRepository.findByCanalId(canalId);
+        List<CanalConcepto> conceptosPorCanal = canalConceptoRepository.findByCanalIdWithConceptoFetch(canalId);
 
         // Obtener las reglas del canal
         List<CanalConceptoRegla> reglasCanal = canalConceptoReglaRepository.findByCanalId(canalId);

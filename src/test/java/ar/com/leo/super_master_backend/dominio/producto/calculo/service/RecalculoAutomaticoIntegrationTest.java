@@ -77,7 +77,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Test de integración para verificar que los triggers de recálculo automático
  * funcionan correctamente cuando se modifican las entidades relacionadas.
  *
- * Tests incluidos (32 total):
+ * Tests incluidos (36 total):
  *
  * ENTIDADES PRINCIPALES:
  * 1-2.   Producto (costo, IVA)
@@ -123,6 +123,12 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * REGLAS DE CONCEPTO:
  * 32.    CanalConceptoRegla EXCLUIR (excluye concepto del cálculo)
+ * 36.    CanalConceptoRegla INCLUIR (incluye concepto solo si cumple condiciones)
+ *
+ * ATRIBUTOS QUE AFECTAN REGLAS:
+ * 33.    Producto-Tipo (cambio de tipo afecta reglas de concepto)
+ * 34.    Producto-Marca (cambio de marca afecta reglas de concepto)
+ * 35.    Producto-ClasifGral (cambio de clasifGral afecta reglas de concepto)
  *
  * MÚLTIPLES PRODUCTOS:
  * 24.    Recálculo en cascada de múltiples productos
@@ -339,6 +345,32 @@ class RecalculoAutomaticoIntegrationTest {
         return precio.get().getPvp();
     }
 
+    /**
+     * Builds a full ProductoUpdateDTO from the entity's current state.
+     * Simulates what the frontend does: sends ALL field values.
+     * Override parameters (if non-null) replace the entity's current value.
+     */
+    private ProductoUpdateDTO buildProductoUpdate(BigDecimal costoOverride, BigDecimal ivaOverride,
+            Integer marcaIdOverride, Integer tipoIdOverride, Integer clasifGralIdOverride, Integer proveedorIdOverride) {
+        return new ProductoUpdateDTO(
+                producto.getSku(), producto.getCodExt(), producto.getDescripcion(), producto.getTituloWeb(),
+                producto.getEsCombo(), producto.getUxb(), producto.getMoq(), producto.getImagenUrl(),
+                producto.getStock(), producto.getActivo(),
+                marcaIdOverride != null ? marcaIdOverride : (producto.getMarca() != null ? producto.getMarca().getId() : null),
+                producto.getOrigen() != null ? producto.getOrigen().getId() : null,
+                clasifGralIdOverride != null ? clasifGralIdOverride : (producto.getClasifGral() != null ? producto.getClasifGral().getId() : null),
+                producto.getClasifGastro() != null ? producto.getClasifGastro().getId() : null,
+                tipoIdOverride != null ? tipoIdOverride : (producto.getTipo() != null ? producto.getTipo().getId() : null),
+                proveedorIdOverride != null ? proveedorIdOverride : (producto.getProveedor() != null ? producto.getProveedor().getId() : null),
+                producto.getMaterial() != null ? producto.getMaterial().getId() : null,
+                producto.getCapacidad(), producto.getLargo(), producto.getAncho(), producto.getAlto(),
+                producto.getDiamboca(), producto.getDiambase(), producto.getEspesor(),
+                costoOverride != null ? costoOverride : producto.getCosto(),
+                ivaOverride != null ? ivaOverride : producto.getIva(),
+                producto.getTagReposicion()
+        );
+    }
+
     private BigDecimal obtenerPvpInfladoActual() {
         entityManager.flush();
         entityManager.clear();
@@ -359,13 +391,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar costo del producto usando el servicio
         productoService.actualizar(producto.getId(),
-                new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null, null,
-                        null, null, null, null, null, null, null,
-                        null, null, null, null, null, null, null,
-                        new BigDecimal("1500"), // nuevo costo
-                        null, null
-                ));
+                buildProductoUpdate(new BigDecimal("1500"), null, null, null, null, null));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
@@ -401,14 +427,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar IVA del producto
         productoService.actualizar(producto.getId(),
-                new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null, null,
-                        null, null, null, null, null, null, null,
-                        null, null, null, null, null, null, null,
-                        null,
-                        new BigDecimal("10.5"), // nuevo IVA
-                        null
-                ));
+                buildProductoUpdate(null, new BigDecimal("10.5"), null, null, null, null));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
@@ -455,9 +474,9 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar porcentaje del concepto de comisión
         conceptoGastoService.actualizar(conceptoComision.getId(),
                 new ConceptoCalculoUpdateDTO(
-                        null,
+                        conceptoComision.getConcepto(),
                         new BigDecimal("20"), // aumentar comisión de 10% a 20%
-                        null,
+                        conceptoComision.getAplicaSobre().name(),
                         null
                 ));
 
@@ -539,7 +558,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar el porcentaje de la cuota usando el servicio (dispara recálculo automático)
         canalConceptoCuotaService.actualizar(cuotaCreada.id(),
-                new CanalConceptoCuotaUpdateDTO(null, new BigDecimal("25"), null));
+                new CanalConceptoCuotaUpdateDTO(3, new BigDecimal("25"), "3 cuotas"));
 
         entityManager.flush();
         entityManager.clear();
@@ -657,7 +676,7 @@ class RecalculoAutomaticoIntegrationTest {
         BigDecimal pvpHijoInicial = precioHijoOpt.get().getPvp();
 
         // Cambiar el canalBase al padre 2 (esto debe disparar recálculo)
-        canalService.actualizar(canalHijo.getId(), new CanalUpdateDTO(null, canalPadre2.getId()));
+        canalService.actualizar(canalHijo.getId(), new CanalUpdateDTO(TEST_PREFIX + "HIJO", canalPadre2.getId()));
 
         entityManager.flush();
         entityManager.clear();
@@ -710,7 +729,7 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar porcentaje del proveedor
         proveedorService.actualizar(proveedor.getId(),
                 new ProveedorUpdateDTO(
-                        null, null, null, null,
+                        TEST_PREFIX + "Proveedor", TEST_PREFIX + "Prov", null, null,
                         new BigDecimal("15"), // aumentar financiación
                         null
                 ));
@@ -763,7 +782,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Cambiar esMaquina a true (dispara recálculo automático)
         clasifGastroService.actualizar(clasifGastro.getId(),
-                new ClasifGastroUpdateDTO(null, true, null));
+                new ClasifGastroUpdateDTO(TEST_PREFIX + "Cafeteras", true, null));
 
         BigDecimal pvpConMaquina = obtenerPvpActual();
 
@@ -810,7 +829,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar precio de envío (mantener el código MLA original)
         mlaService.actualizar(mla.getId(),
-                new MlaUpdateDTO(TEST_PREFIX + "MLA123", null, new BigDecimal("1000"), null, null));
+                new MlaUpdateDTO(TEST_PREFIX + "MLA123", null, new BigDecimal("1000"), null, 0));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
@@ -849,10 +868,10 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar la regla
         reglaDescuentoService.actualizar(reglaCreada.id(),
                 new ReglaDescuentoUpdateDTO(
-                        null, null, null, null,
-                        null,
+                        canal.getId(), null, null, null,
+                        BigDecimal.ZERO,
                         new BigDecimal("10"), // aumentar descuento
-                        null, null, null
+                        1, true, "Regla test"
                 ));
 
         BigDecimal pvpDespuesModificar = obtenerPvpActual();
@@ -1169,12 +1188,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Cambiar a proveedor 2
         productoService.actualizar(producto.getId(),
-                new ProductoUpdateDTO(
-                        null, null, null, null, null, null, null, null, null, null,
-                        null, null, null, null, null, proveedor2.getId(), null,
-                        null, null, null, null, null, null, null,
-                        null, null, null
-                ));
+                buildProductoUpdate(null, null, null, null, null, proveedor2.getId()));
 
         BigDecimal pvpConProveedor2 = obtenerPvpActual();
 
@@ -1254,9 +1268,9 @@ class RecalculoAutomaticoIntegrationTest {
         // Modificar el concepto de comisión (afecta a ambos productos)
         conceptoGastoService.actualizar(conceptoComision.getId(),
                 new ConceptoCalculoUpdateDTO(
-                        null,
+                        conceptoComision.getConcepto(),
                         new BigDecimal("25"), // aumentar comisión
-                        null,
+                        conceptoComision.getAplicaSobre().name(),
                         null
                 ));
 
@@ -1343,7 +1357,7 @@ class RecalculoAutomaticoIntegrationTest {
 
         // Modificar porcentaje de comisión
         mlaService.actualizar(mla.getId(),
-                new MlaUpdateDTO(TEST_PREFIX + "MLA_COMISION", null, null, new BigDecimal("25"), null));
+                new MlaUpdateDTO(TEST_PREFIX + "MLA_COMISION", null, null, new BigDecimal("25"), 0));
 
         BigDecimal pvpNuevo = obtenerPvpActual();
 
@@ -1508,7 +1522,7 @@ class RecalculoAutomaticoIntegrationTest {
         productoCanalPrecioInfladoService.actualizar(
                 producto.getId(), canal.getId(),
                 new ProductoCanalPrecioInfladoUpdateDTO(
-                        precioInflado2.getId(), null, null, null, null
+                        precioInflado2.getId(), true, null, null, null
                 ));
 
         BigDecimal pvpInfladoConMult20 = obtenerPvpInfladoActual();
@@ -1608,5 +1622,256 @@ class RecalculoAutomaticoIntegrationTest {
                 "El PVP debe cambiar cuando una regla EXCLUIR elimina la comisión");
         assertTrue(pvpSinComision.compareTo(pvpConComision) < 0,
                 "El PVP debe disminuir al excluir la comisión del cálculo");
+    }
+
+    // ===========================================
+    // TEST 33: Cambio de Tipo en Producto (afecta reglas)
+    // ===========================================
+    @Test
+    @Order(33)
+    @DisplayName("33. Recálculo automático al cambiar tipo del Producto (afecta reglas de concepto)")
+    void testRecalculoPorCambioTipoProducto() {
+        // Crear un tipo específico y asignarlo al producto
+        Tipo tipoA = new Tipo();
+        tipoA.setNombre(TEST_PREFIX + "TipoA");
+        tipoA = tipoRepository.save(tipoA);
+
+        Tipo tipoB = new Tipo();
+        tipoB.setNombre(TEST_PREFIX + "TipoB");
+        tipoB = tipoRepository.save(tipoB);
+
+        producto.setTipo(tipoA);
+        producto = productoRepository.save(producto);
+        entityManager.flush();
+
+        // Crear concepto adicional de gasto sobre costo
+        ConceptoCalculo conceptoGasto = new ConceptoCalculo();
+        conceptoGasto.setConcepto(TEST_PREFIX + "GASTO_TIPO");
+        conceptoGasto.setPorcentaje(new BigDecimal("15"));
+        conceptoGasto.setAplicaSobre(AplicaSobre.GASTO_SOBRE_COSTO);
+        conceptoGasto = conceptoGastoRepository.save(conceptoGasto);
+
+        CanalConcepto ccGasto = new CanalConcepto();
+        ccGasto.setId(new CanalConceptoId(canal.getId(), conceptoGasto.getId()));
+        ccGasto.setCanal(canal);
+        ccGasto.setConcepto(conceptoGasto);
+        canalConceptoRepository.save(ccGasto);
+
+        // Crear regla INCLUIR: concepto SOLO aplica para tipoA
+        canalConceptoReglaService.crear(
+                new CanalConceptoReglaCreateDTO(
+                        canal.getId(),
+                        conceptoGasto.getId(),
+                        "INCLUIR",
+                        tipoA.getId(), null, null,
+                        null,
+                        null
+                ));
+
+        entityManager.flush();
+
+        // Calcular con tipoA (concepto aplica)
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConTipoA = obtenerPvpActual();
+
+        // Cambiar tipo a tipoB (concepto ya NO aplica)
+        productoService.actualizar(producto.getId(),
+                buildProductoUpdate(null, null, null, tipoB.getId(), null, null));
+
+        // Recalcular manualmente ya que las reglas filtran por tipo
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConTipoB = obtenerPvpActual();
+
+        assertNotEquals(pvpConTipoA, pvpConTipoB,
+                "El PVP debe cambiar al cambiar el tipo del producto (afecta reglas de concepto)");
+        assertTrue(pvpConTipoB.compareTo(pvpConTipoA) < 0,
+                "El PVP debe disminuir al excluir el gasto sobre costo por cambio de tipo");
+    }
+
+    // ===========================================
+    // TEST 34: Cambio de Marca en Producto (afecta reglas)
+    // ===========================================
+    @Test
+    @Order(34)
+    @DisplayName("34. Recálculo automático al cambiar marca del Producto (afecta reglas de concepto)")
+    void testRecalculoPorCambioMarcaProducto() {
+        // Crear marcas
+        Marca marcaA = new Marca();
+        marcaA.setNombre(TEST_PREFIX + "MarcaA");
+        marcaA = marcaRepository.save(marcaA);
+
+        Marca marcaB = new Marca();
+        marcaB.setNombre(TEST_PREFIX + "MarcaB");
+        marcaB = marcaRepository.save(marcaB);
+
+        producto.setMarca(marcaA);
+        producto = productoRepository.save(producto);
+        entityManager.flush();
+
+        // Crear concepto con regla EXCLUIR para marcaA
+        ConceptoCalculo conceptoExcl = new ConceptoCalculo();
+        conceptoExcl.setConcepto(TEST_PREFIX + "COMISION_MARCA");
+        conceptoExcl.setPorcentaje(new BigDecimal("8"));
+        conceptoExcl.setAplicaSobre(AplicaSobre.COMISION_SOBRE_PVP);
+        conceptoExcl = conceptoGastoRepository.save(conceptoExcl);
+
+        CanalConcepto ccExcl = new CanalConcepto();
+        ccExcl.setId(new CanalConceptoId(canal.getId(), conceptoExcl.getId()));
+        ccExcl.setCanal(canal);
+        ccExcl.setConcepto(conceptoExcl);
+        canalConceptoRepository.save(ccExcl);
+
+        // Regla EXCLUIR: el concepto NO aplica para marcaA
+        canalConceptoReglaService.crear(
+                new CanalConceptoReglaCreateDTO(
+                        canal.getId(),
+                        conceptoExcl.getId(),
+                        "EXCLUIR",
+                        null, null, null,
+                        marcaA.getId(),
+                        null
+                ));
+
+        entityManager.flush();
+
+        // Con marcaA: comisión EXCLUIDA → PVP menor
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConMarcaA = obtenerPvpActual();
+
+        // Cambiar a marcaB: regla ya no aplica → comisión se incluye → PVP sube
+        productoService.actualizar(producto.getId(),
+                buildProductoUpdate(null, null, marcaB.getId(), null, null, null));
+
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConMarcaB = obtenerPvpActual();
+
+        assertNotEquals(pvpConMarcaA, pvpConMarcaB,
+                "El PVP debe cambiar al cambiar la marca del producto (afecta reglas de concepto)");
+        assertTrue(pvpConMarcaB.compareTo(pvpConMarcaA) > 0,
+                "El PVP debe aumentar al incluir la comisión que antes estaba excluida por marca");
+    }
+
+    // ===========================================
+    // TEST 35: Cambio de ClasifGral en Producto (afecta reglas)
+    // ===========================================
+    @Test
+    @Order(35)
+    @DisplayName("35. Recálculo automático al cambiar clasifGral del Producto (afecta reglas de concepto)")
+    void testRecalculoPorCambioClasifGralProducto() {
+        // Crear clasificaciones generales
+        ClasifGral clasifA = new ClasifGral();
+        clasifA.setNombre(TEST_PREFIX + "ClasifA");
+        clasifA = clasifGralRepository.save(clasifA);
+
+        ClasifGral clasifB = new ClasifGral();
+        clasifB.setNombre(TEST_PREFIX + "ClasifB");
+        clasifB = clasifGralRepository.save(clasifB);
+
+        producto.setClasifGral(clasifA);
+        producto = productoRepository.save(producto);
+        entityManager.flush();
+
+        // Crear concepto con regla INCLUIR para clasifA
+        ConceptoCalculo conceptoClasif = new ConceptoCalculo();
+        conceptoClasif.setConcepto(TEST_PREFIX + "GASTO_CLASIF");
+        conceptoClasif.setPorcentaje(new BigDecimal("12"));
+        conceptoClasif.setAplicaSobre(AplicaSobre.GASTO_SOBRE_COSTO);
+        conceptoClasif = conceptoGastoRepository.save(conceptoClasif);
+
+        CanalConcepto ccClasif = new CanalConcepto();
+        ccClasif.setId(new CanalConceptoId(canal.getId(), conceptoClasif.getId()));
+        ccClasif.setCanal(canal);
+        ccClasif.setConcepto(conceptoClasif);
+        canalConceptoRepository.save(ccClasif);
+
+        // Regla INCLUIR: concepto SOLO aplica para clasifA
+        canalConceptoReglaService.crear(
+                new CanalConceptoReglaCreateDTO(
+                        canal.getId(),
+                        conceptoClasif.getId(),
+                        "INCLUIR",
+                        null, null, clasifA.getId(),
+                        null,
+                        null
+                ));
+
+        entityManager.flush();
+
+        // Con clasifA: gasto INCLUIDO → PVP mayor
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConClasifA = obtenerPvpActual();
+
+        // Cambiar a clasifB: regla ya no aplica → gasto excluido → PVP baja
+        productoService.actualizar(producto.getId(),
+                buildProductoUpdate(null, null, null, null, clasifB.getId(), null));
+
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConClasifB = obtenerPvpActual();
+
+        assertNotEquals(pvpConClasifA, pvpConClasifB,
+                "El PVP debe cambiar al cambiar la clasificación general del producto");
+        assertTrue(pvpConClasifB.compareTo(pvpConClasifA) < 0,
+                "El PVP debe disminuir al excluir el gasto sobre costo por cambio de clasifGral");
+    }
+
+    // ===========================================
+    // TEST 36: CanalConceptoRegla INCLUIR
+    // ===========================================
+    @Test
+    @Order(36)
+    @DisplayName("36. CanalConceptoRegla INCLUIR incluye concepto solo cuando se cumplen condiciones")
+    void testReglaIncluirConceptoEnCalculo() {
+        // Crear marca y asignarla al producto
+        Marca marca = new Marca();
+        marca.setNombre(TEST_PREFIX + "MarcaIncluir");
+        marca = marcaRepository.save(marca);
+
+        producto.setMarca(marca);
+        producto = productoRepository.save(producto);
+        entityManager.flush();
+
+        // Crear concepto con regla INCLUIR para esa marca
+        ConceptoCalculo conceptoIncluir = new ConceptoCalculo();
+        conceptoIncluir.setConcepto(TEST_PREFIX + "GASTO_INCLUIR");
+        conceptoIncluir.setPorcentaje(new BigDecimal("20"));
+        conceptoIncluir.setAplicaSobre(AplicaSobre.GASTO_SOBRE_COSTO);
+        conceptoIncluir = conceptoGastoRepository.save(conceptoIncluir);
+
+        CanalConcepto ccIncluir = new CanalConcepto();
+        ccIncluir.setId(new CanalConceptoId(canal.getId(), conceptoIncluir.getId()));
+        ccIncluir.setCanal(canal);
+        ccIncluir.setConcepto(conceptoIncluir);
+        canalConceptoRepository.save(ccIncluir);
+
+        entityManager.flush();
+
+        // PVP antes de la regla (concepto aplica sin reglas)
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpSinRegla = obtenerPvpActual();
+
+        // Crear regla INCLUIR para otra marca (no la del producto)
+        Marca marcaOtra = new Marca();
+        marcaOtra.setNombre(TEST_PREFIX + "MarcaOtra");
+        marcaOtra = marcaRepository.save(marcaOtra);
+
+        canalConceptoReglaService.crear(
+                new CanalConceptoReglaCreateDTO(
+                        canal.getId(),
+                        conceptoIncluir.getId(),
+                        "INCLUIR",
+                        null, null, null,
+                        marcaOtra.getId(),
+                        null
+                ));
+
+        entityManager.flush();
+
+        // Recalcular: ahora la regla INCLUIR exige marca=MarcaOtra, pero producto tiene marca=MarcaIncluir
+        // → concepto NO aplica → PVP debe bajar
+        calculoPrecioService.recalcularYGuardarPrecioCanalTodasCuotas(producto.getId(), canal.getId());
+        BigDecimal pvpConReglaNoMatch = obtenerPvpActual();
+
+        assertTrue(pvpConReglaNoMatch.compareTo(pvpSinRegla) < 0,
+                "El PVP debe disminuir cuando la regla INCLUIR no se cumple y el concepto se excluye");
     }
 }

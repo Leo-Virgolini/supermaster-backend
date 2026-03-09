@@ -20,6 +20,7 @@ import ar.com.leo.super_master_backend.dominio.concepto_calculo.entity.AplicaSob
 import ar.com.leo.super_master_backend.dominio.common.exception.NotFoundException;
 import ar.com.leo.super_master_backend.dominio.producto.calculo.service.RecalculoPrecioFacade;
 import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoCanalPrecio;
+import ar.com.leo.super_master_backend.dominio.producto.entity.ProductoMargen;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoCanalPrecioRepository;
 import ar.com.leo.super_master_backend.dominio.producto.repository.ProductoMargenRepository;
 import lombok.RequiredArgsConstructor;
@@ -126,24 +127,23 @@ public class CanalServiceImpl implements CanalService {
             throw new NotFoundException("El canal no tiene configurado concepto FLAG_USAR_MARGEN_MINORISTA ni FLAG_USAR_MARGEN_MAYORISTA");
         }
 
-        // 1) Obtener todos los productos que tienen precios calculados para este canal
-        List<ProductoCanalPrecio> preciosCanal = productoCanalPrecioRepository.findByCanalId(canalId);
-
-        // 2) Actualizar margen de cada producto según el concepto del canal
-        preciosCanal.stream()
+        // 1) Obtener IDs de productos únicos que tienen precios calculados para este canal
+        List<Integer> productoIds = productoCanalPrecioRepository.findByCanalIdWithProductoFetch(canalId)
+                .stream()
                 .map(precio -> precio.getProducto().getId())
                 .distinct()
-                .forEach(productoId -> {
-                    productoMargenRepository.findByProductoId(productoId)
-                            .ifPresent(productoMargen -> {
-                                if (esMayorista) {
-                                    productoMargen.setMargenMayorista(nuevoMargen);
-                                } else {
-                                    productoMargen.setMargenMinorista(nuevoMargen);
-                                }
-                                productoMargenRepository.save(productoMargen);
-                            });
-                });
+                .toList();
+
+        // 2) Cargar todos los márgenes en una sola query y actualizar
+        List<ProductoMargen> margenes = productoMargenRepository.findByProductoIdIn(productoIds);
+        for (ProductoMargen productoMargen : margenes) {
+            if (esMayorista) {
+                productoMargen.setMargenMayorista(nuevoMargen);
+            } else {
+                productoMargen.setMargenMinorista(nuevoMargen);
+            }
+        }
+        productoMargenRepository.saveAll(margenes);
 
         // 3) Recalcular precios de todos los productos del canal
         recalculoFacade.recalcularTodosProductosDelCanal(canalId);
