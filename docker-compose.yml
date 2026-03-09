@@ -34,8 +34,6 @@ services:
       context: ${FRONTEND_PATH:-../master-application}
       dockerfile: Dockerfile
       args:
-        # IP del servidor en la LAN - los browsers de los clientes usan esta URL
-        NEXT_PUBLIC_API_BASE_URL: http://${SERVER_IP:-localhost}:8080
         NEXT_PUBLIC_DATA_SOURCE: api
     container_name: supermaster-frontend
     ports:
