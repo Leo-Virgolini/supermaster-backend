@@ -30,4 +30,4 @@ COPY --from=build /app/target/*.jar app.jar
 # Puerto de la aplicacion
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Xms512m", "-Xmx1024m", "-jar", "app.jar"]
