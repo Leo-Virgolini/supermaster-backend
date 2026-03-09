@@ -65,6 +65,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer>, Jp
            "WHERE p.id IN :ids")
     List<Producto> findAllByIdWithRelaciones(@Param("ids") List<Integer> ids);
 
+    /**
+     * Obtiene todos los productos con FETCH JOIN del proveedor para estadísticas.
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.proveedor")
+    List<Producto> findAllWithProveedor();
+
     @Modifying
     @Query("UPDATE Producto p SET p.stock = :stock WHERE p.sku = :sku")
     int updateStockBySku(@Param("sku") String sku, @Param("stock") Integer stock);
